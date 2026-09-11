@@ -90,6 +90,12 @@
       if (G.timeWorkMod) w *= G.timeWorkMod(a.skill);
       // směrnice: prioritní materiál
       if (dir.focusMaterial && a.output && a.output.some(o => o.material === dir.focusMaterial)) w *= 8;
+      // bez explicitní směrnice: přednostně sháněj materiály, kterých je málo
+      else if (a.output) {
+        let need = 0;
+        for (const o of a.output) need = Math.max(need, materialNeed(o.material));
+        if (need > 0) w *= 1 + need * 2;
+      }
       cands.push({ act: a, node, w });
     }
     if (!cands.length) return null;
@@ -105,6 +111,11 @@
       if (G.unitSkill(unit, sid) < a.requires.skillLevel[sid]) return false;
     }
     return true;
+  }
+  function materialNeed(matId) {
+    const count = G.matCount(matId);
+    if (count >= 15) return 0;
+    return (15 - count) / 15;
   }
   G.pickActivity = pickActivity;
   G.setDirective = function (key, value) {
