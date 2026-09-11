@@ -16,6 +16,14 @@
    *   partyBuff: { atk: 1.2, duration: 1 }
    */
   G.ABILITIES = {
+    /* ---------- Dřevorubectví ---------- */
+    splitting_axe: {
+      id: 'splitting_axe', name: 'Štípavá sekera', icon: '🪓',
+      skill: 'woodcutting', minLevel: 3,
+      cooldown: 3, stamina: 12,
+      desc: 'Těžký úder sekery za 150 % útoku',
+      effect: { type: 'damage', mult: 1.5 }
+    },
     /* ---------- Hornictví ---------- */
     crushing_blow: {
       id: 'crushing_blow', name: 'Drtivý úder', icon: '🔨',

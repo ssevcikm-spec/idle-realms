@@ -185,6 +185,11 @@
   function totalMasterworks(s) {
     return (s.stats && s.stats.masterworks) || 0;
   }
+  function totalMaterial(s, matId) {
+    const m = s.materials && s.materials[matId];
+    if (!m) return 0;
+    let n = 0; for (const q in m) n += m[q]; return n;
+  }
 
   G.ACHIEVEMENTS = [
     { id:'first_blood', name:'První krůčky', icon:'🌱', desc:'Dokonči první úkol.', reward:{gold:20,renown:1}, check:(s)=>(s.stats.tasksDone||0)>=1 },
@@ -211,6 +216,8 @@
     { id:'master_builder', name:'Stavitel', icon:'🔨', desc:'Postav 10 budov v sídlech.', reward:{gold:300,renown:8}, check:(s)=>totalSettlementBuildings(s)>=10 },
     { id:'ambition_1', name:'Splněný sen', icon:'🎯', desc:'Splň 1 ambici postavy.', reward:{gold:200,renown:5}, check:(s)=>anyAmbitionDone(s,1) },
     { id:'ambition_5', name:'Sběratel snů', icon:'✨', desc:'Splň 5 ambicí postav.', reward:{gold:800,renown:15}, check:(s)=>anyAmbitionDone(s,5) },
-    { id:'masterwork_1', name:'Mistr řemeslník', icon:'💎', desc:'Vyrob mistrovský předmět.', reward:{gold:300,renown:8}, check:(s)=>totalMasterworks(s)>=1 }
+    { id:'masterwork_1', name:'Mistr řemeslník', icon:'💎', desc:'Vyrob mistrovský předmět.', reward:{gold:300,renown:8}, check:(s)=>totalMasterworks(s)>=1 },
+    { id:'baker', name:'Pekař', icon:'🍞', desc:'Nashromáždi 25 chlebů.', reward:{gold:150,renown:5}, check:(s)=>totalMaterial(s,'bread')>=25 },
+    { id:'farmer', name:'Zemědělec', icon:'🌾', desc:'Nashromáždi 50 obilí.', reward:{gold:120,renown:4}, check:(s)=>totalMaterial(s,'grain')>=50 }
   ];
 })();
