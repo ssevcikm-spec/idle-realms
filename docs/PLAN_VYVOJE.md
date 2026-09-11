@@ -97,9 +97,9 @@ priority a dělá klíčová rozhodnutí. Ne mikromanagement každé akce, ale �
 |---|---|---|
 | **0** | Stabilizace | ✅ ambice opravené, ✅ git + push, ✅ README, ✅ klon `idlefantasy_bart` |
 | **1** | UI/UX | ✅ sbalitelný panel, ✅ celoobrazovková mapa, ✅ desktop rozvržení |
-| **2** | Výroba | ✅ obilí + chléb, ✅ revize receptů (další balanc možný) |
-| **3** | Autonomie | ✅ směrnice, ✅ dashboard aktivit, ✅ ruční úkol přebije auto-práci (další AI možná) |
-| **4** | Obsah | ✅ schopnost dřevorubectví, ✅ achievementy pekař/zemědělec (další rozšíření možná) |
+| **2** | Výroba | ✅ obilí + mouka + chléb (řetězec), ✅ revize receptů, ✅ balanc ziskovosti |
+| **3** | Autonomie | ✅ směrnice, ✅ dashboard aktivit, ✅ ruční úkol přebije auto-práci, ✅ manuální režim postavy, ✅ chytřejší AI |
+| **4** | Obsah | ✅ schopnost dřevorubectví, ✅ achievementy, ✅ nepřátelé (harpyje, bahenní golem) |
 | **5** | Infra | ✅ check-globals skript, ✅ smoke test, ✅ .editorconfig (ESM/typizace/build: volitelné, viz níže) |
 
 > **K Fázi 5 — ESM/TypeScript/build (Vite):** tyto kroky jsou záměrně odložené jako
