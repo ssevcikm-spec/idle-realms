@@ -21,5 +21,23 @@ Otevři `index.html` v prohlížeči. Nebo `python3 -m http.server 8000`.
 - Ťuknutí — výběr uzlu / sídla / základny
 - **Klávesa D** — debug
 
+## Vývoj (git)
+
+- Repozitář: `https://github.com/ssevcikm-spec/idle-realms.git` (privátní)
+- Větev: `main`
+- Konvence commitů: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`)
+
+```bash
+git clone https://github.com/ssevcikm-spec/idle-realms.git
+cd idle-realms
+# po změnách
+git add -A
+git commit -m "feat: popis změny"
+git push
+```
+
+Architektura: vanilla JS, globální `window.Game`, IIFE moduly načítané v `index.html`
+v pevném pořadí. Více v `docs/TECHNICKY_DOKUMENT.md`.
+
 ## Licence
 MIT.
