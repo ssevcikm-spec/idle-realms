@@ -89,9 +89,23 @@ body {
 }
 .dir-chip.active { background: #3a3324; border-color: #d8b45a; color: #e8d9a0; }
 .dir-row { margin-top: 6px; }
+/* Dashboard aktivit */
+.activity-dash { margin-bottom: 2px; }
+.activity-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.act-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid #3a362c; border-radius: 8px;
+  padding: 3px 8px; font-size: 12px; background: #1e1c18; color: #cfc7b4;
+}
 /* Sbalený panel — mapa zabere zbylou plochu */
 #app.panel-collapsed #panel { display: none; }
 #app.panel-collapsed #world-wrap { flex: 1 1 auto; height: auto; min-height: 0; }
+/* Celoobrazovková mapa */
+#app.map-fullscreen #hud,
+#app.map-fullscreen #we-bar,
+#app.map-fullscreen #panel,
+#app.map-fullscreen #tabs { display: none; }
+#app.map-fullscreen #world-wrap { flex: 1 1 auto; height: auto; min-height: 0; }
 /* Desktop: mapa vlevo, panel vpravo */
 @media (min-width: 900px) {
   #app {
@@ -111,6 +125,7 @@ body {
   #panel { grid-area: panel; min-height: 0; }
   #tabs { grid-area: tabs; }
   #app.panel-collapsed { grid-template-areas: "hud hud" "webar webar" "world world" "tabs tabs"; }
+  #app.map-fullscreen { grid-template-areas: "world"; grid-template-columns: 1fr; grid-template-rows: 1fr; }
 }
 .panel-title {
   font-size: 11.5px; font-weight: 700; letter-spacing: .09em;

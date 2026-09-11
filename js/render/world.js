@@ -54,6 +54,7 @@
     if (cmd === 'zoom-in') return zoomBy(1.2);
     if (cmd === 'zoom-out') return zoomBy(1/1.2);
     if (cmd === 'toggle-panel') return setPanelCollapsed(!isPanelCollapsed());
+    if (cmd === 'toggle-fullscreen') return setFullscreen(!isFullscreen());
     if (cmd === 'center') {
       const g = G.state.groups.find(x => x.memberIds.length) || null;
       const focus = g ? G.groupMembers(g)[0] : G.state.units[0];
@@ -71,6 +72,17 @@
     if (btn) btn.textContent = collapsed ? '▴' : '▾';
   }
   G.setPanelCollapsed = setPanelCollapsed;
+  function isFullscreen() {
+    const app = document.getElementById('app');
+    return app ? app.classList.contains('map-fullscreen') : false;
+  }
+  function setFullscreen(full) {
+    const app = document.getElementById('app');
+    if (app) app.classList.toggle('map-fullscreen', full);
+    const btn = document.getElementById('map-fullscreen-btn');
+    if (btn) btn.textContent = full ? '✕' : '⛶';
+  }
+  G.setFullscreen = setFullscreen;
   function zoomBy(mult) { G.state.camera.zoom = G.clamp(G.state.camera.zoom * mult, MIN_ZOOM, MAX_ZOOM); clampCamera(); }
   function clampCamera() {
     const c = G.state.camera;

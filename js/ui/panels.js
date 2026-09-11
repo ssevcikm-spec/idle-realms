@@ -38,9 +38,31 @@
     </div>`;
   }
 
+  function unitStatusLabel(u) {
+    if (u.dead) return { icon:'💀', text:'Mrtev' };
+    if (u.onExpedition) return { icon:'⛵', text:'Na expedici' };
+    if (u.resting) return { icon:'😴', text:'Odpočívá' };
+    if (u.merchantState && u.merchantState.active) return { icon:'🐎', text:'Obchoduje' };
+    if (u.assignedTaskId) {
+      const t = G.state.tasks.find(x => x.id === u.assignedTaskId);
+      if (t) { const a = G.ACTIVITIES[t.activityId]; return { icon: a ? a.icon : '⚒️', text: a ? a.name : 'Pracuje' }; }
+    }
+    if (u.isChild) return { icon:'👶', text:'Dítě' };
+    return { icon:'💤', text:'Nečinný' };
+  }
+  function renderActivityDashboard() {
+    const units = G.state.units.filter(u => !u.dead && !u.isChild);
+    if (!units.length) return '';
+    const chips = units.map(u => {
+      const s = unitStatusLabel(u);
+      return `<span class="act-chip" title="${esc(s.text)}">${s.icon} ${esc(u.name.split(' ')[0])}</span>`;
+    }).join('');
+    return `<div class="activity-dash"><div class="panel-title">👥 Aktivity</div><div class="activity-chips">${chips}</div></div>`;
+  }
+
   G.panelPlace = function () {
     const sel = G.state.selected;
-    let html = renderDirectives() + renderExpeditions();
+    let html = renderDirectives() + renderActivityDashboard() + renderExpeditions();
     if (!sel) { html += panelNoSelection(); return html; }
     if (sel.type === 'node') return html + panelNode(sel.id);
     if (sel.type === 'settlement') return html + G.panelTrade(sel.id);
