@@ -96,10 +96,10 @@ priority a dělá klíčová rozhodnutí. Ne mikromanagement každé akce, ale �
 | Fáze | Zaměření | Klíčové výstupy |
 |---|---|---|
 | **0** | Stabilizace | ✅ ambice opravené, ✅ git + push, ✅ README, ✅ klon `idlefantasy_bart` |
-| **1** | UI/UX | sbalitelný panel, fullscreen mapa, responsive rozvržení |
-| **2** | Výroba | surovina obilí, revize receptů, balanc |
-| **3** | Autonomie | směrnice, chytřejší AI, dashboard aktivit, zásah do jednotky |
-| **4** | Obsah | schopnosti/nepřátelé/questy, propojení meta-systémů, balanc |
+| **1** | UI/UX | ✅ sbalitelný panel, ✅ celoobrazovková mapa, ✅ desktop rozvržení |
+| **2** | Výroba | ✅ obilí + chléb, ✅ revize receptů (další balanc možný) |
+| **3** | Autonomie | ✅ směrnice, ✅ dashboard aktivit, ✅ ruční úkol přebije auto-práci (další AI možná) |
+| **4** | Obsah | ✅ schopnost dřevorubectví, ✅ achievementy pekař/zemědělec (další rozšíření možná) |
 | **5** | Infra | testy, lint, ESM, typy, build |
 
 ---
