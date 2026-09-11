@@ -7,7 +7,11 @@
 
   G.initUI = function () {
     document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => { activeTab = btn.dataset.tab; render(); });
+      btn.addEventListener('click', () => {
+        activeTab = btn.dataset.tab;
+        if (G.setPanelCollapsed) G.setPanelCollapsed(false);
+        render();
+      });
     });
     const panel = document.getElementById('panel');
     panel.addEventListener('click', e => {

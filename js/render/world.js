@@ -19,6 +19,11 @@
     document.querySelectorAll('#map-controls .map-btn').forEach(b => {
       b.addEventListener('click', () => mapButton(b.dataset.map));
     });
+    // automatické přizpůsobení canvasu při změně velikosti kontejneru (sbalení panelu apod.)
+    if (window.ResizeObserver) {
+      const wrap = document.getElementById('world-wrap');
+      if (wrap) new ResizeObserver(() => resize()).observe(wrap);
+    }
     lastTs = performance.now();
     requestAnimationFrame(loop);
   };
@@ -48,12 +53,24 @@
   function mapButton(cmd) {
     if (cmd === 'zoom-in') return zoomBy(1.2);
     if (cmd === 'zoom-out') return zoomBy(1/1.2);
+    if (cmd === 'toggle-panel') return setPanelCollapsed(!isPanelCollapsed());
     if (cmd === 'center') {
       const g = G.state.groups.find(x => x.memberIds.length) || null;
       const focus = g ? G.groupMembers(g)[0] : G.state.units[0];
       if (focus) { G.state.camera.x = focus.pos.x; G.state.camera.y = focus.pos.y; clampCamera(); }
     }
   }
+  function isPanelCollapsed() {
+    const app = document.getElementById('app');
+    return app ? app.classList.contains('panel-collapsed') : false;
+  }
+  function setPanelCollapsed(collapsed) {
+    const app = document.getElementById('app');
+    if (app) app.classList.toggle('panel-collapsed', collapsed);
+    const btn = document.getElementById('panel-toggle');
+    if (btn) btn.textContent = collapsed ? '▴' : '▾';
+  }
+  G.setPanelCollapsed = setPanelCollapsed;
   function zoomBy(mult) { G.state.camera.zoom = G.clamp(G.state.camera.zoom * mult, MIN_ZOOM, MAX_ZOOM); clampCamera(); }
   function clampCamera() {
     const c = G.state.camera;
