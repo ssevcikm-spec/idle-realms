@@ -62,6 +62,18 @@
     G.state.tasks.splice(idx, 1);
   };
 
+  /** Uvolní jednu postavu z jejího úkolu (ostatním na stejném úkolu zůstává). */
+  G.detachUnit = function (unitId) {
+    const u = G.getUnit(unitId);
+    if (!u || !u.assignedTaskId) return;
+    const tid = u.assignedTaskId;
+    u.assignedTaskId = null; u.status = 'idle';
+    const t = G.state.tasks.find(x => x.id === tid);
+    if (!t) return;
+    t.unitIds = t.unitIds.filter(id => id !== unitId);
+    if (!t.unitIds.length) G.cancelTask(tid);
+  };
+
   G.taskProgress = function (t) {
     if (t.mode === 'quantity') return t.targetQty > 0 ? Math.min(1, t.producedQty / t.targetQty) : 0;
     return Math.min(1, t.workDone / t.workRequired);

@@ -283,6 +283,25 @@
     return Math.max(15, Math.floor(15 * Math.pow(1.55, alive - 3)));
   };
 
+  function unitMeetsReq(u, a) {
+    if (!a.requires || !a.requires.skillLevel) return true;
+    for (const sid in a.requires.skillLevel) {
+      if (G.unitSkill(u, sid) < a.requires.skillLevel[sid]) return false;
+    }
+    return true;
+  }
+  function unitActivityOptions(u) {
+    const out = [];
+    for (const aid in G.ACTIVITIES) {
+      const a = G.ACTIVITIES[aid];
+      if (!unitMeetsReq(u, a)) continue;
+      const node = G.findNodeFor ? G.findNodeFor(aid, [u.id]) : null;
+      if (!node) continue;
+      out.push(`<option value="${a.id}">${a.icon} ${esc(a.name)}</option>`);
+    }
+    return out.join('');
+  }
+
   G.panelUnits = function () {
     const s = G.state;
     const alive = s.units.filter(u => !u.dead);
@@ -524,6 +543,7 @@
         ${renderSlot(u, 'armor', '🛡️ Zbroj')}
       </div>
       <div class="unit-task">${u.onExpedition ? '⛵' : u.merchantState && u.merchantState.active ? '🐎' : u.resting ? '💤' : task ? '⚒️' : '🟢'} ${esc(taskName)}</div>
+      ${(!u.onExpedition && !(u.merchantState && u.merchantState.active) && !u.dead) ? `<select class="unit-task-select" data-change="unit-task" data-unit="${u.id}"><option value="">⚒️ Přiřadit práci…</option>${unitActivityOptions(u)}</select>` : ''}
       <div class="unit-actions">
         <button class="btn-sm ghost" data-action="toggle-manual" data-unit="${u.id}">${u.manual ? '🤖 Auto' : '🎮 Manuálně'}</button>
         ${u.resting ? `<button class="btn-sm ghost" data-action="wake" data-unit="${u.id}">Vzbudit</button>` : ''}

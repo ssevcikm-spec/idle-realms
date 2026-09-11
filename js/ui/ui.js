@@ -324,6 +324,9 @@
         if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
         render();
       }
+    } else if (change === 'unit-task') {
+      if (value) { doUnitTask(ds.unit, value); return; }
+      render();
     }
   }
 
@@ -333,6 +336,18 @@
   }
   function doToggleDirectiveDanger() {
     if (G.setDirective) G.setDirective('avoidDanger', !(G.getDirective && G.getDirective('avoidDanger')));
+    render();
+  }
+  function doUnitTask(unitId, activityId) {
+    const u = G.getUnit(unitId);
+    const act = G.ACTIVITIES[activityId];
+    if (!u || !act) return render();
+    if (u.assignedTaskId && G.detachUnit) G.detachUnit(unitId);
+    const t = G.startTask(activityId, [unitId], {
+      targetQty: act.mode === 'quantity' ? (act.defaultQty || 10) : 1
+    });
+    if (!t) { G.log('⚠️ Není dostupný vhodný uzel.', 'info'); return render(); }
+    G.log(`⚒️ ${u.name} dostal úkol: ${act.name}.`, 'work');
     render();
   }
   function doStartTask(activityId, nodeId) {
