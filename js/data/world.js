@@ -19,6 +19,7 @@
     fiber:      { name:'Vlákno',        icon:'🧵', tier:1, price:4 },
     herb:       { name:'Byliny',        icon:'🌿', tier:1, price:6 },
     grain:      { name:'Obilí',          icon:'🌾', tier:1, price:3 },
+    flour:      { name:'Mouka',          icon:'🥣', tier:1, price:8 },
     fish:       { name:'Ryba',          icon:'🐟', tier:1, price:7 },
     coal:       { name:'Uhlí',          icon:'⬛', tier:2, price:8 },
     iron_ore:   { name:'Železná ruda',  icon:'⛏️', tier:2, price:12 },
@@ -42,7 +43,7 @@
     armor:      { name:'Zbroj',         icon:'🛡️', tier:3, price:260 },
     longbow:    { name:'Dlouhý luk',    icon:'🏹', tier:3, price:180 }
   };
-  G.TRADED = ['wood','stone','fiber','herb','grain','fish','coal','iron_ore','hide','plank','cloth','bread','iron_ingot','potion','crystal','jewel','bow','sword','armor'];
+  G.TRADED = ['wood','stone','fiber','herb','grain','flour','fish','coal','iron_ore','hide','plank','cloth','bread','iron_ingot','potion','crystal','jewel','bow','sword','armor'];
 
   G.SKILLS = {
     woodcutting: { name:'Dřevorubectví', icon:'🪓', attr:'str' },
@@ -159,9 +160,12 @@
                   workshop:'smithy', tier:3,
                   inputs:[{material:'iron_ingot',qty:5},{material:'cloth',qty:2},{material:'hide',qty:2}], output:{material:'armor',qty:1} },
     /* Kuchyň */
+    flour:      { id:'flour', name:'Mouka', icon:'🥣', skill:'cooking', reqLevel:1, xp:6,
+                  workshop:'kitchen', tier:1,
+                  inputs:[{material:'grain',qty:2}], output:{material:'flour',qty:1} },
     bread:      { id:'bread', name:'Chléb', icon:'🍞', skill:'cooking', reqLevel:1, xp:7,
                   workshop:'kitchen', tier:1,
-                  inputs:[{material:'grain',qty:3}], output:{material:'bread',qty:1} },
+                  inputs:[{material:'flour',qty:1}], output:{material:'bread',qty:1} },
     /* Alchymistická laboratoř */
     potion:     { id:'potion', name:'Lektvar', icon:'🧪', skill:'alchemy', reqLevel:3, xp:22,
                   workshop:'alchemy', tier:2,
