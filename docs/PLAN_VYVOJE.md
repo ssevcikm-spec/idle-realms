@@ -100,7 +100,13 @@ priority a dělá klíčová rozhodnutí. Ne mikromanagement každé akce, ale �
 | **2** | Výroba | ✅ obilí + chléb, ✅ revize receptů (další balanc možný) |
 | **3** | Autonomie | ✅ směrnice, ✅ dashboard aktivit, ✅ ruční úkol přebije auto-práci (další AI možná) |
 | **4** | Obsah | ✅ schopnost dřevorubectví, ✅ achievementy pekař/zemědělec (další rozšíření možná) |
-| **5** | Infra | testy, lint, ESM, typy, build |
+| **5** | Infra | ✅ check-globals skript, ✅ smoke test, ✅ .editorconfig (ESM/typizace/build: volitelné, viz níže) |
+
+> **K Fázi 5 — ESM/TypeScript/build (Vite):** tyto kroky jsou záměrně odložené jako
+> volitelné. Hra běží bez build kroku (stačí otevřít `index.html`), a migrace 48 IIFE
+> souborů na ESM moduly + zavedení bundleru by vyžadovala Node.js tooling a důkladné
+> ruční ověření v prohlížeči. Doporučuji ji dělat **postupně a v samostatné větvi**,
+> až bude potřeba (např. kvůli minifikaci, HMR nebo typové kontrole).
 
 ---
 

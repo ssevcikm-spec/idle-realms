@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Idle Realm — smoke test</title>
+<style>
+  body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #14130f; color: #e8e2d4; padding: 20px; line-height: 1.4; }
+  h1 { font-size: 18px; } h2 { font-size: 14px; color: #8d8570; margin: 16px 0 6px; }
+  .pass { color: #8fbf7a; } .fail { color: #c05a45; font-weight: 700; }
+  #results { margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>Idle Realm — smoke test</h1>
+<div id="results">Načítám…</div>
+
+<!-- Načti všechny herní skripty ve stejném pořadí jako index.html (kromě main.js, který bootuje hru) -->
+<script src="../js/core/rng.js"></script>
+<script src="../js/data/world.js"></script>
+<script src="../js/data/character.js"></script>
+<script src="../js/data/combat.js"></script>
+<script src="../js/data/progress.js"></script>
+<script src="../js/data/personality.js"></script>
+<script src="../js/data/ambitions.js"></script>
+<script src="../js/data/workshops.js"></script>
+<script src="../js/data/aging.js"></script>
+<script src="../js/data/abilities.js"></script>
+<script src="../js/data/politics.js"></script>
+<script src="../js/data/time.js"></script>
+<script src="../js/data/expeditions.js"></script>
+<script src="../js/data/unlocks.js"></script>
+<script src="../js/render/art.js"></script>
+<script src="../js/core/state.js"></script>
+<script src="../js/systems/units.js"></script>
+<script src="../js/systems/groups.js"></script>
+<script src="../js/systems/psychology.js"></script>
+<script src="../js/systems/work.js"></script>
+<script src="../js/systems/combat.js"></script>
+<script src="../js/systems/abilities.js"></script>
+<script src="../js/systems/economy.js"></script>
+<script src="../js/systems/merchant.js"></script>
+<script src="../js/systems/crafting.js"></script>
+<script src="../js/systems/workshops.js"></script>
+<script src="../js/systems/misc.js"></script>
+<script src="../js/systems/drops.js"></script>
+<script src="../js/systems/events.js"></script>
+<script src="../js/systems/autonomy.js"></script>
+<script src="../js/systems/aging.js"></script>
+<script src="../js/systems/politics.js"></script>
+<script src="../js/systems/dynasty.js"></script>
+<script src="../js/systems/time.js"></script>
+<script src="../js/systems/expeditions.js"></script>
+<script src="../js/systems/journal.js"></script>
+<script src="../js/systems/prestige.js"></script>
+<script src="../js/render/world.js"></script>
+<script src="../js/ui/panels.js"></script>
+<script src="../js/ui/trade.js"></script>
+<script src="../js/ui/base_panel.js"></script>
+<script src="../js/ui/achievements_panel.js"></script>
+<script src="../js/ui/combat_modal.js"></script>
+<script src="../js/ui/merchant_panel.js"></script>
+<script src="../js/ui/debug.js"></script>
+<script src="../js/ui/ui.js"></script>
+<script src="../js/core/loop.js"></script>
+<script src="smoke.js"></script>
+</body>
+</html>

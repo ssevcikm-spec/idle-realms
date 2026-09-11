@@ -39,5 +39,21 @@ git push
 Architektura: vanilla JS, globální `window.Game`, IIFE moduly načítané v `index.html`
 v pevném pořadí. Více v `docs/TECHNICKY_DOKUMENT.md`.
 
+## Testy a kontroly
+
+Statická kontrola konzistence (chybějící globály, odkazy v `index.html`, tick funkce, TODO):
+
+```bash
+powershell.exe -ExecutionPolicy Bypass -File scripts/check-globals.ps1
+# nebo (PowerShell 7)
+pwsh -File scripts/check-globals.ps1
+```
+
+Smoke test — otevři v prohlížeči (ověří boot, práci, tick a save/load):
+
+```
+test/smoke.html
+```
+
 ## Licence
 MIT.
