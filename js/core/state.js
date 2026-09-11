@@ -120,6 +120,7 @@
       if (u.generation == null) u.generation = 1;
       if (!u.parentIds) u.parentIds = [];
       if (u.legacy == null) u.legacy = 0;
+      if (u.manual == null) u.manual = false;
       if (u.onExpedition == null) u.onExpedition = false;
       if (!u.journal) u.journal = [];
       delete u.gear;

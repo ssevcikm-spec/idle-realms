@@ -525,6 +525,7 @@
       </div>
       <div class="unit-task">${u.onExpedition ? '⛵' : u.merchantState && u.merchantState.active ? '🐎' : u.resting ? '💤' : task ? '⚒️' : '🟢'} ${esc(taskName)}</div>
       <div class="unit-actions">
+        <button class="btn-sm ghost" data-action="toggle-manual" data-unit="${u.id}">${u.manual ? '🤖 Auto' : '🎮 Manuálně'}</button>
         ${u.resting ? `<button class="btn-sm ghost" data-action="wake" data-unit="${u.id}">Vzbudit</button>` : ''}
         ${!u.resting && !task && !u.onExpedition && !(u.merchantState && u.merchantState.active) ? `<button class="btn-sm ghost" data-action="rest" data-unit="${u.id}">Odpočívat</button>` : ''}
         ${injuries.length ? `<button class="btn-sm ghost" data-action="heal-all" data-unit="${u.id}">Vyléčit</button>` : ''}

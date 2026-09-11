@@ -60,6 +60,7 @@
       generation: opts.generation || 1,
       parentIds: opts.parentIds || [],
       legacy: 0,
+      manual: false,
       journal: [],
       pos:{ x:7+(G.rand()-0.5)*2, y:22+(G.rand()-0.5)*2 },
       facing:1, color: COLORS[G.randInt(0, COLORS.length-1)],

@@ -272,6 +272,7 @@
       case 'unequip':       return doUnequip(ds.unit, ds.slot);
       case 'rest':          return doRest(ds.unit);
       case 'wake':          return doWake(ds.unit);
+      case 'toggle-manual': return doToggleManual(ds.unit);
       case 'heal-all':      return doHealAll(ds.unit);
       case 'resurrect':     return doResurrect(ds.unit);
       case 'quest-accept':  return doQuestAccept(ds.settlement, ds.quest);
@@ -359,6 +360,13 @@
     render();
   }
   function doCancelTask(taskId) { G.cancelTask(taskId); render(); }
+  function doToggleManual(unitId) {
+    const u = G.getUnit(unitId);
+    if (!u) return;
+    u.manual = !u.manual;
+    G.log(u.manual ? `🎮 ${u.name} je nyní pod manuální kontrolou.` : `🤖 ${u.name} se vrátil k autonomní práci.`, 'info');
+    render();
+  }
   function doRecruit() {
     const cost = G.recruitCost();
     if (G.state.resources.gold < cost) { G.log('⚠️ Nedostatek zlata.', 'info'); return render(); }

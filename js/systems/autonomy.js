@@ -29,7 +29,7 @@
         && !(G.hasSevereInjury && G.hasSevereInjury(u))
         && !(u.merchantState && u.merchantState.active)
         && !(G.unitRefusesWork && G.unitRefusesWork(u))
-        && !(u._refuseUntil && G.state.time < u._refuseUntil));
+        && !(u._refuseUntil && G.state.time < u._refuseUntil) && !u.manual);
       if (!idle.length) continue;
       const node = G.findNodeFor(g.focus, idle.map(u => u.id));
       if (!node) continue;
@@ -47,6 +47,7 @@
       if (G.hasSevereInjury && G.hasSevereInjury(u)) continue;
       if (G.unitRefusesWork && G.unitRefusesWork(u)) continue;
       if (u._refuseUntil && G.state.time < u._refuseUntil) continue;
+      if (u.manual) continue;
       if (u.groupId) {
         const g = G.getGroup(u.groupId);
         if (g && g.focus) continue;
