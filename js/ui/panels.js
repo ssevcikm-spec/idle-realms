@@ -189,7 +189,7 @@
           </div>
           <div class="act-actions">
             ${a.mode === 'quantity' ? `<input type="number" min="1" max="500" value="${a.defaultQty || 10}" class="qty-input" data-qty-for="${a.id}" />` : ''}
-            <button class="btn-sm" ${(req.ok && idleUnits.length) ? '' : 'disabled'} data-action="start-task" data-activity="${a.id}" data-node="${n.id}">Start</button>
+            <button class="btn-sm" ${(req.ok && idleUnits.length) ? '' : 'disabled'} data-action="start-task" data-activity="${a.id}" data-node="${n.id}" title="${req.ok ? (idleUnits.length ? '' : 'Žádné volné postavy') : esc(req.reason)}">Start</button>
           </div>
         </div>`;
       }
@@ -245,7 +245,7 @@
         </div>
         <div class="act-actions">
           ${a.mode === 'quantity' ? `<input type="number" min="1" max="500" value="${a.defaultQty || 10}" class="qty-input" data-qty-for="${a.id}" />` : ''}
-          <button class="btn-sm" ${(req.ok && node) ? '' : 'disabled'} data-action="start-task" data-activity="${a.id}">Start</button>
+          <button class="btn-sm" ${(req.ok && node) ? '' : 'disabled'} data-action="start-task" data-activity="${a.id}" title="${req.ok ? (node ? '' : 'Žádný vhodný uzel') : esc(req.reason)}">Start</button>
         </div>
       </div>`;
     }

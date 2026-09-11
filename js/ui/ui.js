@@ -336,6 +336,11 @@
   }
   function doStartTask(activityId, nodeId) {
     const act = G.ACTIVITIES[activityId]; if (!act) return;
+    // Ruční pokyn přebije automatickou práci: zruš auto-úkoly, uvolni postavy
+    let freed = 0;
+    for (const t of G.state.tasks.slice()) {
+      if (t.auto) { G.cancelTask(t.id); freed++; }
+    }
     const idle = G.state.units.filter(u =>
       !u.dead && !u.isChild && !u.onExpedition && !u.assignedTaskId && !u.resting
       && !(G.hasSevereInjury && G.hasSevereInjury(u))
@@ -349,7 +354,8 @@
     }
     const t = G.startTask(activityId, idle.map(u => u.id), { nodeId: nodeId || undefined, targetQty });
     if (!t) { G.log('⚠️ Nenašel se vhodný uzel.', 'info'); return render(); }
-    G.log(`⚒️ Zahájen úkol: ${act.name} (${idle.length} postav).`, 'work');
+    if (freed) G.log(`↩️ Přerušeny automatické úkoly (${freed}), zahajuji: ${act.name}.`, 'work');
+  else G.log(`⚒️ Zahájen úkol: ${act.name} (${idle.length} postav).`, 'work');
     render();
   }
   function doCancelTask(taskId) { G.cancelTask(taskId); render(); }

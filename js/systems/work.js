@@ -25,7 +25,7 @@
       id:'t'+(taskIdSeq++), activityId, nodeId: node.id,
       unitIds: usable.slice(), mode: act.mode,
       targetQty: act.mode === 'quantity' ? Math.max(1, Math.floor(opts.targetQty || act.defaultQty || 10)) : 1,
-      producedQty:0, workDone:0,
+      producedQty:0, workDone:0, auto: !!opts.auto,
       workRequired: act.mode === 'timed' ? (act.workRequired || 20) : null,
       startedAt: G.state.time, _dangerAccum:0
     };

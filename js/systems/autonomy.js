@@ -35,7 +35,8 @@
       if (!node) continue;
       G.startTask(g.focus, idle.map(u => u.id), {
         nodeId: node.id,
-        targetQty: act.mode === 'quantity' ? (act.defaultQty || 10) : 1
+        targetQty: act.mode === 'quantity' ? (act.defaultQty || 10) : 1,
+        auto: true
       });
     }
 
@@ -56,7 +57,8 @@
         nodeId: pick.node.id,
         targetQty: pick.act.mode === 'quantity'
           ? Math.max(3, Math.floor((pick.act.defaultQty || 10) / 2))
-          : 1
+          : 1,
+        auto: true
       });
     }
   };
