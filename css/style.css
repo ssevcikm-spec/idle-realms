@@ -79,6 +79,16 @@ body {
   flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
   padding: 12px 12px 22px; background: #1b1a17;
 }
+/* Směrnice (directives) */
+.directives { margin-bottom: 2px; }
+.dir-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid #3a362c; border-radius: 999px;
+  padding: 4px 10px; margin: 2px 4px 2px 0; font-size: 12px; font-weight: 600;
+  background: #22201b; color: #cfc7b4; cursor: pointer;
+}
+.dir-chip.active { background: #3a3324; border-color: #d8b45a; color: #e8d9a0; }
+.dir-row { margin-top: 6px; }
 /* Sbalený panel — mapa zabere zbylou plochu */
 #app.panel-collapsed #panel { display: none; }
 #app.panel-collapsed #world-wrap { flex: 1 1 auto; height: auto; min-height: 0; }

@@ -21,9 +21,26 @@
 
   /* ===================== MÍSTO ===================== */
 
+  function renderDirectives() {
+    const dir = G.state.directives || { focusMaterial: null, avoidDanger: false };
+    const mats = ['wood','stone','fiber','herb','grain','hide','fish','coal','iron_ore','crystal'];
+    const chips = mats.map(m => {
+      const active = dir.focusMaterial === m ? ' active' : '';
+      const def = G.MATERIALS[m];
+      return `<button class="dir-chip${active}" data-action="set-directive-focus" data-material="${m}">${def.icon} ${esc(def.name)}</button>`;
+    }).join('');
+    const autoActive = dir.focusMaterial ? '' : ' active';
+    const dangerActive = dir.avoidDanger ? ' active' : '';
+    return `<div class="directives">
+      <div class="panel-title">🧭 Směrnice — čemu se autonomně věnovat</div>
+      <button class="dir-chip${autoActive}" data-action="set-directive-focus" data-material="">✨ Auto</button>${chips}
+      <div class="dir-row"><button class="dir-chip${dangerActive}" data-action="toggle-directive-danger">🛡️ Vyhýbat se nebezpečí</button></div>
+    </div>`;
+  }
+
   G.panelPlace = function () {
     const sel = G.state.selected;
-    let html = renderExpeditions();
+    let html = renderDirectives() + renderExpeditions();
     if (!sel) { html += panelNoSelection(); return html; }
     if (sel.type === 'node') return html + panelNode(sel.id);
     if (sel.type === 'settlement') return html + G.panelTrade(sel.id);

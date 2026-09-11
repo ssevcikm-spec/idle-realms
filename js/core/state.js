@@ -23,6 +23,7 @@
       family: { children: [] },
       politics: { factions: {}, lastCheck: 0 },
       dynasty: { generations: 1, names: [], totalBirths: 0, totalDeaths: 0 },
+      directives: { focusMaterial: null, avoidDanger: false },
       pendingStory: null,
       selected: null,
       camera: { x: 7, y: 22, zoom: 1.0 },
@@ -89,6 +90,7 @@
     save.family = save.family || { children: [] };
     save.politics = save.politics || { factions: {}, lastCheck: 0 };
     save.dynasty = save.dynasty || { generations: 1, names: [], totalBirths: 0, totalDeaths: 0 };
+    save.directives = save.directives || { focusMaterial: null, avoidDanger: false };
     save.pendingStory = null;
     save.stats = save.stats || {};
     ['totalWork','tasksDone','goldEarned','goldSpent','injuries','masterworks','combatsWon','combatsLost',

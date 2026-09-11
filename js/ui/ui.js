@@ -305,6 +305,8 @@
       case 'support-candidate': return doSupportCandidate(ds);
       case 'confirm-expedition': return doConfirmExpedition();
       case 'confirm-prestige': return doConfirmPrestige();
+      case 'set-directive-focus': return doSetDirectiveFocus(ds.material || null);
+      case 'toggle-directive-danger': return doToggleDirectiveDanger();
     }
   }
 
@@ -324,6 +326,14 @@
     }
   }
 
+  function doSetDirectiveFocus(material) {
+    if (G.setDirective) G.setDirective('focusMaterial', material || null);
+    render();
+  }
+  function doToggleDirectiveDanger() {
+    if (G.setDirective) G.setDirective('avoidDanger', !(G.getDirective && G.getDirective('avoidDanger')));
+    render();
+  }
   function doStartTask(activityId, nodeId) {
     const act = G.ACTIVITIES[activityId]; if (!act) return;
     const idle = G.state.units.filter(u =>

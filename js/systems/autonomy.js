@@ -63,6 +63,7 @@
 
   function pickActivity(unit) {
     const cands = [];
+    const dir = G.state.directives || {};
     const prof = G.professionOf ? G.professionOf(unit) : null;
     for (const aid in G.ACTIVITIES) {
       const a = G.ACTIVITIES[aid];
@@ -75,6 +76,7 @@
         if (power < danger * 18) continue;
       }
       if (danger === 3) continue;
+      if (dir.avoidDanger && danger >= 2) continue;
       const dist = Math.hypot(node.x - unit.pos.x, node.y - unit.pos.y);
       const lvl = G.unitSkill(unit, a.skill);
       let w = (1 + lvl*lvl*0.12) / (1 + dist*0.07);
@@ -84,6 +86,8 @@
       if (prof && prof.bonus && prof.bonus[a.skill]) w *= 1.5;
       // časový bonus
       if (G.timeWorkMod) w *= G.timeWorkMod(a.skill);
+      // směrnice: prioritní materiál
+      if (dir.focusMaterial && a.output && a.output.some(o => o.material === dir.focusMaterial)) w *= 8;
       cands.push({ act: a, node, w });
     }
     if (!cands.length) return null;
@@ -101,6 +105,13 @@
     return true;
   }
   G.pickActivity = pickActivity;
+  G.setDirective = function (key, value) {
+    if (!G.state.directives) G.state.directives = { focusMaterial: null, avoidDanger: false };
+    G.state.directives[key] = value;
+  };
+  G.getDirective = function (key) {
+    return (G.state.directives || {})[key];
+  };
 
   const REST_THRESHOLD = 20;
   const REGEN_BASE = 1.2, DRAIN_BASE = 0.35;

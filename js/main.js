@@ -72,6 +72,7 @@
     s.family = s.family || { children: [] };
     s.politics = s.politics || { factions: {}, lastCheck: 0 };
     s.dynasty = s.dynasty || { generations: 1, names: [], totalBirths: 0, totalDeaths: 0 };
+    s.directives = s.directives || { focusMaterial: null, avoidDanger: false };
     s.expeditions = s.expeditions || [];
     s.masterworks = s.masterworks || [];
     s.dayTime = s.dayTime || 0;
