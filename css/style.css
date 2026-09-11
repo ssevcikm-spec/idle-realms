@@ -82,6 +82,26 @@ body {
 /* Sbalený panel — mapa zabere zbylou plochu */
 #app.panel-collapsed #panel { display: none; }
 #app.panel-collapsed #world-wrap { flex: 1 1 auto; height: auto; min-height: 0; }
+/* Desktop: mapa vlevo, panel vpravo */
+@media (min-width: 900px) {
+  #app {
+    max-width: 1280px;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      "hud   hud"
+      "webar webar"
+      "world panel"
+      "tabs  tabs";
+  }
+  #hud { grid-area: hud; }
+  #we-bar { grid-area: webar; }
+  #world-wrap { grid-area: world; height: auto; min-height: 0; }
+  #panel { grid-area: panel; min-height: 0; }
+  #tabs { grid-area: tabs; }
+  #app.panel-collapsed { grid-template-areas: "hud hud" "webar webar" "world world" "tabs tabs"; }
+}
 .panel-title {
   font-size: 11.5px; font-weight: 700; letter-spacing: .09em;
   text-transform: uppercase; color: #8d8570;

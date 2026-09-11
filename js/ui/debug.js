@@ -97,7 +97,7 @@
   }
   function buildMatButtons() {
     const el = document.getElementById('dbg-mats'); if (!el) return;
-    const mats = ['wood','stone','fiber','herb','coal','iron_ore','hide','crystal','iron_ingot','coin','jewel','potion'];
+    const mats = ['wood','stone','fiber','herb','grain','coal','iron_ore','hide','crystal','iron_ingot','coin','jewel','potion'];
     el.innerHTML = mats.map(m => `<button class="dbg-btn" data-dbg="mat" data-mat="${m}" title="+25 ks">${G.MATERIALS[m].icon}</button>`).join('');
   }
   function buildEventButtons() {

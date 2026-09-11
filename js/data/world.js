@@ -18,6 +18,7 @@
     stone:      { name:'Kámen',         icon:'🪨', tier:1, price:3 },
     fiber:      { name:'Vlákno',        icon:'🧵', tier:1, price:4 },
     herb:       { name:'Byliny',        icon:'🌿', tier:1, price:6 },
+    grain:      { name:'Obilí',          icon:'🌾', tier:1, price:5 },
     fish:       { name:'Ryba',          icon:'🐟', tier:1, price:7 },
     coal:       { name:'Uhlí',          icon:'⬛', tier:2, price:8 },
     iron_ore:   { name:'Železná ruda',  icon:'⛏️', tier:2, price:12 },
@@ -41,7 +42,7 @@
     armor:      { name:'Zbroj',         icon:'🛡️', tier:3, price:150 },
     longbow:    { name:'Dlouhý luk',    icon:'🏹', tier:3, price:180 }
   };
-  G.TRADED = ['wood','stone','fiber','herb','fish','coal','iron_ore','hide','plank','cloth','bread','iron_ingot','potion','crystal','jewel','bow','sword','armor'];
+  G.TRADED = ['wood','stone','fiber','herb','grain','fish','coal','iron_ore','hide','plank','cloth','bread','iron_ingot','potion','crystal','jewel','bow','sword','armor'];
 
   G.SKILLS = {
     woodcutting: { name:'Dřevorubectví', icon:'🪓', attr:'str' },
@@ -124,7 +125,11 @@
     fish: { id:'fish', name:'Rybařit', icon:'🎣', nodeKinds:['lake'],
       skill:'hunting', attr:'agi', mode:'quantity', workPerUnit:9, defaultQty:12,
       output:[{material:'fish',qty:1}], xpPerUnit:9,
-      drops:{ coin:[0.06,1,3], jewel:[0.01,1,1] } }
+      drops:{ coin:[0.06,1,3], jewel:[0.01,1,1] } },
+    harvest_grain: { id:'harvest_grain', name:'Sklízet obilí', icon:'🌾', nodeKinds:['meadow','grove'],
+      skill:'herbalism', attr:'agi', mode:'quantity', workPerUnit:6, defaultQty:15,
+      output:[{material:'grain',qty:1}], xpPerUnit:7,
+      drops:{ coin:[0.04,1,3] } }
   };
 
   /* ---------- recepty s dílnami a řetězci ---------- */
@@ -156,7 +161,7 @@
     /* Kuchyň */
     bread:      { id:'bread', name:'Chléb', icon:'🍞', skill:'cooking', reqLevel:1, xp:7,
                   workshop:'kitchen', tier:1,
-                  inputs:[{material:'herb',qty:1},{material:'fiber',qty:2}], output:{material:'bread',qty:1} },
+                  inputs:[{material:'grain',qty:3}], output:{material:'bread',qty:1} },
     /* Alchymistická laboratoř */
     potion:     { id:'potion', name:'Lektvar', icon:'🧪', skill:'alchemy', reqLevel:3, xp:22,
                   workshop:'alchemy', tier:2,
@@ -166,7 +171,7 @@
   G.SETTLEMENT_SPECS = {
     mining:    { label:'Těžební',    produces:['iron_ore','coal','stone','crystal'],   consumes:['bread','cloth','potion','wood','fish'] },
     forestry:  { label:'Lesnická',   produces:['wood','plank','fiber','hide'],         consumes:['bread','iron_ingot','potion','stone'] },
-    farming:   { label:'Zemědělská', produces:['bread','herb','fiber','fish'],         consumes:['iron_ingot','plank','cloth','coal'] },
+    farming:   { label:'Zemědělská', produces:['grain','bread','herb','fiber','fish'], consumes:['iron_ingot','plank','cloth','coal'] },
     trade:     { label:'Obchodní',   produces:['cloth','potion','plank','iron_ingot'], consumes:['crystal','hide','herb','iron_ore'] }
   };
   G.SETTLEMENT_SIZE = {
