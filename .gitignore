@@ -1,0 +1,23 @@
+# === OS ===
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# === Editory / IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === Build a závislosti (do budoucna) ===
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# === Prostředí / tajemství ===
+.env
+.env.*
+!.env.example
