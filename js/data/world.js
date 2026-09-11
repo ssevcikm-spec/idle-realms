@@ -18,7 +18,7 @@
     stone:      { name:'Kámen',         icon:'🪨', tier:1, price:3 },
     fiber:      { name:'Vlákno',        icon:'🧵', tier:1, price:4 },
     herb:       { name:'Byliny',        icon:'🌿', tier:1, price:6 },
-    grain:      { name:'Obilí',          icon:'🌾', tier:1, price:5 },
+    grain:      { name:'Obilí',          icon:'🌾', tier:1, price:3 },
     fish:       { name:'Ryba',          icon:'🐟', tier:1, price:7 },
     coal:       { name:'Uhlí',          icon:'⬛', tier:2, price:8 },
     iron_ore:   { name:'Železná ruda',  icon:'⛏️', tier:2, price:12 },
@@ -27,7 +27,7 @@
     cloth:      { name:'Látka',         icon:'🧶', tier:2, price:16 },
     bread:      { name:'Chléb',         icon:'🍞', tier:2, price:10 },
     iron_ingot: { name:'Železný ingot', icon:'🔩', tier:2, price:34 },
-    potion:     { name:'Lektvar',       icon:'🧪', tier:3, price:55 },
+    potion:     { name:'Lektvar',       icon:'🧪', tier:3, price:90 },
     crystal:    { name:'Krystal',       icon:'💎', tier:3, price:60 },
     coin:       { name:'Mince',         icon:'💰', tier:1, price:1, currency:true },
     jewel:      { name:'Šperk',         icon:'💍', tier:3, price:45 },
@@ -39,7 +39,7 @@
     /* zpracované - nové */
     bow:        { name:'Lovecký luk',   icon:'🏹', tier:2, price:48 },
     sword:      { name:'Meč',           icon:'⚔️', tier:3, price:120 },
-    armor:      { name:'Zbroj',         icon:'🛡️', tier:3, price:150 },
+    armor:      { name:'Zbroj',         icon:'🛡️', tier:3, price:260 },
     longbow:    { name:'Dlouhý luk',    icon:'🏹', tier:3, price:180 }
   };
   G.TRADED = ['wood','stone','fiber','herb','grain','fish','coal','iron_ore','hide','plank','cloth','bread','iron_ingot','potion','crystal','jewel','bow','sword','armor'];
