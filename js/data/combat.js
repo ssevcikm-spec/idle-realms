@@ -14,7 +14,9 @@
     serpent:   { id:'serpent',   name:'Zmije',         icon:'🐍', hp:40,  atk:14, def:2,  speed:12, xp:22, region:'swamp',    tier:2, gold:[5,12],  drops:[{material:'herb',chance:0.5,qty:[1,2]}] },
     wisp:      { id:'wisp',      name:'Bludička',      icon:'👻', hp:35,  atk:18, def:1,  speed:20, xp:30, region:'swamp',    tier:3, gold:[8,20],  drops:[{material:'potion',chance:0.15,qty:[1,1]},{material:'crystal',chance:0.2,qty:[1,1]}] },
     drake:     { id:'drake',     name:'Drak Ohnivec',  icon:'🐉', hp:400, atk:55, def:30, speed:12, xp:400,region:'cave',     tier:5, gold:[200,400],drops:[{material:'dragon_scale',chance:1,qty:[2,4]},{material:'crystal',chance:1,qty:[5,10]},{material:'jewel',chance:0.8,qty:[3,5]}] },
-    bandit_leader:{ id:'bandit_leader',name:'Vůdce banditů',icon:'🏴',hp:200,atk:38,def:18,speed:13,xp:250,region:'hills', tier:5, gold:[150,300],drops:[{material:'bandit_seal',chance:1,qty:[3,5]},{material:'iron_ingot',chance:1,qty:[3,5]},{material:'jewel',chance:0.5,qty:[1,2]}] }
+    bandit_leader:{ id:'bandit_leader',name:'Vůdce banditů',icon:'🏴',hp:200,atk:38,def:18,speed:13,xp:250,region:'hills', tier:5, gold:[150,300],drops:[{material:'bandit_seal',chance:1,qty:[3,5]},{material:'iron_ingot',chance:1,qty:[3,5]},{material:'jewel',chance:0.5,qty:[1,2]}] },
+    harpy:      { id:'harpy',     name:'Harpyje',        icon:'🦅', hp:70,  atk:18, def:5,  speed:15, xp:50, region:'hills', tier:2, gold:[15,35], drops:[{material:'hide',chance:0.4,qty:[1,2]},{material:'jewel',chance:0.15,qty:[1,1]}] },
+    mud_golem:  { id:'mud_golem', name:'Bahenní golem',  icon:'🟫', hp:150, atk:24, def:14, speed:6,  xp:85, region:'swamp', tier:3, gold:[30,60], drops:[{material:'herb',chance:0.5,qty:[2,4]},{material:'crystal',chance:0.25,qty:[1,2]}] }
   };
 
   G.ENCOUNTER_TABLE = {
@@ -22,10 +24,10 @@
     deep_forest: ['wolf','bear','werewolf','bandit'],
     grove:       ['boar','bandit'],
     meadow:      ['boar','bandit'],
-    quarry:      ['bandit','orc'],
+    quarry:      ['bandit','orc','harpy'],
     mine:        ['orc','golem','bat'],
     cave:        ['bat','golem','drake'],
-    marsh:       ['serpent','wisp','bandit'],
+    marsh:       ['serpent','wisp','bandit','mud_golem'],
     lake:        ['serpent','wisp']
   };
 
