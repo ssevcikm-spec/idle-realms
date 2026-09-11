@@ -118,4 +118,10 @@
       G.addMood(unit, 10);
     }
   };
+
+  /** Periodická kontrola ambicí všech postav (voláno z autonomy). */
+  G.tickAmbitions = function () {
+    if (!G.state || !G.state.units) return;
+    for (const u of G.state.units) G.checkAmbitions(u);
+  };
 })();
