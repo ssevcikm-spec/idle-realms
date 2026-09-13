@@ -1,0 +1,72 @@
+/* === SUB-TABS === */
+#panel { padding: 0; }
+
+#subtabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #1b1a17;
+  border-bottom: 1px solid #2e2b25;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+#subtabs::-webkit-scrollbar { display: none; }
+#subtabs:empty { display: none; }
+
+.subtab-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border: 1px solid #3a362c;
+  border-radius: 8px;
+  background: #191813;
+  color: #8d8570;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+.subtab-btn:hover { background: #22201b; color: #cfc7b4; }
+.subtab-btn.active { background: #3a3324; color: #e0bb5e; border-color: #6d5423; }
+.subtab-icon { font-size: 14px; }
+
+#panel-content { padding: 12px 12px 22px; min-height: 0; }
+
+#app.panel-collapsed #subtabs { display: none; }
+#app.map-fullscreen #subtabs { display: none; }
+
+/* === ABILITY SCROLL v combat modalu (Fáze 7) === */
+.combat-abilities {
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.combat-abilities::-webkit-scrollbar { width: 4px; }
+.combat-abilities::-webkit-scrollbar-thumb { background: #423d32; border-radius: 4px; }
+
+.cb-ability-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+@media (min-width: 900px) {
+  #subtabs {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .subtab-btn { padding: 5px 9px; font-size: 11.5px; }
+  .subtab-icon { font-size: 13px; }
+  .combat-abilities { max-height: 160px; }
+}

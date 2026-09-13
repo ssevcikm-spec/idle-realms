@@ -1,9 +1,7 @@
 (function () {
   const G = window.Game;
 
-  /* QUEST TEMPLATES — rozšířeno o kill, escort, explore */
   G.QUEST_TEMPLATES = {
-    /* Deliver (původní) */
     deliver_wood:   { id:'deliver_wood', kind:'deliver', weight:10, generate:(s)=>({ text:`Potřebujeme ${8+s*4}× dřevo na opravu střech.`, need:[{material:'wood',qty:8+s*4}], reward:{ gold:Math.round(6*(8+s*4)*(1+s*0.2)), renown:1, rep:6 }, deadline:900+s*300 }) },
     deliver_food:   { id:'deliver_food', kind:'deliver', weight:8, generate:(s)=>({ text:`Zásoby pro stráž — ${5+s*3}× chléb.`, need:[{material:'bread',qty:5+s*3}], reward:{ gold:Math.round(10*(5+s*3)*(1+s*0.2)), renown:2, rep:8 }, deadline:1200+s*300 }) },
     deliver_ore:    { id:'deliver_ore', kind:'deliver', weight:9, minSize:1, generate:(s)=>({ text:`Kovárna spotřebovala zásoby — ${6+s*3}× ruda.`, need:[{material:'iron_ore',qty:6+s*3}], reward:{ gold:Math.round(14*(6+s*3)*(1+s*0.2)), renown:2, rep:8 }, deadline:1400+s*300 }) },
@@ -11,20 +9,7 @@
     deliver_potion: { id:'deliver_potion', kind:'deliver', weight:5, minSize:1, generate:(s)=>({ text:`Ranhojič objednal ${1+Math.floor(s/2)}× lektvar.`, need:[{material:'potion',qty:1+Math.floor(s/2)}], reward:{ gold:Math.round(120*(1+Math.floor(s/2))*(1+s*0.15)), renown:5, rep:14 }, deadline:2100+s*300 }) },
     deliver_planks: { id:'deliver_planks', kind:'deliver', weight:7, generate:(s)=>({ text:`Staví se nová stodola — ${5+s*2}× prkno.`, need:[{material:'plank',qty:5+s*2}], reward:{ gold:Math.round(20*(5+s*2)*(1+s*0.2)), renown:2, rep:9 }, deadline:1500+s*300 }) },
     deliver_cloth:  { id:'deliver_cloth', kind:'deliver', weight:6, generate:(s)=>({ text:`Švadlena potřebuje ${3+s*2}× látka.`, need:[{material:'cloth',qty:3+s*2}], reward:{ gold:Math.round(30*(3+s*2)*(1+s*0.2)), renown:3, rep:10 }, deadline:1600+s*300 }) },
-    deliver_weapon: { id:'deliver_weapon', kind:'deliver', weight:5, minSize:2, generate:(s)=>({ text:`Zbrojíř objednal ${1+s}× meč.`, need:[{material:'sword',qty:1+s}], reward:{ gold:Math.round(180*(1+s)*(1+s*0.15)), renown:6, rep:15 }, deadline:2400+s*300 }) },
-
-    /* Kill quests — poraz N nepřátel daného tieru */
-    kill_beasts:   { id:'kill_beasts', kind:'kill', weight:8, generate:(s)=>({ text:`Vyčisti okolí od zvířat — poraz ${3+s*2} zvířat.`, killType:'beast', killCount:3+s*2, reward:{ gold:Math.round(15*(3+s*2)*(1+s*0.2)), renown:3, rep:9 }, deadline:1800+s*300 }) },
-    kill_bandits:  { id:'kill_bandits', kind:'kill', weight:7, minSize:1, generate:(s)=>({ text:`Bandité na cestách — poraz ${2+s} banditů.`, killType:'humanoid', killCount:2+s, reward:{ gold:Math.round(25*(2+s)*(1+s*0.2)), renown:4, rep:12 }, deadline:2100+s*300 }) },
-    kill_monsters: { id:'kill_monsters', kind:'kill', weight:5, minSize:2, generate:(s)=>({ text:`Obludy ohrožují kraj — poraz ${1+s} monster.`, killType:'monster', killCount:1+s, reward:{ gold:Math.round(80*(1+s)*(1+s*0.15)), renown:6, rep:15 }, deadline:2400+s*300 }) },
-
-    /* Escort quests — doprovoď karavanu/osobu */
-    escort_merchant: { id:'escort_merchant', kind:'escort', weight:6, generate:(s)=>({ text:`Doprovoď kupce do sousedního města (${2+s} dní).`, escortDays:2+s, reward:{ gold:Math.round(40*(2+s)*(1+s*0.2)), renown:4, rep:11 }, deadline:2000+s*300 }) },
-    escort_noble:    { id:'escort_noble', kind:'escort', weight:4, minSize:1, generate:(s)=>({ text:`Doprovoď šlechtice (${3+s} dní).`, escortDays:3+s, reward:{ gold:Math.round(70*(3+s)*(1+s*0.2)), renown:6, rep:14 }, deadline:2400+s*300 }) },
-
-    /* Explore quests — prozkoumej X uzlů / najdi Y */
-    explore_region:  { id:'explore_region', kind:'explore', weight:7, generate:(s)=>({ text:`Prozkoumej ${4+s*2} uzlů v divočině.`, exploreCount:4+s*2, reward:{ gold:Math.round(12*(4+s*2)*(1+s*0.2)), renown:3, rep:8 }, deadline:1800+s*300 }) },
-    find_relic:      { id:'find_relic', kind:'explore', weight:4, minSize:2, generate:(s)=>({ text:`Najdi vzácnou relikvii v troskách.`, need:[{material:'crystal',qty:3+s}], reward:{ gold:Math.round(80*(1+s)*(1+s*0.15)), renown:7, rep:16 }, deadline:2400+s*300 }) }
+    deliver_weapon: { id:'deliver_weapon', kind:'deliver', weight:5, minSize:2, generate:(s)=>({ text:`Zbrojíř objednal ${1+s}× meč.`, need:[{material:'sword',qty:1+s}], reward:{ gold:Math.round(180*(1+s)*(1+s*0.15)), renown:6, rep:15 }, deadline:2400+s*300 }) }
   };
   G.questSlots = function (size) { return size === 0 ? 2 : size === 1 ? 3 : 4; };
   G.QUEST_REFRESH = 240;
@@ -83,10 +68,6 @@
   function totalMasterworks(s) { return (s.stats && s.stats.masterworks) || 0; }
   function totalMaterial(s, matId) { const m = s.materials && s.materials[matId]; if (!m) return 0; let n = 0; for (const q in m) n += m[q]; return n; }
   function hasSoulmatePair(s) { const units = s.units.filter(u => !u.dead); for (let i = 0; i < units.length; i++) for (let j = i + 1; j < units.length; j++) { const a = units[i], b = units[j]; const relA = (a.relationships || {})[b.id] || 0; const relB = (b.relationships || {})[a.id] || 0; if (relA >= 80 && relB >= 80) return true; } return false; }
-  function hasLegendary(s) { for (const u of s.units) { if (u.dead || !u.equipment) continue; for (const slot in u.equipment) { const item = u.equipment[slot]; if (item && G.EQUIPMENT[item.itemId] && G.EQUIPMENT[item.itemId].legendary) return true; } } return false; }
-  function activeSetCount(s, minCount) { for (const u of s.units) { if (u.dead || !G.setBonusFor) continue; const r = G.setBonusFor(u); for (const s2 of r.sets) if (s2.count >= minCount) return true; } return false; }
-  function hasGem(s) { for (const u of s.units) { if (u.dead || !u.equipment) continue; for (const slot in u.equipment) { const item = u.equipment[slot]; if (item && item.gems && item.gems.length) return true; } } return false; }
-  function hasLegendaryForge(s) { return s.base && s.base.buildings && (s.base.buildings.legendary_forge || 0) > 0; }
 
   G.ACHIEVEMENTS = [
     { id:'first_blood', name:'První krůčky', icon:'🌱', desc:'Dokonči první úkol.', reward:{gold:20,renown:1}, check:(s)=>(s.stats.tasksDone||0)>=1 },
@@ -112,8 +93,6 @@
     { id:'prestige_1', name:'Nový začátek', icon:'🔄', desc:'Proveď Prestiž.', reward:{gold:500,renown:20}, check:(s)=>(s.prestige && s.prestige.level)>=1 },
     { id:'prestige_3', name:'Věčný poutník', icon:'✨', desc:'Dosáhni 3. úrovně prestiže.', reward:{gold:2000,renown:40}, check:(s)=>(s.prestige && s.prestige.level)>=3 },
     { id:'dragon_slayer', name:'Drakobijec', icon:'🐉', desc:'Poraz draka Ohnivce.', reward:{gold:2000,renown:40}, check:(s)=>(s.stats.dragonsKilled||0)>=1 },
-    { id:'boss_1', name:'Vrah bossů', icon:'🏆', desc:'Poraz svého prvního bosse.', reward:{gold:500,renown:15}, check:(s)=>(s.stats.bossesKilled||0)>=1 },
-    { id:'boss_5', name:'Legendární hrdina', icon:'⭐', desc:'Poraz 5 bossů.', reward:{gold:2000,renown:40}, check:(s)=>(s.stats.bossesKilled||0)>=5 },
     { id:'master_builder', name:'Stavitel', icon:'🔨', desc:'Postav 10 budov v sídlech.', reward:{gold:300,renown:8}, check:(s)=>totalSettlementBuildings(s)>=10 },
     { id:'ambition_1', name:'Splněný sen', icon:'🎯', desc:'Splň 1 ambici postavy.', reward:{gold:200,renown:5}, check:(s)=>anyAmbitionDone(s,1) },
     { id:'ambition_5', name:'Sběratel snů', icon:'✨', desc:'Splň 5 ambicí postav.', reward:{gold:800,renown:15}, check:(s)=>anyAmbitionDone(s,5) },
@@ -125,12 +104,6 @@
     { id:'dynasty_5', name:'Stará krev', icon:'👑', desc:'Dosáhni 5. generace dynastie.', reward:{gold:1200,renown:25}, check:(s)=>(s.dynasty && s.dynasty.generations)>=5 },
     { id:'expeditions_5', name:'Cestovatel', icon:'⛵', desc:'Dokonči 5 úspěšných expedic.', reward:{gold:300,renown:10}, check:(s)=>(s.stats.expeditionSuccesses||0)>=5 },
     { id:'expeditions_15', name:'Dobyvatel', icon:'🗺️', desc:'Dokonči 15 úspěšných expedic.', reward:{gold:900,renown:25}, check:(s)=>(s.stats.expeditionSuccesses||0)>=15 },
-    { id:'soulmates', name:'Osudová láska', icon:'💕', desc:'Dva členové s vztahem 80+.', reward:{gold:150,renown:5}, check:(s)=>hasSoulmatePair(s) },
-    /* Fáze 8: equip achievements */
-    { id:'legendary_1', name:'Legendární nález', icon:'✨', desc:'Získej svou první legendárku.', reward:{gold:500,renown:15}, check:(s)=>hasLegendary(s) },
-    { id:'set_2', name:'Polovina setu', icon:'🎽', desc:'Aktivuj 2-kusový set bonus.', reward:{gold:200,renown:6}, check:(s)=>activeSetCount(s, 2) },
-    { id:'set_5', name:'Kompletní set', icon:'👑', desc:'Aktivuj 5-kusový set bonus.', reward:{gold:1500,renown:30}, check:(s)=>activeSetCount(s, 5) },
-    { id:'gem_1', name:'Klenotník', icon:'💎', desc:'Vlož první gem do výbavy.', reward:{gold:200,renown:6}, check:(s)=>hasGem(s) },
-    { id:'forge_legendary', name:'Mistr výhně', icon:'🔥', desc:'Postav Legendární výheň na základně.', reward:{gold:800,renown:20}, check:(s)=>hasLegendaryForge(s) }
+    { id:'soulmates', name:'Osudová láska', icon:'💕', desc:'Dva členové s vztahem 80+.', reward:{gold:150,renown:5}, check:(s)=>hasSoulmatePair(s) }
   ];
 })();

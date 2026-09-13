@@ -7,6 +7,7 @@
     timer += dt;
     if (timer < INTERVAL) return;
     timer = 0;
+
     if (G.tickProfessions) G.tickProfessions(INTERVAL);
     if (G.tickRestCheck) G.tickRestCheck();
     if (G.tickStaminaRegen) for (const u of G.state.units) G.tickStaminaRegen(u, INTERVAL);
@@ -32,8 +33,13 @@
       if (!idle.length) continue;
       const node = G.findNodeFor(g.focus, idle.map(u => u.id));
       if (!node) continue;
-      G.startTask(g.focus, idle.map(u => u.id), { nodeId: node.id, targetQty: act.mode === 'quantity' ? (act.defaultQty || 10) : 1, auto: true });
+      G.startTask(g.focus, idle.map(u => u.id), {
+        nodeId: node.id,
+        targetQty: act.mode === 'quantity' ? (act.defaultQty || 10) : 1,
+        auto: true
+      });
     }
+
     for (const u of G.state.units) {
       if (u.dead || u.isChild || u.onExpedition) continue;
       if (u.assignedTaskId || u.resting) continue;
@@ -42,7 +48,10 @@
       if (G.unitRefusesWork && G.unitRefusesWork(u)) continue;
       if (u._refuseUntil && G.state.time < u._refuseUntil) continue;
       if (u.manual) continue;
-      if (u.groupId) { const g = G.getGroup(u.groupId); if (g && g.focus) continue; }
+      if (u.groupId) {
+        const g = G.getGroup(u.groupId);
+        if (g && g.focus) continue;
+      }
       const pick = pickActivity(u);
       if (!pick) continue;
       G.startTask(pick.act.id, [u.id], {
@@ -63,7 +72,10 @@
       const node = G.WORLD.nearestNode(a.nodeKinds, unit.pos.x, unit.pos.y);
       if (!node) continue;
       const danger = G.nodeDanger ? G.nodeDanger(node.kind) : 0;
-      if (danger >= 2) { const power = G.unitCombatPower(unit); if (power < danger * 18) continue; }
+      if (danger >= 2) {
+        const power = G.unitCombatPower(unit);
+        if (power < danger * 18) continue;
+      }
       if (danger === 3) continue;
       if (dir.avoidDanger && danger >= 2) continue;
       const dist = Math.hypot(node.x - unit.pos.x, node.y - unit.pos.y);
@@ -94,13 +106,24 @@
   }
   function meetsReq(unit, a) {
     if (!a.requires || !a.requires.skillLevel) return true;
-    for (const sid in a.requires.skillLevel) if (G.unitSkill(unit, sid) < a.requires.skillLevel[sid]) return false;
+    for (const sid in a.requires.skillLevel) {
+      if (G.unitSkill(unit, sid) < a.requires.skillLevel[sid]) return false;
+    }
     return true;
   }
-  function materialNeed(matId) { const count = G.matCount(matId); if (count >= 15) return 0; return (15 - count) / 15; }
+  function materialNeed(matId) {
+    const count = G.matCount(matId);
+    if (count >= 15) return 0;
+    return (15 - count) / 15;
+  }
   G.pickActivity = pickActivity;
-  G.setDirective = function (key, value) { if (!G.state.directives) G.state.directives = { focusMaterial: null, avoidDanger: false }; G.state.directives[key] = value; };
-  G.getDirective = function (key) { return (G.state.directives || {})[key]; };
+  G.setDirective = function (key, value) {
+    if (!G.state.directives) G.state.directives = { focusMaterial: null, avoidDanger: false };
+    G.state.directives[key] = value;
+  };
+  G.getDirective = function (key) {
+    return (G.state.directives || {})[key];
+  };
 
   const REST_THRESHOLD = 20;
   const REGEN_BASE = 1.2, DRAIN_BASE = 0.35;
@@ -120,7 +143,10 @@
   G.tickStaminaRegen = function (unit, dt) {
     if (unit.dead || !unit.resting) return;
     let mult = 1;
-    if (unit.restingAt && G.settlementBonuses) { const b = G.settlementBonuses(unit.restingAt); mult = b.restMult; }
+    if (unit.restingAt && G.settlementBonuses) {
+      const b = G.settlementBonuses(unit.restingAt);
+      mult = b.restMult;
+    }
     unit.stamina = Math.min(unit.maxStamina, unit.stamina + REGEN_BASE * mult * dt);
     if (unit.mood != null && unit.mood < 90) unit.mood = Math.min(90, unit.mood + 0.4 * mult * dt);
     if (unit.stamina >= unit.maxStamina) {
@@ -145,9 +171,13 @@
       if (d < bestD) { bestD = d; best = s; }
     }
     unit.restingAt = best ? best.id : null;
-    G.log(!auto ? `😴 ${unit.name} jde odpočívat.` : `😴 ${unit.name} je vyčerpaný a jde odpočívat.`, 'social');
+    if (!auto) G.log(`😴 ${unit.name} jde odpočívat.`, 'social');
+    else G.log(`😴 ${unit.name} je vyčerpaný a jde odpočívat.`, 'social');
   };
-  G.wakeUnit = function (unit) { if (!unit.resting) return; unit.resting = false; unit.restingAt = null; unit.status = 'idle'; };
+  G.wakeUnit = function (unit) {
+    if (!unit.resting) return;
+    unit.resting = false; unit.restingAt = null; unit.status = 'idle';
+  };
 
   G.baseBuildingLevel = function (buildingId) {
     if (!G.state.base || !G.state.base.buildings) return 0;
@@ -160,7 +190,9 @@
     if (lvl >= def.maxLevel) return { ok:false, reason:'Maximální úroveň.' };
     const cost = def.cost(lvl + 1);
     if (G.state.resources.gold < cost.gold) return { ok:false, reason:`Potřebuješ ${cost.gold} zlata.` };
-    for (const m of cost.materials) if (G.matCount(m.material) < m.qty) return { ok:false, reason:`Chybí ${m.qty}× ${G.MATERIALS[m.material].name}.` };
+    for (const m of cost.materials) {
+      if (G.matCount(m.material) < m.qty) return { ok:false, reason:`Chybí ${m.qty}× ${G.MATERIALS[m.material].name}.` };
+    }
     return { ok:true, cost };
   };
   G.buildBase = function (buildingId) {
@@ -184,14 +216,13 @@
     G.state.base.unlocked = true;
     G.state.base.x = G.BASE_POS.x;
     G.state.base.y = G.BASE_POS.y;
-    G.log(`🏕️ Odemknuta tvá základna!`, 'work');
+    G.log(`🏕️ Odemknuta tvá základna! (${G.BASE_POS.x}, ${G.BASE_POS.y}).`, 'work');
     return true;
   };
-  let baseTimer = 0, gemTimer = 0;
+  let baseTimer = 0;
   const BASE_INTERVAL = 2;
   G.tickBase = function (dt) {
     baseTimer += dt;
-    gemTimer += dt;
     if (baseTimer < BASE_INTERVAL) return;
     const step = baseTimer; baseTimer = 0;
     if (!G.state.base || !G.state.base.unlocked) return;
@@ -200,20 +231,6 @@
       const def = G.BASE_BUILDINGS[bid];
       const lvl = G.baseBuildingLevel(bid);
       if (lvl <= 0) continue;
-      if (def.special === 'gem') {
-        // Gem Smithy: každých 300s 1 gem za lvl
-        if (gemTimer >= 300) {
-          const gems = Object.keys(G.GEMS || {});
-          if (gems.length) {
-            const gem = G.pick(gems);
-            G.matAdd('gem_' + gem, 1, 'common');
-            G.log(`💠 Gemmová dílna vyprodukovala ${G.GEMS[gem].icon} ${G.GEMS[gem].name}.`, 'work');
-          }
-        }
-        continue;
-      }
-      if (def.special === 'legendary') continue;
-      if (!def.produces || !def.rate) continue;
       const rate = def.rate(lvl);
       const add = rate * step;
       const accum = (G.state.base.accum[bid] || 0) + add;
@@ -224,7 +241,6 @@
         G.state.base.accum[bid] = accum - whole;
       } else G.state.base.accum[bid] = accum;
     }
-    if (gemTimer >= 300) gemTimer = 0;
   };
   G.baseProductionSummary = function () {
     const out = {};
@@ -233,15 +249,9 @@
       const def = G.BASE_BUILDINGS[bid];
       const lvl = G.baseBuildingLevel(bid);
       if (lvl <= 0) continue;
-      if (def.special === 'gem') { out.gem = (out.gem || 0) + 12 * lvl; continue; }
-      if (!def.produces || !def.rate) continue;
       const perHour = def.rate(lvl) * 3600;
       out[def.produces] = (out[def.produces] || 0) + perHour;
     }
     return out;
-  };
-  G.legendaryDropBonus = function () {
-    if (!G.state.base || !G.state.base.buildings) return 0;
-    return (G.state.base.buildings.legendary_forge || 0) * 0.05;
   };
 })();

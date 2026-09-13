@@ -1,7 +1,9 @@
 (function () {
   const G = window.Game;
 
+  /* EQUIPMENT — rozšířeno o setId (pro sety) a legendárky */
   G.EQUIPMENT = {
+    /* Tools */
     stone_axe:    { id:'stone_axe',   name:'Kamenná sekera',  slot:'tool',  tier:1, icon:'🪓', price:20,  durability:120, visual:'axe',   mods:{ woodcutting:0.20 } },
     copper_axe:   { id:'copper_axe',  name:'Měděná sekera',   slot:'tool',  tier:2, icon:'🪓', price:90,  durability:200, visual:'axe',   mods:{ woodcutting:0.45, mining:0.10 } },
     stone_pick:   { id:'stone_pick',  name:'Kamenný krumpáč', slot:'tool',  tier:1, icon:'⛏️', price:20,  durability:120, visual:'pick',  mods:{ mining:0.20 } },
@@ -9,14 +11,30 @@
     herb_kit:     { id:'herb_kit',    name:'Bylinkářská sada',slot:'tool',  tier:1, icon:'🌿', price:30,  durability:150, visual:'staff', mods:{ herbalism:0.30 } },
     fishing_rod:  { id:'fishing_rod', name:'Rybářský prut',   slot:'tool',  tier:1, icon:'🎣', price:25,  durability:130, visual:'staff', mods:{ hunting:0.15 } },
     master_tools: { id:'master_tools',name:'Mistrovské nářadí',slot:'tool', tier:3, icon:'🧰', price:350, durability:400, visual:'axe',   mods:{ woodcutting:0.60, mining:0.60, herbalism:0.30 } },
-    hunting_bow:  { id:'hunting_bow', name:'Lovecký luk',     slot:'weapon',tier:1, icon:'🏹', price:40,  durability:140, visual:'bow',   mods:{ hunting:0.25 }, combatBonus:3 },
-    iron_sword:   { id:'iron_sword',  name:'Železný meč',     slot:'weapon',tier:2, icon:'⚔️', price:130, durability:200, visual:'sword', mods:{}, combatBonus:12 },
+
+    /* Weapons */
+    hunting_bow:  { id:'hunting_bow', name:'Lovecký luk',     slot:'weapon',tier:1, icon:'🏹', price:40,  durability:140, visual:'bow',   mods:{ hunting:0.25 }, combatBonus:3, setId:'hunters_kit' },
+    iron_sword:   { id:'iron_sword',  name:'Železný meč',     slot:'weapon',tier:2, icon:'⚔️', price:130, durability:200, visual:'sword', mods:{}, combatBonus:12, setId:'warrior_plate' },
     war_axe:      { id:'war_axe',     name:'Bojová sekera',   slot:'weapon',tier:2, icon:'🪓', price:150, durability:210, visual:'axe',   mods:{}, combatBonus:15 },
-    hunter_bow:   { id:'hunter_bow',  name:'Mistrovský luk',  slot:'weapon',tier:3, icon:'🏹', price:320, durability:320, visual:'bow',   mods:{ hunting:0.50 }, combatBonus:20 },
-    leather_armor:{ id:'leather_armor',name:'Kožená zbroj',   slot:'armor', tier:1, icon:'🥋', price:50,  durability:200, visual:'leather', mods:{}, staminaDrain:0.85, combatBonus:4, defBonus:3 },
-    chain_mail:   { id:'chain_mail',  name:'Kroužková zbroj', slot:'armor', tier:2, icon:'🛡️', price:180, durability:300, visual:'mail',  mods:{}, staminaDrain:0.70, combatBonus:12, defBonus:8 },
-    scholar_robe: { id:'scholar_robe',name:'Učenecký plášť',  slot:'armor', tier:2, icon:'👘', price:160, durability:250, visual:'robe',  mods:{ herbalism:0.20, alchemy:0.20, crafting:0.20 }, staminaDrain:0.90, combatBonus:4, defBonus:2 }
+    hunter_bow:   { id:'hunter_bow',  name:'Mistrovský luk',  slot:'weapon',tier:3, icon:'🏹', price:320, durability:320, visual:'bow',   mods:{ hunting:0.50 }, combatBonus:20, setId:'hunters_kit' },
+
+    /* Armor */
+    leather_armor:{ id:'leather_armor',name:'Kožená zbroj',   slot:'armor', tier:1, icon:'🥋', price:50,  durability:200, visual:'leather', mods:{}, staminaDrain:0.85, combatBonus:4, defBonus:3, setId:'hunters_kit' },
+    chain_mail:   { id:'chain_mail',  name:'Kroužková zbroj', slot:'armor', tier:2, icon:'🛡️', price:180, durability:300, visual:'mail',  mods:{}, staminaDrain:0.70, combatBonus:12, defBonus:8, setId:'warrior_plate' },
+    scholar_robe: { id:'scholar_robe',name:'Učenecký plášť',  slot:'armor', tier:2, icon:'👘', price:160, durability:250, visual:'robe',  mods:{ herbalism:0.20, alchemy:0.20, crafting:0.20 }, staminaDrain:0.90, combatBonus:4, defBonus:2, setId:'scholars_insight' },
+    scholar_cloak:{ id:'scholar_cloak',name:'Plášť učence',   slot:'armor', tier:3, icon:'🧥', price:340, durability:400, visual:'robe',  mods:{ herbalism:0.30, alchemy:0.30, crafting:0.30 }, staminaDrain:0.85, combatBonus:6, defBonus:5, setId:'scholars_insight' }
   };
+
+  // Přidej legendárky do EQUIPMENT
+  for (const lid in G.LEGENDARIES) {
+    const l = G.LEGENDARIES[lid];
+    G.EQUIPMENT[lid] = Object.assign({
+      id: lid, name: l.name, slot: l.slot, tier: l.tier, icon: l.icon,
+      price: 0, durability: l.durability, visual: l.slot === 'armor' ? 'mail' : (l.slot === 'weapon' ? 'sword' : 'staff'),
+      legendary: true
+    }, l);
+  }
+
   G.WEAR_PER_SEC = 0.0025;
 
   G.BUILDINGS = {
@@ -37,28 +55,56 @@
       effect:(l)=>({ healMult:1+0.25*l }) },
     guardhouse:{ id:'guardhouse', name:'Strážnice', icon:'🛡️', maxLevel:5, desc:'Sníží nebezpečí v okolí sídla (−8 % za úroveň).',
       cost:(l)=>({ gold:110*l*l, materials:[{material:'plank',qty:3*l},{material:'iron_ingot',qty:1*l}] }),
-      effect:(l)=>({ safetyMult:1-0.08*l }) }
+      effect:(l)=>({ safetyMult:1-0.08*l }) },
+    /* === FÁZE 10: NOVÉ SPECIALIZOVANÉ BUDOVY === */
+    forge:       { id:'forge',       name:'Kovárna',         icon:'🔥', maxLevel:5, desc:'+10 % rychlost kování, +5 % kvalita (per level).',
+      cost:(l)=>({ gold:150*l*l, materials:[{material:'iron_ingot',qty:2*l},{material:'stone',qty:8*l}] }),
+      effect:(l)=>({ smithingSpeed:1+0.10*l, smithingQuality:5*l }) },
+    herbal_garden:{ id:'herbal_garden', name:'Bylinná zahrada', icon:'🌱', maxLevel:5, desc:'+10 % bylinkářství, +1 bylinka/level.',
+      cost:(l)=>({ gold:120*l*l, materials:[{material:'wood',qty:6*l},{material:'fiber',qty:10*l}] }),
+      effect:(l)=>({ herbalismSpeed:1+0.10*l, herbalismYield:l }) },
+    hunters_lodge:{ id:'hunters_lodge', name:'Lovecká chata', icon:'🏹', maxLevel:5, desc:'+10 % lov, +5 % kvalita kožešin.',
+      cost:(l)=>({ gold:130*l*l, materials:[{material:'hide',qty:3*l},{material:'plank',qty:5*l}] }),
+      effect:(l)=>({ huntingSpeed:1+0.10*l, huntingQuality:5*l }) },
+    alchemist_lab:{ id:'alchemist_lab', name:'Alchymistická laboratoř', icon:'⚗️', maxLevel:5, desc:'+10 % alchymie, +5 % kvalita lektvarů.',
+      cost:(l)=>({ gold:180*l*l, materials:[{material:'potion',qty:1*l},{material:'crystal',qty:2*l}] }),
+      effect:(l)=>({ alchemySpeed:1+0.10*l, alchemyQuality:5*l }) },
+    training_ground:{ id:'training_ground', name:'Cvičiště', icon:'⚔️', maxLevel:5, desc:'+8 % bojové síly postav v sídle (per level).',
+      cost:(l)=>({ gold:200*l*l, materials:[{material:'plank',qty:8*l},{material:'iron_ingot',qty:2*l}] }),
+      effect:(l)=>({ combatTraining:1+0.08*l }) },
+    library:     { id:'library',     name:'Knihovna',         icon:'📚', maxLevel:5, desc:'+8 % XP pro postavy v sídle (per level).',
+      cost:(l)=>({ gold:220*l*l, materials:[{material:'plank',qty:6*l},{material:'cloth',qty:8*l}] }),
+      effect:(l)=>({ xpBonus:1+0.08*l }) }
   };
 
   G.BASE_BUILDINGS = {
-    woodcutter_camp:{ id:'woodcutter_camp', name:'Dřevařský tábor', icon:'🪵', maxLevel:5,
-      desc:'Pasivně produkuje dřevo.', produces:'wood', rate:(l)=>0.006*l,
+    woodcutter_camp:{ id:'woodcutter_camp', name:'Dřevařský tábor', icon:'🪵', maxLevel:5, desc:'Pasivně produkuje dřevo.', produces:'wood', rate:(l)=>0.006*l,
       cost:(l)=>({ gold:100*l*l, materials:[{material:'wood',qty:15*l},{material:'stone',qty:5*l}] }) },
-    stone_quarry:   { id:'stone_quarry', name:'Kamenolom', icon:'🪨', maxLevel:5,
-      desc:'Pasivně produkuje kámen.', produces:'stone', rate:(l)=>0.006*l,
+    stone_quarry:   { id:'stone_quarry', name:'Kamenolom', icon:'🪨', maxLevel:5, desc:'Pasivně produkuje kámen.', produces:'stone', rate:(l)=>0.006*l,
       cost:(l)=>({ gold:100*l*l, materials:[{material:'wood',qty:10*l},{material:'stone',qty:10*l}] }) },
-    herb_garden:    { id:'herb_garden', name:'Bylinková zahrada', icon:'🌿', maxLevel:5,
-      desc:'Pasivně produkuje byliny.', produces:'herb', rate:(l)=>0.004*l,
+    herb_garden:    { id:'herb_garden', name:'Bylinková zahrada', icon:'🌿', maxLevel:5, desc:'Pasivně produkuje byliny.', produces:'herb', rate:(l)=>0.004*l,
       cost:(l)=>({ gold:120*l*l, materials:[{material:'wood',qty:10*l},{material:'fiber',qty:8*l}] }) },
-    iron_mine:      { id:'iron_mine', name:'Železný důl', icon:'⛏️', maxLevel:5,
-      desc:'Pasivně produkuje rudu. Odemyká kovárnu na základně.', produces:'iron_ore', rate:(l)=>0.004*l,
+    iron_mine:      { id:'iron_mine', name:'Železný důl', icon:'⛏️', maxLevel:5, desc:'Pasivně produkuje rudu.', produces:'iron_ore', rate:(l)=>0.004*l,
       cost:(l)=>({ gold:180*l*l, materials:[{material:'stone',qty:20*l},{material:'plank',qty:8*l}] }) },
-    weaving_hut:    { id:'weaving_hut', name:'Tkalcovská chata', icon:'🧵', maxLevel:5,
-      desc:'Pasivně produkuje vlákno. Odemyká tkalcovskou dílnu na základně.', produces:'fiber', rate:(l)=>0.005*l,
+    weaving_hut:    { id:'weaving_hut', name:'Tkalcovská chata', icon:'🧵', maxLevel:5, desc:'Pasivně produkuje vlákno.', produces:'fiber', rate:(l)=>0.005*l,
       cost:(l)=>({ gold:90*l*l, materials:[{material:'wood',qty:8*l},{material:'herb',qty:5*l}] }) },
-    hunting_lodge:  { id:'hunting_lodge', name:'Lovecká chata', icon:'🏹', maxLevel:5,
-      desc:'Pasivně produkuje kůže.', produces:'hide', rate:(l)=>0.003*l,
-      cost:(l)=>({ gold:160*l*l, materials:[{material:'plank',qty:8*l},{material:'fiber',qty:10*l}] }) }
+    hunting_lodge:  { id:'hunting_lodge', name:'Lovecká chata', icon:'🏹', maxLevel:5, desc:'Pasivně produkuje kůže.', produces:'hide', rate:(l)=>0.003*l,
+      cost:(l)=>({ gold:160*l*l, materials:[{material:'plank',qty:8*l},{material:'fiber',qty:10*l}] }) },
+    /* === FÁZE 10: NOVÉ BUDOVY ZÁKLADNY === */
+    grain_field:    { id:'grain_field', name:'Obilné pole', icon:'🌾', maxLevel:5, desc:'Pasivně produkuje obilí.', produces:'grain', rate:(l)=>0.005*l,
+      cost:(l)=>({ gold:130*l*l, materials:[{material:'wood',qty:8*l},{material:'stone',qty:6*l}] }) },
+    coal_pit:       { id:'coal_pit', name:'Uhelná jáma', icon:'⬛', maxLevel:5, desc:'Pasivně produkuje uhlí.', produces:'coal', rate:(l)=>0.004*l,
+      cost:(l)=>({ gold:170*l*l, materials:[{material:'stone',qty:15*l},{material:'plank',qty:6*l}] }) },
+    crystal_cave:   { id:'crystal_cave', name:'Krystalová jeskyně', icon:'💎', maxLevel:5, desc:'Pasivně produkuje krystaly.', produces:'crystal', rate:(l)=>0.0015*l,
+      cost:(l)=>({ gold:400*l*l, materials:[{material:'stone',qty:30*l},{material:'iron_ingot',qty:5*l}] }) },
+    apiary:         { id:'apiary', name:'Včelín', icon:'🍯', maxLevel:5, desc:'Pasivně produkuje byliny (bonus)', produces:'herb', rate:(l)=>0.003*l,
+      cost:(l)=>({ gold:140*l*l, materials:[{material:'wood',qty:12*l},{material:'fiber',qty:8*l}] }) },
+    gem_smithy:     { id:'gem_smithy', name:'Gemmová dílna', icon:'💠', maxLevel:5, desc:'Pasivně produkuje gemy (jeden za hodinu na level).', produces:null, rate:(l)=>0,
+      cost:(l)=>({ gold:600*l*l, materials:[{material:'crystal',qty:8*l},{material:'iron_ingot',qty:8*l}] }),
+      special:'gem' },
+    legendary_forge:{ id:'legendary_forge', name:'Legendární výheň', icon:'🔥', maxLevel:3, desc:'Zvyšuje šanci na legendární drop z bossů (+5 % per level).', produces:null, rate:(l)=>0,
+      cost:(l)=>({ gold:1200*l*l, materials:[{material:'crystal',qty:15*l},{material:'iron_ingot',qty:20*l}] }),
+      special:'legendary' }
   };
   G.BASE_FINE_CHANCE = 0.10;
   G.BASE_UNLOCK = { renown: 25 };

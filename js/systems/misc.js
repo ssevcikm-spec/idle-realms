@@ -7,15 +7,11 @@
     unit.deathTime = G.state.time;
     unit.deathAge = G.unitAge ? G.unitAge(unit) : 0;
     unit.deathReason = reason || 'neznámý';
-
     if (unit.assignedTaskId) G.cancelTask(unit.assignedTaskId);
     G.removeUnitFromGroup(unit.id);
-    unit.merchantState = null;
-    unit.merchantRoute = null;
-    unit.role = null;
+    unit.merchantState = null; unit.merchantRoute = null; unit.role = null;
     unit.resting = false;
     if (G.state.stats) G.state.stats.deaths = (G.state.stats.deaths || 0) + 1;
-
     const ageStr = unit.deathAge ? ` (${Math.round(unit.deathAge)} let)` : '';
     G.log(`⚰️ ${unit.name}${ageStr} zemřel — ${reason}.`, 'social');
     if (G.addJournal) G.addJournal(unit, `Zemřel — ${reason}.`, '⚰️');
@@ -23,40 +19,29 @@
     if (G.onDynastyDeath) G.onDynastyDeath(unit);
   };
 
-  G.resurrectCost = function () {
-    const n = (G.state.stats.resurrections || 0);
-    return 500 + n * 400;
-  };
-
+  G.resurrectCost = function () { const n = (G.state.stats.resurrections || 0); return 500 + n * 400; };
   G.resurrect = function (unitId) {
     const u = G.getUnit(unitId);
     if (!u || !u.dead) return { ok:false, reason:'Postava není mrtvá.' };
     if (u.deserted) return { ok:false, reason:'Dezertér se nechce vrátit.' };
     const cost = G.resurrectCost();
-    const hasPotion = G.matCount('potion') >= 3;
-    if (!hasPotion) return { ok:false, reason:`Potřebuješ 3× lektvar.` };
+    if (G.matCount('potion') < 3) return { ok:false, reason:`Potřebuješ 3× lektvar.` };
     if (G.state.resources.gold < cost) return { ok:false, reason:`Potřebuješ ${cost} zlata.` };
-
     G.matRemove('potion', 3);
     G.state.resources.gold -= cost;
     G.state.stats.resurrections = (G.state.stats.resurrections || 0) + 1;
-
-    u.dead = false;
-    u.deathTime = null;
+    u.dead = false; u.deathTime = null;
     u.birthTime = G.state.time - Math.max(20, (u.deathAge - 5)) * G.AGE_YEAR;
     const attr = G.pick(G.ATTRS);
     u.attrs[attr] = Math.max(3, u.attrs[attr] - 2);
-    u.mood = 40;
-    u.stamina = u.maxStamina * 0.5;
-    u._resurrected = true;
+    u.mood = 40; u.stamina = u.maxStamina * 0.5; u._resurrected = true;
     u.injuries = [{ id:'wounded', healsAt: G.state.time + G.INJURIES.wounded.duration }];
-
     G.log(`✨ ${u.name} byl vzkříšen za ${cost} 🪙 a 3 lektvary.`, 'story');
     if (G.addJournal) G.addJournal(u, `Byl vzkříšen z mrtvých.`, '✨');
     return { ok:true, cost };
   };
 
-  /* ---------- zranění ---------- */
+  /* INJURIES */
   G.addInjury = function (unit, injuryType) {
     if (unit.dead) return null;
     if (!unit.injuries) unit.injuries = [];
@@ -68,9 +53,7 @@
     const injury = { id:def.id, healsAt: G.state.time + def.duration };
     unit.injuries.push(injury);
     G.log(`🩹 ${unit.name}: ${def.name} (${def.desc}).`, 'social');
-    if (G.addJournal && def.severity >= 2) {
-      G.addJournal(unit, `Utrpěl zranění: ${def.name}.`, def.icon);
-    }
+    if (G.addJournal && def.severity >= 2) G.addJournal(unit, `Utrpěl zranění: ${def.name}.`, def.icon);
     if (def.severity === 3 && unit.assignedTaskId) G.cancelTask(unit.assignedTaskId);
     if (def.severity === 3 && !unit.resting) G.sendToRest(unit, true);
     return injury;
@@ -105,27 +88,16 @@
       if (u.dead) continue;
       if (!u.injuries || !u.injuries.length) continue;
       let healBoost = 1;
-      if (u.restingAt && G.settlementBonuses) {
-        const b = G.settlementBonuses(u.restingAt);
-        if (b.healMult) healBoost = b.healMult;
-      }
-      if (u.groupId) {
-        const g = G.getGroup(u.groupId);
-        if (g) healBoost *= G.groupHealMult(g);
-      }
-      if (healBoost > 1) {
-        const shift = step * (healBoost - 1);
-        for (const inj of u.injuries) inj.healsAt -= shift;
-      }
+      if (u.restingAt && G.settlementBonuses) { const b = G.settlementBonuses(u.restingAt); if (b.healMult) healBoost = b.healMult; }
+      if (u.groupId) { const g = G.getGroup(u.groupId); if (g) healBoost *= G.groupHealMult(g); }
+      if (healBoost > 1) { const shift = step * (healBoost - 1); for (const inj of u.injuries) inj.healsAt -= shift; }
       const remaining = u.injuries.filter(inj => inj.healsAt > G.state.time);
       const healedCount = u.injuries.length - remaining.length;
       if (healedCount > 0) {
         u.injuries = remaining;
         G.log(`✨ ${u.name} se uzdravil.`, 'social');
         u._injuriesHealed = (u._injuriesHealed || 0) + healedCount;
-        if (G.addJournal && u._injuriesHealed === 1) {
-          G.addJournal(u, 'Poprvé se uzdravil ze zranění.', '💪');
-        }
+        if (G.addJournal && u._injuriesHealed === 1) G.addJournal(u, 'Poprvé se uzdravil ze zranění.', '💪');
       }
     }
   };
@@ -145,7 +117,7 @@
     return { ok:true, cost };
   };
 
-  /* ---------- budovy v sídlech ---------- */
+  /* BUILDINGS */
   G.buildingsAt = function (settlementId) {
     if (!G.state.buildings) G.state.buildings = {};
     if (!G.state.buildings[settlementId]) G.state.buildings[settlementId] = {};
@@ -159,12 +131,12 @@
     return def ? def.effect(lvl) : null;
   };
   G.settlementBonuses = function (settlementId) {
-    const out = { sellMult:1, buyMult:1, craftQualityBonus:0, repairDiscount:0, restMult:1, stockMult:1, healMult:1, safetyMult:1, moodMult:1 };
+    const out = { sellMult:1, buyMult:1, craftQualityBonus:0, repairDiscount:0, restMult:1, stockMult:1, healMult:1, safetyMult:1, moodMult:1, smithingSpeed:1, herbalismSpeed:1, huntingSpeed:1, alchemySpeed:1, combatTraining:1, xpBonus:1, smithingQuality:0, huntingQuality:0, alchemyQuality:0, herbalismYield:0 };
     for (const bid in G.BUILDINGS) {
       const eff = G.buildingEffect(settlementId, bid);
       if (!eff) continue;
       for (const k in eff) {
-        if (k === 'craftQualityBonus' || k === 'repairDiscount') out[k] = (out[k] || 0) + eff[k];
+        if (k === 'craftQualityBonus' || k === 'repairDiscount' || k === 'smithingQuality' || k === 'huntingQuality' || k === 'alchemyQuality' || k === 'herbalismYield') out[k] = (out[k] || 0) + eff[k];
         else out[k] = (out[k] || 1) * eff[k];
       }
     }
@@ -197,13 +169,18 @@
     return { ok:true, level:b[buildingId] };
   };
 
-  /* ---------- vybavení ---------- */
+  /* EQUIPMENT */
   G.equipAdd = function (itemId, opts) {
     opts = opts || {};
     const def = G.EQUIPMENT[itemId]; if (!def) return null;
     if (!G.state.equipment) G.state.equipment = [];
     if (G.state.equipmentSeq == null) G.state.equipmentSeq = 1;
-    const item = { id:'eq'+(G.state.equipmentSeq++), itemId, durability: opts.durability != null ? opts.durability : def.durability };
+    const item = {
+      id:'eq'+(G.state.equipmentSeq++), itemId,
+      durability: opts.durability != null ? opts.durability : def.durability,
+      quality: opts.quality || 'common',
+      gems: []
+    };
     G.state.equipment.push(item);
     return item;
   };
@@ -220,22 +197,31 @@
   G.buyEquipment = function (settlementId, itemId) {
     const def = G.EQUIPMENT[itemId];
     if (!def) return { ok:false, reason:'Neznámý předmět.' };
+    if (def.legendary) return { ok:false, reason:'Legendární předmět nelze koupit.' };
     const b = G.settlementBonuses(settlementId);
     const srep = G.settlementRepMods(settlementId);
     const price = Math.max(1, Math.round(def.price * b.buyMult * srep.buyMult));
     if (G.state.resources.gold < price) return { ok:false, reason:`Potřebuješ ${price} zlata.` };
     G.state.resources.gold -= price;
     G.state.stats.goldSpent = (G.state.stats.goldSpent || 0) + price;
-    const item = G.equipAdd(itemId);
-    G.log(`🛒 Koupil jsi ${def.name} za ${price} zlata.`, 'economy');
+    // Kvalita nákupu podle sídla
+    let q = 'common';
+    const r = G.rand();
+    if (srep && srep.tier === 'spojenec' && r < 0.3) q = 'fine';
+    else if (r < 0.15) q = 'fine';
+    else if (r < 0.20) q = 'crude';
+    const item = G.equipAdd(itemId, { quality: q });
+    G.log(`🛒 Koupil jsi ${def.name} (${G.QUALITY_LABEL[q]}) za ${price} zlata.`, 'economy');
     return { ok:true, price, instance:item };
   };
   G.sellEquipment = function (instanceId) {
     const item = G.equipFind(instanceId);
     if (!item) return { ok:false, reason:'Předmět nenalezen.' };
     const def = G.EQUIPMENT[item.itemId];
+    if (def.legendary) return { ok:false, reason:'Legendární předměty nelze prodat.' };
     const durFrac = item.durability / def.durability;
-    const price = Math.max(1, Math.round(def.price * 0.4 * durFrac));
+    const qMult = G.QUALITY_MULT[item.quality || 'common'];
+    const price = Math.max(1, Math.round(def.price * 0.4 * durFrac * qMult));
     G.equipRemove(instanceId);
     G.state.resources.gold += price;
     G.log(`💰 Prodáno ${def.name} za ${price} zlata.`, 'economy');
@@ -266,11 +252,15 @@
   G.equipmentSkillBonus = function (unit, skillId) {
     if (!unit.equipment) return 0;
     let bonus = 0;
+    const qMult = 0.5;
     for (const slot in unit.equipment) {
       const item = unit.equipment[slot];
       if (!item || item.durability <= 0) continue;
       const def = G.EQUIPMENT[item.itemId];
-      if (def && def.mods && def.mods[skillId]) bonus += def.mods[skillId];
+      if (def && def.mods && def.mods[skillId]) {
+        const qualityBoost = 1 + (G.QUALITY_MULT[item.quality || 'common'] - 1) * qMult;
+        bonus += def.mods[skillId] * qualityBoost;
+      }
     }
     return bonus;
   };
@@ -292,7 +282,19 @@
       const item = unit.equipment[slot];
       if (!item || item.durability <= 0) continue;
       const def = G.EQUIPMENT[item.itemId];
-      if (def && def.combatBonus) b += def.combatBonus;
+      if (def && def.combatBonus) {
+        const qMult = G.QUALITY_MULT[item.quality || 'common'];
+        b += def.combatBonus * (0.7 + 0.3 * qMult);
+      }
+      if (def && def.defBonus) {
+        const qMult = G.QUALITY_MULT[item.quality || 'common'];
+        b += def.defBonus * 0.3 * qMult;
+      }
+    }
+    // Set bonusy
+    if (G.setBonusFor) {
+      const s = G.setBonusFor(unit);
+      if (s.bonuses.atk) b *= s.bonuses.atk;
     }
     return b;
   };
@@ -317,11 +319,11 @@
     if (!s) return [];
     const maxTier = s.size === 'city' ? 3 : s.size === 'town' ? 2 : 1;
     return Object.values(G.EQUIPMENT)
-      .filter(e => e.tier <= maxTier)
+      .filter(e => e.tier <= maxTier && !e.legendary)
       .sort((a, b) => a.tier - b.tier || a.price - b.price);
   };
 
-  /* ---------- povolání ---------- */
+  /* PROFESSIONS */
   let profTimer = 0;
   G.tickProfessions = function (dt) {
     profTimer += dt;
@@ -340,19 +342,13 @@
       const lvl = unit.skills[sid].level;
       if (lvl > bestLvl) { bestLvl = lvl; best = sid; }
     }
-    if (!best || bestLvl < G.PROFESSION_THRESHOLD) {
-      if (!unit.profession) unit.profession = 'adventurer';
-      return;
-    }
+    if (!best || bestLvl < G.PROFESSION_THRESHOLD) { if (!unit.profession) unit.profession = 'adventurer'; return; }
     const profId = G.SKILL_TO_PROFESSION[best];
     if (!profId) return;
     if (unit.profession !== profId) {
       const np = G.PROFESSIONS[profId];
       unit.profession = profId;
-      if (np) {
-        G.log(`🎖️ ${unit.name} se stal ${np.name}.`, 'social');
-        if (G.addJournal) G.addJournal(unit, `Stal se ${np.name}.`, np.icon);
-      }
+      if (np) { G.log(`🎖️ ${unit.name} se stal ${np.name}.`, 'social'); if (G.addJournal) G.addJournal(unit, `Stal se ${np.name}.`, np.icon); }
     }
   };
   G.professionOf = function (unit) {
@@ -368,21 +364,11 @@
     return 1;
   };
 
-  /* ---------- perky ---------- */
-  G.perksOf = function (unit, skillId) {
-    if (!unit.perks) unit.perks = {};
-    if (!unit.perks[skillId]) unit.perks[skillId] = {};
-    return unit.perks[skillId];
-  };
+  /* PERKS */
+  G.perksOf = function (unit, skillId) { if (!unit.perks) unit.perks = {}; if (!unit.perks[skillId]) unit.perks[skillId] = {}; return unit.perks[skillId]; };
   G.perkAt = function (unit, skillId, level) { return G.perksOf(unit, skillId)[level] || null; };
-  G.perkChoices = function (unit, skillId, level) {
-    const table = G.PERKS[skillId]; if (!table) return [];
-    return table[level] || [];
-  };
-  G.canPickPerk = function (unit, skillId, level) {
-    if (G.unitSkill(unit, skillId) < level) return false;
-    return !G.perkAt(unit, skillId, level);
-  };
+  G.perkChoices = function (unit, skillId, level) { const table = G.PERKS[skillId]; if (!table) return []; return table[level] || []; };
+  G.canPickPerk = function (unit, skillId, level) { if (G.unitSkill(unit, skillId) < level) return false; return !G.perkAt(unit, skillId, level); };
   G.pickPerk = function (unitId, skillId, level, perkId) {
     const u = G.getUnit(unitId);
     if (!u) return { ok:false, reason:'Postava nenalezena.' };
@@ -433,31 +419,22 @@
   G.perkSafetyMult = function (unit, skillId) { return G.perkEffects(unit, skillId).safety; };
   G.perkCombatMult = function (unit) {
     let m = 1;
-    for (const sid in G.SKILLS) {
-      const eff = G.perkEffects(unit, sid);
-      if (eff.combat !== 1) m *= eff.combat;
-    }
+    for (const sid in G.SKILLS) { const eff = G.perkEffects(unit, sid); if (eff.combat !== 1) m *= eff.combat; }
     return m;
   };
   G.perkStaminaMult = function (unit, skillId) { return G.perkEffects(unit, skillId).stamina; };
   G.perkExtraOutput = function (unit, skillId) { return G.perkEffects(unit, skillId).extraOutput; };
   G.perkCraftBatch = function (unit, skillId) { return G.perkEffects(unit, skillId).craftBatch; };
 
-  /* ---------- učednictví ---------- */
+  /* MENTORSHIP */
   G.MENTOR_MIN_DIFF = 8;
   G.MENTOR_XP_BONUS = 0.80;
   G.MENTOR_WORK_BONUS = 0.10;
   G.MENTOR_SPEED_PENALTY = 0.75;
-  G.mentorOf = function (unit) {
-    if (!unit.mentorId) return null;
-    const m = G.getUnit(unit.mentorId);
-    if (!m) { unit.mentorId = null; return null; }
-    return m;
-  };
+  G.mentorOf = function (unit) { if (!unit.mentorId) return null; const m = G.getUnit(unit.mentorId); if (!m) { unit.mentorId = null; return null; } return m; };
   G.isTraining = function (unit) {
     if (!unit.mentorId) return false;
-    const m = G.getUnit(unit.mentorId);
-    if (!m) return false;
+    const m = G.getUnit(unit.mentorId); if (!m) return false;
     if (!unit.assignedTaskId || !m.assignedTaskId) return false;
     return unit.assignedTaskId === m.assignedTaskId;
   };
@@ -475,21 +452,9 @@
     G.log(`🎓 ${m.name} učí ${a.name} — ${G.SKILLS[bestSkill].name}.`, 'social');
     return { ok:true, skill:bestSkill };
   };
-  G.clearMentor = function (apprenticeId) {
-    const a = G.getUnit(apprenticeId);
-    if (!a) return;
-    a.mentorId = null; a.mentorSkill = null;
-  };
-  G.trainingXpMult = function (unit, skillId) {
-    if (!G.isTraining(unit)) return 1;
-    if (unit.mentorSkill !== skillId) return 1;
-    return 1 + G.MENTOR_XP_BONUS;
-  };
-  G.trainingWorkMult = function (unit, skillId) {
-    if (!G.isTraining(unit)) return 1;
-    if (unit.mentorSkill !== skillId) return 1;
-    return 1 + G.MENTOR_WORK_BONUS;
-  };
+  G.clearMentor = function (apprenticeId) { const a = G.getUnit(apprenticeId); if (!a) return; a.mentorId = null; a.mentorSkill = null; };
+  G.trainingXpMult = function (unit, skillId) { if (!G.isTraining(unit)) return 1; if (unit.mentorSkill !== skillId) return 1; return 1 + G.MENTOR_XP_BONUS; };
+  G.trainingWorkMult = function (unit, skillId) { if (!G.isTraining(unit)) return 1; if (unit.mentorSkill !== skillId) return 1; return 1 + G.MENTOR_WORK_BONUS; };
   G.mentorWorkMult = function (unit, skillId) {
     if (!unit.id) return 1;
     for (const a of G.state.units) {
