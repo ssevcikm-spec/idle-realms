@@ -129,7 +129,7 @@
     /* Fáze 8: equip achievements */
     { id:'legendary_1', name:'Legendární nález', icon:'✨', desc:'Získej svou první legendárku.', reward:{gold:500,renown:15}, check:(s)=>hasLegendary(s) },
     { id:'set_2', name:'Polovina setu', icon:'🎽', desc:'Aktivuj 2-kusový set bonus.', reward:{gold:200,renown:6}, check:(s)=>activeSetCount(s, 2) },
-    { id:'set_3', name:'Kompletní set', icon:'👑', desc:'Aktivuj 3-kusový set bonus.', reward:{gold:1500,renown:30}, check:(s)=>activeSetCount(s, 3) },
+    { id:'set_5', name:'Kompletní set', icon:'👑', desc:'Aktivuj 5-kusový set bonus.', reward:{gold:1500,renown:30}, check:(s)=>activeSetCount(s, 5) },
     { id:'gem_1', name:'Klenotník', icon:'💎', desc:'Vlož první gem do výbavy.', reward:{gold:200,renown:6}, check:(s)=>hasGem(s) },
     { id:'forge_legendary', name:'Mistr výhně', icon:'🔥', desc:'Postav Legendární výheň na základně.', reward:{gold:800,renown:20}, check:(s)=>hasLegendaryForge(s) }
   ];

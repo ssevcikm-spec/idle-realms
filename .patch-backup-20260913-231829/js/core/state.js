@@ -43,7 +43,7 @@
         merchantTrades: 0, merchantGoldEarned: 0,
         dragonsKilled: 0, ambitionsDone: 0,
         deaths: 0, births: 0, desertions: 0, resurrections: 0,
-        abilitiesUsed: 0, electionsWon: 0, bossesKilled: 0, bossesKilled: 0,
+        abilitiesUsed: 0, electionsWon: 0, bossesKilled: 0,
         expeditions: 0, expeditionSuccesses: 0, namedMasterworks: 0,
         prestiges: 0
       }
@@ -105,14 +105,6 @@
      'electionsWon','expeditions','expeditionSuccesses','namedMasterworks','prestiges']
       .forEach(k => save.stats[k] = save.stats[k] || 0);
     save.stats.settlementsVisited = save.stats.settlementsVisited || [];
-    save.units = save.units || [];
-    save.settings = save.settings || { difficulty: 'normal', tutorial: false };
-    save.tutorial = save.tutorial || { active: false, stepIdx: 99, completed: [] };
-    save.killCounts = save.killCounts || { beast: 0, humanoid: 0, monster: 0 };
-    if (save.victoryReached == null) save.victoryReached = false;
-    if (save.defeatReached == null) save.defeatReached = false;
-    save.chapterHistory = save.chapterHistory || [];
-    save.stats.bossesKilled = save.stats.bossesKilled || 0;
     save.units = save.units || [];
     save.settings = save.settings || { difficulty: 'normal', tutorial: false };
     save.tutorial = save.tutorial || { active: false, stepIdx: 99, completed: [] };

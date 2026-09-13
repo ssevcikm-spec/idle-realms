@@ -19,8 +19,7 @@
   };
 
   function frame(ts) {
-    const speedMult = G.debugSpeed ? G.debugSpeed() : 1;
-    const real = Math.min(0.25, (ts - lastTs) / 1000 || 0) * speedMult;
+    const real = Math.min(0.25, (ts - lastTs) / 1000 || 0);
     lastTs = ts;
     if (!paused) {
       acc += real;
@@ -44,8 +43,6 @@
     if (G.tickAchievements) G.tickAchievements(dt);
     if (G.tickPolitics) G.tickPolitics(dt);
     G.tickAutonomy(dt);
-    if (G.tickTutorial) G.tickTutorial(dt);
-    if (G.tickEndgame) G.tickEndgame(dt);
     if (G.tickStory) G.tickStory(dt);
     if (G.tickAging) G.tickAging(dt);
     G.tickEvents(dt);

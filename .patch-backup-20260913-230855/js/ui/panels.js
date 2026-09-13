@@ -55,25 +55,9 @@
     return `<div class="activity-dash"><div class="panel-title">👥 Aktivity</div><div class="activity-chips">${chips}</div></div>`;
   }
 
-  function tutorialBanner() {
-    if (!G.tutorialCurrentStep) return '';
-    const step = G.tutorialCurrentStep();
-    if (!step) return '';
-    const hint = step.hint ? step.hint(G.state) : '';
-    return `<div class="tutorial-banner">
-      <span class="tut-icon">${step.icon}</span>
-      <div class="tut-main">
-        <div class="tut-title">📘 Úkol: ${G.esc(step.title)}</div>
-        <div class="tut-text">${G.esc(step.text)}</div>
-        <div class="tut-hint">${G.esc(hint)}</div>
-      </div>
-      <button class="tut-skip" data-action="skip-tutorial" title="Přeskočit">⏭</button>
-    </div>`;
-  }
-
   G.panelPlace = function () {
     const sel = G.state.selected;
-    let html = tutorialBanner() + renderDirectives() + renderActivityDashboard();
+    let html = renderDirectives() + renderActivityDashboard();
     if (!sel) { html += panelNoSelection(); return html; }
     if (sel.type === 'node') return html + panelNode(sel.id);
     if (sel.type === 'settlement') return html + G.panelTrade(sel.id);

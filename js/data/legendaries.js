@@ -1,10 +1,6 @@
 (function () {
   const G = window.Game;
 
-  /**
-   * Legendární předměty — padají z bossů s nízkou šancí.
-   * Mají vlastní jméno, vyšší staty a někdy unikátní efekt.
-   */
   G.LEGENDARIES = {
     treant_heart: {
       id:'treant_heart', name:'Srdce prastarého enta', icon:'💚', slot:'armor', tier:4,
@@ -27,7 +23,7 @@
     colossus_core: {
       id:'colossus_core', name:'Jádro kolosu', icon:'🗿', slot:'armor', tier:4,
       durability:900, setId:'warrior_plate', combatBonus:12, defBonus:24, staminaDrain:1.05,
-      mods:{ mining:0.35 }, unique:'Imunní vůči omráčení',
+      mods:{ mining:0.35 }, unique:'Imunitní vůči omráčení',
       effect:{ stunImmune:true }
     },
     witch_charm: {
@@ -44,15 +40,12 @@
     }
   };
 
-  /** Zkusí drop legendárky z bosse (5% šance, nebo 15% u elite bosse). */
-  G.rollLegendaryDrop = function (bossTemplateId) {
-    const chance = 0.05;
+  G.rollLegendaryDrop = function (bossTemplateId, bonus) {
+    bonus = bonus || 0;
+    const baseChance = 0.05;
+    const chance = Math.min(0.5, baseChance * (1 + bonus));
     if (!G.chance(chance)) return null;
-    // Vyber legendárku asociovanou s bossem, jinak náhodnou
-    const boss = G.ENEMIES[bossTemplateId];
     const pool = Object.values(G.LEGENDARIES);
-    // Priorita: legendárky se stejným setId jako má boss region? Zjednodušíme — náhodně.
-    const chosen = G.pick(pool);
-    return chosen;
+    return G.pick(pool);
   };
 })();

@@ -13,8 +13,7 @@
     const partyPower = party.reduce((s, u) => s + G.unitCombatPower(u), 0);
     let enemy, count, isBoss = false;
     const danger = G.nodeDanger(node.kind);
-    const bossChance = danger >= 3 ? G.BOSS_SPAWN_CHANCE : (danger >= 2 ? G.BOSS_SPAWN_CHANCE * 0.5 : 0);
-    if (!opts.noBoss && bossChance > 0 && G.chance(bossChance)) {
+    if (!opts.noBoss && danger >= 3 && G.chance(G.BOSS_SPAWN_CHANCE)) {
       const boss = G.pickBossFor(node.kind);
       if (boss) { enemy = boss; count = 1; isBoss = true; G.log(`⚠️ ${boss.icon} ${boss.name} se vynořil z temnoty!`, 'combat'); }
     }
@@ -245,11 +244,8 @@
       }
       case 'summon': {
         const minionTpl = G.ENEMIES[eff.enemyId]; if (!minionTpl) break;
-        const aliveCount = cb.enemy.filter(e => e.alive).length;
-        const room = Math.max(0, 8 - aliveCount);
-        const want = Math.min(eff.count || 1, room);
         let summoned = 0;
-        for (let i = 0; i < want; i++) { const minion = G.createEnemyInstance(minionTpl, cb.enemy.length + i, 1, false); cb.enemy.push(minion); summoned++; }
+        for (let i = 0; i < (eff.count || 1); i++) { const minion = G.createEnemyInstance(minionTpl, cb.enemy.length + i, 1, false); cb.enemy.push(minion); summoned++; }
         if (summoned > 0) log.push(`${def.icon} ${enemy.name} — ${def.name}: přivoláno ${summoned}× ${minionTpl.name}`);
         break;
       }
@@ -334,9 +330,10 @@
       }
       // Legendary drop z bosse
       if (cb.isBoss && G.rollLegendaryDrop) {
-        const bonus = G.legendaryDropBonus ? G.legendaryDropBonus() : 0;
-        const legend = G.rollLegendaryDrop(cb.enemyTemplate, bonus);
-        if (legend) {
+        let chanceBoost = 1;
+        if (G.legendaryDropBonus) chanceBoost += G.legendaryDropBonus();
+        const legend = G.rollLegendaryDrop(cb.enemyTemplate);
+        if (legend && (chanceBoost > 1 ? true : G.chance(1))) {
           const item = G.equipAdd(legend.id, { quality: 'superior' });
           if (item) {
             G.state.equipment.push(item);
@@ -347,24 +344,6 @@
       }
       cb.dropList = dropList;
       if (cb.enemyTemplate === 'drake') G.state.stats.dragonsKilled = (G.state.stats.dragonsKilled || 0) + 1;
-      const tplQ = G.ENEMIES[cb.enemyTemplate];
-      if (tplQ && G.recordKill) {
-        const beastIds = ['rat','slime','boar','wolf','spider','bat','bear','werewolf','scorpion','harpy','serpent'];
-        const humanIds = ['bandit','orc','goblin','bandit_leader','warlord','minotaur'];
-        let killType = 'monster';
-        if (beastIds.includes(tplQ.id)) killType = 'beast';
-        else if (humanIds.includes(tplQ.id)) killType = 'humanoid';
-        G.recordKill(killType, 1);
-      }
-      const tplQ = G.ENEMIES[cb.enemyTemplate];
-      if (tplQ && G.recordKill) {
-        const beastIds = ['rat','slime','boar','wolf','spider','bat','bear','werewolf','scorpion','harpy','serpent'];
-        const humanIds = ['bandit','orc','goblin','bandit_leader','warlord','minotaur'];
-        let killType = 'monster';
-        if (beastIds.includes(tplQ.id)) killType = 'beast';
-        else if (humanIds.includes(tplQ.id)) killType = 'humanoid';
-        G.recordKill(killType, 1);
-      }
       if (cb.isBoss) {
         G.state.stats.bossesKilled = (G.state.stats.bossesKilled || 0) + 1;
         G.log(`🏆 Poražen boss: ${template.name}!`, 'combat');

@@ -178,10 +178,6 @@
   G.availableForExpedition = function () {
     const busy = new Set();
     for (const e of (G.state.expeditions || [])) for (const id of e.unitIds) busy.add(id);
-    return G.state.units.filter(u => u && !u.dead && !u.isChild
-      && !busy.has(u.id)
-      && !u.resting
-      && !u.onExpedition
-      && !(u.merchantState && u.merchantState.active));
+    return G.state.units.filter(u => u && !u.dead && !u.isChild && !busy.has(id => busy.has(u.id)) && !busy.has(u.id));
   };
 })();

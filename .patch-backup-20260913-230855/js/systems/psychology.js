@@ -151,12 +151,9 @@
     u.merchantRoute = null;
     u.role = null;
     u.deserted = true;
-    u.dead = true;
+    u.dead = true;               // používáme stejnou logiku odstranění
     u.desertedAt = G.state.time;
     u.deathTime = G.state.time;
-    u.deathAge = G.unitAge ? G.unitAge(u) : 0;
-    u.deathReason = 'dezertoval';
-    if (G.state.stats) G.state.stats.deaths = (G.state.stats.deaths || 0) + 1;
     // ostatní truchlí mírně
     for (const other of G.state.units) {
       if (other.id === u.id || other.dead) continue;

@@ -121,14 +121,6 @@
         if (def && def.effect && def.effect.xpBonus) amount *= (1 + def.effect.xpBonus / 100);
       }
     }
-    if (unit.equipment) {
-      for (const slot in unit.equipment) {
-        const it = unit.equipment[slot];
-        if (!it) continue;
-        const def = G.EQUIPMENT[it.itemId];
-        if (def && def.effect && def.effect.xpBonus) amount *= (1 + def.effect.xpBonus / 100);
-      }
-    }
     unit.xp += amount; let leveled = false;
     while (unit.xp >= G.unitXpForLevel(unit.level)) {
       unit.xp -= G.unitXpForLevel(unit.level); unit.level++;
@@ -196,12 +188,6 @@
       }
     }
     return best;
-  };
-
-  G.recordKill = function (killType, count) {
-    if (!G.state.killCounts) G.state.killCounts = { beast: 0, humanoid: 0, monster: 0 };
-    if (!G.state.killCounts[killType]) G.state.killCounts[killType] = 0;
-    G.state.killCounts[killType] += (count || 1);
   };
 
   G.recordKill = function (killType, count) {

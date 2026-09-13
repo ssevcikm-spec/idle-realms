@@ -95,16 +95,11 @@
     mine:        ['orc','golem','bat','goblin','animated_armor'],
     cave:        ['bat','golem','drake','basilisk','wraith','demon','lich'],
     marsh:       ['serpent','wisp','bandit','mud_golem','scorpion','hydra'],
-    mountain:    ['troll','minotaur','orc','harpy','golem'],
     lake:        ['serpent','wisp']
   };
 
   G.BOSS_TABLE = {
     forest:      ['ancient_treant'],
-    grove:       ['ancient_treant'],
-    meadow:      ['ancient_treant'],
-    grove:       ['ancient_treant'],
-    meadow:      ['ancient_treant'],
     deep_forest: ['alpha_werewolf'],
     hills:       ['warlord'],
     mountain:    ['colossus'],

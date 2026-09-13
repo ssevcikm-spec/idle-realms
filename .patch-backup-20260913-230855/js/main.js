@@ -55,43 +55,7 @@
         setTimeout(() => G.log(`💤 Offline ${formatDuration(sim)} — postavy pracovaly dál.`, 'info'), 150);
       }
       G.log('💾 Načteno. Vítej zpět!', 'info');
-    } else {
-      if (!saved) {
-        G.state = G.newState();
-        G.state.worldSeed = seed;
-        if (G.showDifficultyModal) {
-          G.showDifficultyModal(function (diffId) {
-            newGame(diffId);
-            G.initWorld(document.getElementById('world'));
-            G.initUI();
-            G.initDebug();
-            G.startLoop();
-            window.addEventListener('beforeunload', () => G.save());
-            document.addEventListener('visibilitychange', () => { if (document.hidden) G.save(); });
-          });
-          return;
-        }
-        newGame('normal');
-      } else {
-      if (!saved) {
-        G.state = G.newState();
-        G.state.worldSeed = seed;
-        if (G.showDifficultyModal) {
-          G.showDifficultyModal(function (diffId) {
-            newGame(diffId);
-            G.initWorld(document.getElementById('world'));
-            G.initUI();
-            G.initDebug();
-            G.startLoop();
-            window.addEventListener('beforeunload', () => G.save());
-            document.addEventListener('visibilitychange', () => { if (document.hidden) G.save(); });
-          });
-          return;
-        }
-        newGame('normal');
-      } else newGame();
-    }
-    }
+    } else newGame();
 
     G.initWorld(document.getElementById('world'));
     G.initUI();
@@ -144,14 +108,9 @@
     s.selected = s.selected || null;
   }
 
-  function newGame(diffId) {
+  function newGame() {
     G.state = G.newState();
     G.state.worldSeed = G.WORLD_SEED;
-    if (diffId) G.setDifficulty(diffId);
-    else if (!G.state.settings.difficulty) G.setDifficulty('normal');
-    const diff = G.currentDifficulty();
-    G.state.settings.tutorial = true;
-    G.state.tutorial = { active: true, stepIdx: 0, completed: [] };
     const a = G.createUnit('Aldo');
     const b = G.createUnit('Bram');
     const c = G.createUnit('Cira');
@@ -170,14 +129,7 @@
     const g = G.createGroup('Dobrodruzi');
     g.memberIds = [a.id, b.id, c.id];
     a.groupId = b.groupId = c.groupId = g.id;
-    G.state.resources.gold = diff.startGold;
-    const extraUnits = Math.max(0, (diff.startUnits || 3) - 3);
-    for (let i = 0; i < extraUnits; i++) {
-      const ue = G.createUnit();
-      const stx = G.WORLD.settlementById['svitavy'];
-      if (stx) ue.pos = { x: stx.x + 0.5 + (G.rand() - 0.5) * 2, y: stx.y + 0.5 + (G.rand() - 0.5) * 2 };
-      G.state.units.push(ue);
-    }
+    G.state.resources.gold = 40;
     G.initEconomy();
     if (G.ensurePolitics) G.ensurePolitics();
     if (G.ensureDynasty) G.ensureDynasty();
@@ -186,8 +138,7 @@
       G.spawnCaravanNow('kralov', 'svitavy', 'royal');
       G.spawnCaravanNow('kamenice', 'kralov', 'trade');
     }
-    G.log(`🌟 Vítej ve Idle Realm! Obtížnost: ${diff.icon} ${diff.name}.`, 'story');
-    G.log('📘 Sleduj úkol v panelu Místo — tutoriál tě provede začátkem.', 'story');
+    G.log('🌟 Vítej ve Idle Realm!', 'story');
     G.log('🌍 Prestiž ti jednou otevře nový svět (novou mapu).', 'info');
     G.log('📖 Každá postava má vlastní deník — podívej se do karty postavy.', 'info');
   }

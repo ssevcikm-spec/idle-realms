@@ -219,7 +219,6 @@
     G.log(`🏕️ Odemknuta tvá základna! (${G.BASE_POS.x}, ${G.BASE_POS.y}).`, 'work');
     return true;
   };
-
   G.legendaryDropBonus = function () {
     const lvl = G.baseBuildingLevel ? G.baseBuildingLevel('legendary_forge') : 0;
     return lvl * 0.05;

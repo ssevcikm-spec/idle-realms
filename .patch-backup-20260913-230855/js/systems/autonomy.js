@@ -219,15 +219,6 @@
     G.log(`🏕️ Odemknuta tvá základna! (${G.BASE_POS.x}, ${G.BASE_POS.y}).`, 'work');
     return true;
   };
-
-  G.legendaryDropBonus = function () {
-    const lvl = G.baseBuildingLevel ? G.baseBuildingLevel('legendary_forge') : 0;
-    return lvl * 0.05;
-  };
-
-  let gemTimer = 0;
-  const GEM_INTERVAL = 300;
-
   let baseTimer = 0;
   const BASE_INTERVAL = 2;
   G.tickBase = function (dt) {
@@ -249,17 +240,6 @@
         G.matAdd(def.produces, whole, q);
         G.state.base.accum[bid] = accum - whole;
       } else G.state.base.accum[bid] = accum;
-    }
-    const gemLvl = G.baseBuildingLevel ? G.baseBuildingLevel('gem_smithy') : 0;
-    if (gemLvl > 0) {
-      gemTimer += step;
-      if (gemTimer >= GEM_INTERVAL / gemLvl) {
-        gemTimer = 0;
-        const gemIds = Object.keys(G.GEMS);
-        const gid = gemIds[G.randInt(0, gemIds.length - 1)];
-        G.matAdd('gem_' + gid, 1, 'common');
-        G.log(`💎 Gemmová dílna vyrobila ${G.GEMS[gid].icon} ${G.GEMS[gid].name}.`, 'work');
-      }
     }
   };
   G.baseProductionSummary = function () {

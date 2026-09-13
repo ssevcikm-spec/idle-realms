@@ -111,6 +111,7 @@
     g.memberIds = units.map(u => u.id);
     units.forEach(u => u.groupId = g.id);
 
+    G.state.resources.gold = 40 + G.prestigeStartGold() - 40;
     G.state.resources.gold = G.prestigeStartGold();
     G.initEconomy();
     if (G.ensurePolitics) G.ensurePolitics();
