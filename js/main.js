@@ -56,41 +56,21 @@
       }
       G.log('💾 Načteno. Vítej zpět!', 'info');
     } else {
-      if (!saved) {
-        G.state = G.newState();
-        G.state.worldSeed = seed;
-        if (G.showDifficultyModal) {
-          G.showDifficultyModal(function (diffId) {
-            newGame(diffId);
-            G.initWorld(document.getElementById('world'));
-            G.initUI();
-            G.initDebug();
-            G.startLoop();
-            window.addEventListener('beforeunload', () => G.save());
-            document.addEventListener('visibilitychange', () => { if (document.hidden) G.save(); });
-          });
-          return;
-        }
-        newGame('normal');
-      } else {
-      if (!saved) {
-        G.state = G.newState();
-        G.state.worldSeed = seed;
-        if (G.showDifficultyModal) {
-          G.showDifficultyModal(function (diffId) {
-            newGame(diffId);
-            G.initWorld(document.getElementById('world'));
-            G.initUI();
-            G.initDebug();
-            G.startLoop();
-            window.addEventListener('beforeunload', () => G.save());
-            document.addEventListener('visibilitychange', () => { if (document.hidden) G.save(); });
-          });
-          return;
-        }
-        newGame('normal');
-      } else newGame();
-    }
+      G.state = G.newState();
+      G.state.worldSeed = seed;
+      if (G.showDifficultyModal) {
+        G.showDifficultyModal(function (diffId) {
+          newGame(diffId);
+          G.initWorld(document.getElementById('world'));
+          G.initUI();
+          G.initDebug();
+          G.startLoop();
+          window.addEventListener('beforeunload', () => G.save());
+          document.addEventListener('visibilitychange', () => { if (document.hidden) G.save(); });
+        });
+        return;
+      }
+      newGame('normal');
     }
 
     G.initWorld(document.getElementById('world'));

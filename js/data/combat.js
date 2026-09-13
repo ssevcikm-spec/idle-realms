@@ -103,8 +103,6 @@
     forest:      ['ancient_treant'],
     grove:       ['ancient_treant'],
     meadow:      ['ancient_treant'],
-    grove:       ['ancient_treant'],
-    meadow:      ['ancient_treant'],
     deep_forest: ['alpha_werewolf'],
     hills:       ['warlord'],
     mountain:    ['colossus'],

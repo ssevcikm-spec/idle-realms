@@ -356,15 +356,6 @@
         else if (humanIds.includes(tplQ.id)) killType = 'humanoid';
         G.recordKill(killType, 1);
       }
-      const tplQ = G.ENEMIES[cb.enemyTemplate];
-      if (tplQ && G.recordKill) {
-        const beastIds = ['rat','slime','boar','wolf','spider','bat','bear','werewolf','scorpion','harpy','serpent'];
-        const humanIds = ['bandit','orc','goblin','bandit_leader','warlord','minotaur'];
-        let killType = 'monster';
-        if (beastIds.includes(tplQ.id)) killType = 'beast';
-        else if (humanIds.includes(tplQ.id)) killType = 'humanoid';
-        G.recordKill(killType, 1);
-      }
       if (cb.isBoss) {
         G.state.stats.bossesKilled = (G.state.stats.bossesKilled || 0) + 1;
         G.log(`🏆 Poražen boss: ${template.name}!`, 'combat');
