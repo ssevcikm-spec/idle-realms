@@ -798,7 +798,7 @@ input:focus, select:focus, textarea:focus { border-color: #a8813a; }
 }
 .dbg-btn:hover { background: #2e2b25; }
 .dbg-btn.active { background: #6d5423; color: #f5eeda; border-color: #8b6c2e; }
-.dbg-danger { background: #6
+.dbg-danger { background: linear-gradient(180deg, #8c3b2f, #6d2c23); color: #f5eeda; border-color: #8b6c2e; }
 
 /* === TUTORIÁL === */
 .tutorial-banner {

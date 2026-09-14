@@ -52,7 +52,8 @@
   };
 
   G.simulateOffline = function (elapsedSeconds) {
-    const total = Math.min(elapsedSeconds, OFFLINE_CAP_S);
+    const cap = (G.currentDifficulty ? G.currentDifficulty().offlineCap : OFFLINE_CAP_S);
+    const total = Math.min(elapsedSeconds, cap);
     let remaining = total;
     G.simulating = true;
     let guard = 0;

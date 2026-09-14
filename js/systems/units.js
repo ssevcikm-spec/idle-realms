@@ -91,6 +91,7 @@
     if (G.legacyXpMult) mult *= G.legacyXpMult(unit);
     if (G.timeXpMod) mult *= G.timeXpMod();
     if (G.unlockXpMult) mult *= G.unlockXpMult();
+    if (G.currentDifficulty) mult *= G.currentDifficulty().xpMult;
     amount *= mult;
     if (amount <= 0) return;
     if (!unit.skills[sid]) unit.skills[sid] = { xp:0, level:1 };

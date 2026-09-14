@@ -103,7 +103,7 @@
     ['totalWork','tasksDone','goldEarned','goldSpent','injuries','masterworks','combatsWon','combatsLost',
      'questsCompleted','merchantTrades','merchantGoldEarned','dragonsKilled','totalWood','totalStone',
      'totalIronOre','ambitionsDone','deaths','births','desertions','resurrections','abilitiesUsed',
-     'electionsWon','expeditions','expeditionSuccesses','namedMasterworks','prestiges']
+     'electionsWon','bossesKilled','expeditions','expeditionSuccesses','namedMasterworks','prestiges']
       .forEach(k => s.stats[k] = s.stats[k] || 0);
     s.stats.settlementsVisited = s.stats.settlementsVisited || [];
     s.economy = s.economy || {};

@@ -22,3 +22,7 @@ coverage/
 .env.*
 !.env.example
 .cleanup-backup-*/
+
+# === Zálohy z patch skriptů ===
+.patch-backup-*/
+.fixv2-backup-*/

@@ -383,7 +383,8 @@
         const u = G.getUnit(a.unitId);
         if (!u || u.dead) continue;
         if (a.hp <= 0) {
-          if (G.chance(0.12) && !u._resurrected) G.die(u, 'padl v boji');
+          const deathChance = (G.currentDifficulty ? G.currentDifficulty().combatDeathChance : 0.12);
+          if (G.chance(deathChance) && !u._resurrected) G.die(u, 'padl v boji');
           else { G.addInjury(u, G.rollInjury(3)); u.stamina = Math.max(0, u.stamina - 30); u.mood = Math.max(0, u.mood - 15); }
         } else { u.stamina = Math.max(0, u.stamina - 15); G.addMood(u, -8); }
         if (G.driftPersonalityCombat) G.driftPersonalityCombat(u, false);
