@@ -26,3 +26,4 @@ coverage/
 # === Zálohy z patch skriptů ===
 .patch-backup-*/
 .fixv2-backup-*/
+.fixv3-backup-*/
