@@ -6,6 +6,11 @@
    * Každý unlock se buď aplikuje při startu nové hry, nebo mění parametry světa.
    */
   G.UNLOCKS = {
+    new_region: {
+      id: 'new_region', name: 'Nové území', icon: '🗺️',
+      desc: 'Odemkne 5. region světa (Zapomenutý ostrov).',
+      kind: 'world'
+    },
     start_gold: {
       id: 'start_gold', name: 'Bohatá pokladna', icon: '💰',
       desc: 'Každá nová hra začíná s +250 zlata navíc.',
@@ -71,8 +76,6 @@
         const u = G.createUnit();
         applyStartUnitBoost(u, unlocks);
         G.state.units.push(u);
-        const g = G.state.groups.find(x => x.name === 'Dobrodruzi');
-        if (g) G.addUnitToGroup(u.id, g.id);
       }
     }
     if (unlocks.includes('master_tools')) {

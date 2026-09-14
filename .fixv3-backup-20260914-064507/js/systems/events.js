@@ -194,8 +194,7 @@
     weTimer += dt;
     if (weTimer < weNextIn) return;
     weTimer = 0;
-    const weDurMult = G.unlockEventDurationMult ? G.unlockEventDurationMult() : 1;
-    weNextIn = (G.WORLD_EVENT_INTERVAL[0] + G.rand() * (G.WORLD_EVENT_INTERVAL[1] - G.WORLD_EVENT_INTERVAL[0])) / weDurMult;
+    weNextIn = G.WORLD_EVENT_INTERVAL[0] + G.rand() * (G.WORLD_EVENT_INTERVAL[1] - G.WORLD_EVENT_INTERVAL[0]);
     if (G.state.worldEvents.length >= G.WORLD_EVENT_MAX) return;
     if (G.simulating) return;
     startRandomWorldEvent();
@@ -212,15 +211,10 @@
     if (!pool.length) return;
     startWorldEvent(pool[G.randInt(0, pool.length - 1)]);
   }
-  G.startEvent = function (templateId, force) {
+  G.startEvent = function (templateId) {
     const tpl = G.WORLD_EVENTS[templateId]; if (!tpl) return null;
+    const ev = { id:'we'+(weSeq++), templateId, startedAt: G.state.time, endsAt: G.state.time + tpl.duration };
     if (!G.state.worldEvents) G.state.worldEvents = [];
-    if (!force) {
-      if (G.state.worldEvents.some(e => e.templateId === templateId)) return null;
-      if (G.state.worldEvents.length >= G.WORLD_EVENT_MAX) return null;
-    }
-    const evMult = G.unlockEventDurationMult ? G.unlockEventDurationMult() : 1;
-    const ev = { id:'we'+(weSeq++), templateId, startedAt: G.state.time, endsAt: G.state.time + tpl.duration * evMult };
     G.state.worldEvents.push(ev);
     G.log(`${tpl.icon} Světová událost: ${tpl.name} — ${tpl.desc}`);
     return ev;
@@ -303,8 +297,6 @@
     if (!q || q.status !== 'available') return { ok:false, reason:'Zakázka není dostupná.' };
     if (G.activeQuestCount() >= G.MAX_ACTIVE_QUESTS) return { ok:false, reason:`Max ${G.MAX_ACTIVE_QUESTS} aktivních.` };
     q.status = 'active'; q.acceptedAt = G.state.time; q.expiresAt = G.state.time + q.deadline;
-    q.killCountAtAccept = (G.state.killCounts && G.state.killCounts[q.killType]) || 0;
-    q.visitedAtAccept = (G.state.stats.settlementsVisited || []).length;
     G.log(`📜 Přijata zakázka: ${q.text}`);
     return { ok:true };
   };

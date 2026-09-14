@@ -97,7 +97,6 @@
     if (!r.workshop) return { unit: null, workshop: null };
     let best = null, bestLvl = 0;
     for (const u of G.state.units) {
-      if (u.dead || u.isChild || u.resting || u.onExpedition) continue;
       if (u.merchantState && u.merchantState.active) continue;
       const lvl = G.unitSkill(u, r.skill);
       if (lvl < (r.reqLevel || 1)) continue;

@@ -276,8 +276,7 @@
   function deadCardHtml(u) {
     const ageStr = u.deathAge ? `${Math.round(u.deathAge)} let` : '?';
     const reason = u.deserted ? 'dezertoval' : (u.deathReason || 'neznámý');
-    const perma = G.currentDifficulty && G.currentDifficulty().permaDeath;
-    const canRes = !u.deserted && !perma && G.matCount('potion') >= 3 && G.state.resources.gold >= G.resurrectCost();
+    const canRes = !u.deserted && G.matCount('potion') >= 3 && G.state.resources.gold >= G.resurrectCost();
     return `<div class="unit-card dead-card">
       <div class="unit-head"><div class="unit-color" style="background:#3a362c"></div><div class="unit-name">⚰️ ${esc(u.name)}</div><div class="unit-lvl">${esc(ageStr)}</div></div>
       <div class="unit-task">Zemřel: ${esc(reason)}${u.generation ? ` • generace ${u.generation}` : ''}</div>
@@ -450,7 +449,6 @@
     const item = unit.equipment[slot];
     if (!item) return `<div class="equip-slot empty"><span class="equip-label">${label}</span><span class="equip-item">— prázdné —</span></div>`;
     const def = G.EQUIPMENT[item.itemId];
-    if (!def) return `<div class="equip-slot broken"><span class="equip-label">${label}</span><span class="equip-item">— neznámý předmět (${item.itemId}) —</span></div>`;
     const durPct = Math.round(item.durability / def.durability * 100);
     const durColor = durPct > 60 ? '#8fbf7a' : durPct > 25 ? '#e0bb5e' : '#c05a45';
     const broken = item.durability <= 0;

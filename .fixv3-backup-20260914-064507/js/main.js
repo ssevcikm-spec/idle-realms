@@ -14,20 +14,6 @@
     if (saved) {
       G.state = saved;
       G.state.worldSeed = seed;
-      // Odstraň orphan interaktivní stav (zavřený prohlížeč v průběhu)
-      if (!Array.isArray(G.state.log)) G.state.log = [];
-      if (G.state.combat && G.state.combat.active) {
-        G.state.combat.active = null;
-        G.log('⚔️ Nedokončený souboj byl zrušen.', 'info');
-      }
-      if (G.state.pendingEvents && G.state.pendingEvents.length) {
-        G.state.pendingEvents = [];
-        G.log('🎲 Nevyřešené události byly zrušeny.', 'info');
-      }
-      if (G.state.pendingStory) {
-        G.state.pendingStory = null;
-        G.log('📖 Nevyřešený příběh byl zrušen.', 'info');
-      }
       ensureDefaults();
       restoreSequences();
       if (!Object.keys(G.state.economy).length) G.initEconomy();
@@ -135,9 +121,6 @@
     s.story = s.story || { completed: [], flags: {} };
     s.achievements = s.achievements || { unlocked: [] };
     s.camera = s.camera || { x: 7, y: 22, zoom: 1 };
-    s.camera.zoom = G.clamp(s.camera.zoom || 1, 0.55, 2.0);
-    s.camera.x = G.clamp(s.camera.x || 7, 0, 40);
-    s.camera.y = G.clamp(s.camera.y || 22, 0, 30);
     s.selected = s.selected || null;
   }
 

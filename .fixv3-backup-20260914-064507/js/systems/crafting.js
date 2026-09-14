@@ -28,21 +28,20 @@
     if (!check.ok) return check;
     let crafter = null, bestLvl = 0;
     if (r.workshop) { const found = G.findCraftsmanForRecipe(recipeId); crafter = found.unit; bestLvl = G.unitSkill(crafter, r.skill); }
-    else { for (const u of G.state.units) { if (u.dead || u.isChild || u.resting || u.onExpedition) continue; if (u.merchantState && u.merchantState.active) continue; const lv = G.unitSkill(u, r.skill); if (lv > bestLvl) { bestLvl = lv; crafter = u; } } }
+    else { for (const u of G.state.units) { if (u.merchantState && u.merchantState.active) continue; const lv = G.unitSkill(u, r.skill); if (lv > bestLvl) { bestLvl = lv; crafter = u; } } }
     const saved = {};
     if (crafter && G.perkEffects) { const eff = G.perkEffects(crafter, r.skill); for (const m in eff.craftingSave) saved[m] = (saved[m] || 0) + eff.craftingSave[m]; }
     if (crafter && G.synergyBonus) { const synSave = G.synergyBonus(crafter, 'craftSave'); for (const m in synSave) saved[m] = (saved[m] || 0) + synSave[m]; }
     for (const inp of r.inputs) { const saveAmt = Math.min(saved[inp.material] || 0, inp.qty - 1); G.matRemove(inp.material, inp.qty - saveAmt); }
     let synQuality = 0;
     if (crafter && G.synergyBonus) synQuality = G.synergyBonus(crafter, 'craftQuality');
-    if (G.unlockCraftQualityBonus) synQuality += G.unlockCraftQualityBonus();
     let q;
     if (crafter) q = G.rollQualityWithBonus(bestLvl, [crafter], r.skill, synQuality);
     else q = G.rollQuality(bestLvl, [], r.skill);
     let batch = r.output.qty || 1;
     if (crafter && G.perkCraftBatch) batch += G.perkCraftBatch(crafter, r.skill);
     G.matAdd(r.output.material, batch, q);
-    for (const u of G.state.units) if (!u.dead && !u.isChild && G.unitSkill(u, r.skill) >= (r.reqLevel || 1) - 1) G.addSkillXp(u, r.skill, r.xp || 5);
+    for (const u of G.state.units) if (G.unitSkill(u, r.skill) >= (r.reqLevel || 1) - 1) G.addSkillXp(u, r.skill, r.xp || 5);
     const crafterName = crafter ? crafter.name.split(' ')[0] : '?';
     let extra = '';
     if (q === 'masterwork' && crafter && G.chance(0.30)) {

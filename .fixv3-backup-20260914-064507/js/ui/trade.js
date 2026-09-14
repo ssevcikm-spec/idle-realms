@@ -266,10 +266,10 @@
       if (q.kind === 'deliver') {
         canTurnIn = (q.need || []).every(n => !n.material || G.matCount(n.material) >= n.qty);
       } else if (q.kind === 'kill') {
-        const have = ((G.state.killCounts && G.state.killCounts[q.killType]) || 0) - (q.killCountAtAccept || 0);
+        const have = (G.state.killCounts && G.state.killCounts[q.killType]) || 0;
         canTurnIn = have >= (q.killCount || 0);
       } else if (q.kind === 'explore') {
-        const have = (G.state.stats.settlementsVisited || []).length - (q.visitedAtAccept || 0);
+        const have = (G.state.stats.settlementsVisited || []).length;
         canTurnIn = have >= (q.exploreCount || 0);
       } else if (q.kind === 'escort') {
         canTurnIn = G.state.time >= (q.acceptedAt || 0) + (q.escortDays || 0) * G.TIME.dayLength;

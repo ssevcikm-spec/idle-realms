@@ -24,7 +24,6 @@
     const u = G.getUnit(unitId);
     if (!u || !u.dead) return { ok:false, reason:'Postava není mrtvá.' };
     if (u.deserted) return { ok:false, reason:'Dezertér se nechce vrátit.' };
-    if (G.currentDifficulty && G.currentDifficulty().permaDeath) return { ok:false, reason:'Na této obtížnosti je smrt trvalá.' };
     const cost = G.resurrectCost();
     if (G.matCount('potion') < 3) return { ok:false, reason:`Potřebuješ 3× lektvar.` };
     if (G.state.resources.gold < cost) return { ok:false, reason:`Potřebuješ ${cost} zlata.` };
@@ -32,8 +31,7 @@
     G.state.resources.gold -= cost;
     G.state.stats.resurrections = (G.state.stats.resurrections || 0) + 1;
     u.dead = false; u.deathTime = null;
-    const safeDeathAge = (u.deathAge && isFinite(u.deathAge)) ? u.deathAge : 30;
-    u.birthTime = G.state.time - Math.max(20, (safeDeathAge - 5)) * G.AGE_YEAR;
+    u.birthTime = G.state.time - Math.max(20, (u.deathAge - 5)) * G.AGE_YEAR;
     const attr = G.pick(G.ATTRS);
     u.attrs[attr] = Math.max(3, u.attrs[attr] - 2);
     u.mood = 40; u.stamina = u.maxStamina * 0.5; u._resurrected = true;
@@ -220,7 +218,6 @@
     const item = G.equipFind(instanceId);
     if (!item) return { ok:false, reason:'Předmět nenalezen.' };
     const def = G.EQUIPMENT[item.itemId];
-    if (!def) return { ok:false, reason:'Neznámý předmět.' };
     if (def.legendary) return { ok:false, reason:'Legendární předměty nelze prodat.' };
     const durFrac = item.durability / def.durability;
     const qMult = G.QUALITY_MULT[item.quality || 'common'];

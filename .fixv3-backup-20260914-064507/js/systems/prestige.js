@@ -73,11 +73,9 @@
       G.WORLD_SEED = newSeed;
     }
 
-    // Reset stavu, ale zachovej prestige info a obtížnost
-    const oldDiff = (G.state.settings && G.state.settings.difficulty) || 'normal';
+    // Reset stavu, ale zachovej prestige info
     G.state = G.newState();
     G.state.worldSeed = newSeed;
-    G.state.settings = { difficulty: oldDiff, tutorial: false };
     G.state.prestige = {
       level: newLevel,
       totalPrestige: newLevel,

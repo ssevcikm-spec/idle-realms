@@ -22,7 +22,7 @@
   };
   G.getGroup = function (id) { return G.state.groups.find(g => g.id === id) || null; };
   G.getUnit = function (id) { return G.state.units.find(u => u.id === id) || null; };
-  G.groupMembers = function (g) { if (!g) return []; return g.memberIds.map(id => G.getUnit(id)).filter(Boolean); };
+  G.groupMembers = function (g) { return g.memberIds.map(id => G.getUnit(id)).filter(Boolean); };
 
   G.addUnitToGroup = function (unitId, groupId) {
     const u = G.getUnit(unitId), g = G.getGroup(groupId);

@@ -113,8 +113,6 @@
     if (G.inheritLegacy) G.inheritLegacy(u, a, b);
     G.refreshGearVisual(u);
     G.state.units.push(u);
-    if (a && a.groupId) { const pg = G.getGroup(a.groupId); if (pg) G.addUnitToGroup(u.id, pg.id); }
-    else if (b && b.groupId) { const pg = G.getGroup(b.groupId); if (pg) G.addUnitToGroup(u.id, pg.id); }
     G.state.family.children = G.state.family.children.filter(x => x.id !== c.id);
     if (G.state.dynasty) G.state.dynasty.generations = Math.max(G.state.dynasty.generations, u.generation);
     G.log(`🎂 ${u.name} dospěl (generace ${u.generation}) a přidal se k tvé skupině.`, 'story');

@@ -101,11 +101,10 @@
     const turnList = [];
     for (const a of cb.ally) if (a.alive) { const u = G.getUnit(a.unitId); if (u && !u.dead) turnList.push({ side:'ally', ref:a, unit:u, speed:a.speed }); }
     for (const e of cb.enemy) if (e.alive) turnList.push({ side:'enemy', ref:e, speed:e.speed });
-    turnList.sort((x, y) => (y.speed - x.speed) || (x.side === 'ally' ? -1 : 1));
+    turnList.sort((x, y) => y.speed - x.speed);
     cb.log.push({ t:`— Kolo ${cb.round} —`, cls:'round' });
     for (const turn of turnList) {
       if (cb.finished) break;
-      if (!turn.ref.alive) continue;
       if (turn.ref.stunned && turn.ref.stunned > 0) {
         if (turn.side === 'ally' && turn.ref.stunImmune) {
           // immune — neodečítá se
@@ -386,9 +385,9 @@
         if (a.hp <= 0) {
           const deathChance = (G.currentDifficulty ? G.currentDifficulty().combatDeathChance : 0.12);
           if (G.chance(deathChance) && !u._resurrected) G.die(u, 'padl v boji');
-          else { G.addInjury(u, G.rollInjury(3)); u.stamina = Math.max(0, u.stamina - 30); G.addMood(u, -15); }
+          else { G.addInjury(u, G.rollInjury(3)); u.stamina = Math.max(0, u.stamina - 30); u.mood = Math.max(0, u.mood - 15); }
         } else { u.stamina = Math.max(0, u.stamina - 15); G.addMood(u, -8); }
-        if (!u.dead && G.driftPersonalityCombat) G.driftPersonalityCombat(u, false);
+        if (G.driftPersonalityCombat) G.driftPersonalityCombat(u, false);
       }
     }
   }
@@ -434,7 +433,7 @@
     if (!node) return false;
     const danger = G.nodeDanger(node.kind);
     if (danger <= 0) return false;
-    const units = task.unitIds.map(id => G.getUnit(id)).filter(u => u && !u.dead && !u.isChild);
+    const units = task.unitIds.map(id => G.getUnit(id)).filter(u => u && !u.dead);
     const active = units.filter(u => !u.resting && u.assignedTaskId === task.id);
     if (!active.length) return false;
     if (!task._dangerAccum) task._dangerAccum = 0;

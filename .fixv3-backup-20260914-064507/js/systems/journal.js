@@ -5,7 +5,7 @@
 
   /** Zapiš událost do deníku postavy. */
   G.addJournal = function (unit, msg, icon) {
-    if (!unit) return;
+    if (!unit || unit.dead === undefined) return;
     if (!unit.journal) unit.journal = [];
     unit.journal.push({
       t: G.state.time,

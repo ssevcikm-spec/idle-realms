@@ -122,7 +122,6 @@
         if (def && def.effect && def.effect.xpBonus) amount *= (1 + def.effect.xpBonus / 100);
       }
     }
-    if (G.currentDifficulty) amount *= G.currentDifficulty().xpMult;
     unit.xp += amount; let leveled = false;
     while (unit.xp >= G.unitXpForLevel(unit.level)) {
       unit.xp -= G.unitXpForLevel(unit.level); unit.level++;

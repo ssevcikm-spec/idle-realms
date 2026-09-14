@@ -22,8 +22,7 @@
       return;
     }
     const diff = G.currentDifficulty ? G.currentDifficulty() : null;
-    const shouldCheck = diff && (diff.permaDeath || diff.id === 'hardcore');
-    if (shouldCheck && !G.state.defeatReached) {
+    if (diff && diff.permaDeath && !G.state.defeatReached) {
       const alive = G.state.units.filter(u => !u.dead && !u.isChild);
       const gold = G.state.resources.gold;
       if (alive.length === 0 && gold < G.ENDGAME.hardcoreGoldFloor) {

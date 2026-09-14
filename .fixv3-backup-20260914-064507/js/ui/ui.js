@@ -314,10 +314,6 @@
   }
 
   function exportPanel() {
-    const diff = G.currentDifficulty ? G.currentDifficulty() : null;
-    if (diff && diff.noExport) {
-      return `<div class="perk-panel"><div class="perk-header">🚫 Export zakázán</div><div class="perk-hint">Na obtížnosti <b>${G.esc(diff.name)}</b> nelze ukládat mimo hru.</div><div class="perk-actions"><button class="btn" data-action="close-modal">Zavřít</button></div></div>`;
-    }
     const b64 = G.exportSave();
     if (!b64) return `<div class="perk-panel"><div class="perk-header">Export selhal</div><div class="perk-actions"><button class="btn" data-action="close-modal">Zavřít</button></div></div>`;
     return `<div class="perk-panel">
@@ -770,7 +766,6 @@
       <div class="chapter-tag">📖 Kapitola ${sm.prestige}: ${G.esc(chapter)}</div>
       <div class="summary-grid">
         <div class="summary-item"><span>Obtížnost</span><span>${sm.difficulty.icon} ${G.esc(sm.difficulty.name)}</span></div>
-        <div class="summary-item"><span>Titul</span><span>${G.esc(sm.difficulty.honorTitle || '—')}</span></div>
         <div class="summary-item"><span>Odehráno</span><span>${formatTime(sm.timePlayed)}</span></div>
         <div class="summary-item"><span>Živé postavy</span><span>${sm.unitsAlive}</span></div>
         <div class="summary-item"><span>Zesnulí</span><span>${sm.unitsDead}</span></div>
@@ -781,7 +776,6 @@
         <div class="summary-item"><span>Bossů</span><span>${sm.bossesKilled}</span></div>
         <div class="summary-item"><span>Zakázek</span><span>${sm.questsCompleted}</span></div>
         <div class="summary-item"><span>Expedic</span><span>${sm.expeditions}</span></div>
-        <div class="summary-item"><span>Mistrovská díla</span><span>${sm.masterworks}</span></div>
         <div class="summary-item"><span>Cílů</span><span>${sm.achievements}</span></div>
       </div>
       <div class="perk-actions">

@@ -151,7 +151,6 @@
 
   G.exportSave = function () {
     if (!G.state) return null;
-    if (G.currentDifficulty && G.currentDifficulty().noExport) return null;
     try {
       if (G.state.worldSeed == null) G.state.worldSeed = G.WORLD_SEED || 20260910;
       const json = JSON.stringify(G.state);

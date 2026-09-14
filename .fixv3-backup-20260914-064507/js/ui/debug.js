@@ -116,7 +116,7 @@
     else if (a === 'renown') G.state.resources.renown += 10;
     else if (a === 'renown25') G.state.resources.renown += 25;
     else if (a === 'mat') G.matAdd(el.dataset.mat, 25, 'common');
-    else if (a === 'event') G.startEvent(el.dataset.event, true);
+    else if (a === 'event') G.startEvent(el.dataset.event);
     else if (a === 'skip-day') {
       G.state.dayTime += G.TIME.dayLength;
       G.log('⏭ +1 den (debug)', 'info');

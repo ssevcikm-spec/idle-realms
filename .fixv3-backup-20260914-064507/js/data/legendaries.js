@@ -12,7 +12,8 @@
     wolf_fang: {
       id:'wolf_fang', name:'Ocelový tesák Alfa', icon:'🗡️', slot:'weapon', tier:4,
       durability:500, setId:'warrior_plate', combatBonus:28,
-      mods:{}, unique:'+28 bojový bonus'
+      mods:{}, unique:'+20 % poškození proti zvířatům',
+      effect:{ damageVsBeast:1.20 }
     },
     warlord_banner: {
       id:'warlord_banner', name:'Korouhev válečného náčelníka', icon:'🏴', slot:'tool', tier:4,
@@ -28,7 +29,8 @@
     witch_charm: {
       id:'witch_charm', name:'Talisman bahenní čarodějky', icon:'🧙', slot:'tool', tier:4,
       durability:450, combatBonus:6, mods:{ alchemy:0.40, herbalism:0.30 },
-      unique:'+40 % alchymie, +30 % bylinkářství'
+      unique:'Lektvary léčí +50 %',
+      effect:{ potionStrength:50 }
     },
     leviathan_scale: {
       id:'leviathan_scale', name:'Šupina Leviatana', icon:'🐋', slot:'armor', tier:4,
@@ -38,24 +40,12 @@
     }
   };
 
-  G.LEGENDARY_DROPS_BY_BOSS = {
-    ancient_treant: ['treant_heart'],
-    alpha_werewolf: ['wolf_fang'],
-    warlord:        ['warlord_banner'],
-    colossus:       ['colossus_core'],
-    bog_witch:      ['witch_charm'],
-    leviathan:      ['leviathan_scale']
-  };
-
   G.rollLegendaryDrop = function (bossTemplateId, bonus) {
     bonus = bonus || 0;
     const baseChance = 0.05;
     const chance = Math.min(0.5, baseChance * (1 + bonus));
     if (!G.chance(chance)) return null;
-    const ids = G.LEGENDARY_DROPS_BY_BOSS[bossTemplateId];
-    const pool = ids
-      ? ids.map(id => G.LEGENDARIES[id]).filter(Boolean)
-      : Object.values(G.LEGENDARIES);
-    return pool.length ? G.pick(pool) : null;
+    const pool = Object.values(G.LEGENDARIES);
+    return G.pick(pool);
   };
 })();

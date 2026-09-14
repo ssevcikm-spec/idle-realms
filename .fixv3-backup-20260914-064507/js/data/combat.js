@@ -159,7 +159,7 @@
     return G.ENEMIES[G.pick(list.length ? list : pool)];
   };
   G.enemyCountFor = function (enemy, partySize) {
-    if (enemy.tier <= 1) return G.randInt(1, Math.min(4, Math.max(1, partySize)));
+    if (enemy.tier <= 1) return G.randInt(1, Math.min(4, Math.max(2, partySize)));
     if (enemy.tier === 2) return G.randInt(1, Math.min(3, partySize));
     if (enemy.tier === 3) return G.randInt(1, Math.min(2, partySize));
     return 1;
