@@ -37,6 +37,9 @@
 
   G.createUnit = function (name, opts) {
     opts = opts || {};
+    // FIX (Hotfix A): birthTime musí být relativní k aktuálnímu hernímu času,
+    // ne fixní -20*AGE_YEAR. Jinak po ~5 h hraní mají nové postavy 300+ let.
+    const now = G.state ? G.state.time : 0;
     const u = {
       id:'u'+(unitIdSeq++), name: name || G.randomName(),
       level:1, xp:0,
@@ -54,7 +57,7 @@
       merchantRoute: null, merchantState: null,
       onExpedition: false, expeditionId: null,
       _combatWins: 0, _injuriesHealed: 0,
-      birthTime: opts.birthTime != null ? opts.birthTime : -20 * (G.AGE_YEAR || 300),
+      birthTime: opts.birthTime != null ? opts.birthTime : now - 20 * (G.AGE_YEAR || 300),
       dead: false, deserted: false, isChild: false,
       griefUntil: null,
       generation: opts.generation || 1,

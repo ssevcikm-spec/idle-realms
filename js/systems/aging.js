@@ -14,6 +14,28 @@
     return m[key] != null ? m[key] : 1;
   };
 
+  /**
+   * FIX (Hotfix A): Opraví postavy s nesmyslným věkem (> 100 let),
+   * které vznikly starým bugem v birthTime (= -20*AGE_YEAR místo relativně).
+   * Volá se z main.js po načtení savu.
+   */
+  G.repairAges = function () {
+    if (!G.state || !G.state.units) return 0;
+    let repaired = 0;
+    for (const u of G.state.units) {
+      if (u.dead) continue;
+      const age = G.unitAge(u);
+      if (!isFinite(age) || age > 100) {
+        u.birthTime = G.state.time - G.randInt(20, 50) * G.AGE_YEAR;
+        repaired++;
+      }
+    }
+    if (repaired > 0) {
+      G.log(`🔧 Opraveno ${repaired} postav s nesmyslným věkem (starý bug).`, 'info');
+    }
+    return repaired;
+  };
+
   G.tickAging = function (dt) {
     deathTimer += dt;
     birthTimer += dt;

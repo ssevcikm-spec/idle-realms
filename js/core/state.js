@@ -2,12 +2,16 @@
   const G = window.Game;
   G.SAVE_KEY = 'idleRealmSave_v8';
   G.SAVE_VERSION = 8;
+  G.SAVE_KEYS = [
+    'idleRealmSave_v8','idleRealmSave_v7','idleRealmSave_v6',
+    'idleRealmSave_v5','idleRealmSave_v4','idleRealmSave_v3','idleRealmSave_v2'
+  ];
 
   G.newState = function () {
     return {
       version: G.SAVE_VERSION,
       time: 0, lastSave: Date.now(),
-      worldSeed: null,       // nastaví se z G.WORLD_SEED při uložení
+      worldSeed: null,
       dayTime: 0, day: 0, season: 'spring', year: 1,
       resources: { gold: 40, renown: 0 },
       materials: {}, equipment: [], equipmentSeq: 1,
@@ -113,6 +117,7 @@
     if (save.defeatReached == null) save.defeatReached = false;
     save.chapterHistory = save.chapterHistory || [];
     save.stats.bossesKilled = save.stats.bossesKilled || 0;
+    const savedTime = save.time || 0;
     for (const u of save.units) {
       u.equipment = u.equipment || { tool: null, weapon: null, armor: null };
       u.stamina = u.maxStamina || 100; u.maxStamina = 100;
@@ -127,7 +132,8 @@
       u.ambitions = u.ambitions || G.rollAmbitions();
       u._combatWins = u._combatWins || 0;
       u._injuriesHealed = u._injuriesHealed || 0;
-      if (u.birthTime == null) u.birthTime = -G.randInt(20, 30) * G.AGE_YEAR;
+      // FIX (Hotfix A): relativně k uloženému času, ne fixní -20*AGE_YEAR
+      if (u.birthTime == null) u.birthTime = savedTime - G.randInt(20, 30) * G.AGE_YEAR;
       if (u.dead == null) u.dead = false;
       if (u.isChild == null) u.isChild = false;
       if (u.griefUntil === undefined) u.griefUntil = null;
@@ -143,8 +149,7 @@
   };
   G.resetSave = function () {
     try {
-      for (const key of ['idleRealmSave_v8','idleRealmSave_v7','idleRealmSave_v6','idleRealmSave_v5','idleRealmSave_v4','idleRealmSave_v3','idleRealmSave_v2'])
-        localStorage.removeItem(key);
+      for (const key of G.SAVE_KEYS) localStorage.removeItem(key);
     } catch (e) {}
     location.reload();
   };

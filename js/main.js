@@ -3,6 +3,16 @@
   G.WORLD_SEED = 20260910;
 
   function boot() {
+    // ?reset=1 → smaž všechny savy a přesměruj na čistou URL
+    if (location.search.indexOf('reset=1') >= 0) {
+      if (G.wipeSave) G.wipeSave();
+      else if (G.SAVE_KEYS) {
+        for (const k of G.SAVE_KEYS) { try { localStorage.removeItem(k); } catch (e) {} }
+      }
+      location.href = location.pathname;
+      return;
+    }
+
     const saved = G.load();
 
     // Urči seed: ze save, jinak default
@@ -11,88 +21,107 @@
     G.WORLD_SEED = seed;
     G.WORLD = G.generateWorld(seed);
 
-    if (saved) {
-      G.state = saved;
-      G.state.worldSeed = seed;
-      // Odstraň orphan interaktivní stav (zavřený prohlížeč v průběhu)
-      if (!Array.isArray(G.state.log)) G.state.log = [];
-      if (G.state.combat && G.state.combat.active) {
-        G.state.combat.active = null;
-        G.log('⚔️ Nedokončený souboj byl zrušen.', 'info');
-      }
-      if (G.state.pendingEvents && G.state.pendingEvents.length) {
-        G.state.pendingEvents = [];
-        G.log('🎲 Nevyřešené události byly zrušeny.', 'info');
-      }
-      if (G.state.pendingStory) {
-        G.state.pendingStory = null;
-        G.log('📖 Nevyřešený příběh byl zrušen.', 'info');
-      }
-      ensureDefaults();
-      restoreSequences();
-      if (!Object.keys(G.state.economy).length) G.initEconomy();
-      if (G.ensurePolitics) G.ensurePolitics();
-      if (G.ensureDynasty) G.ensureDynasty();
-      for (const u of G.state.units) {
-        if (!u.equipment) u.equipment = { tool:null, weapon:null, armor:null };
-        if (u.maxStamina == null) u.maxStamina = 100;
-        if (u.stamina == null) u.stamina = 100;
-        if (u.resting == null) u.resting = false;
-        if (u.restingAt === undefined) u.restingAt = null;
-        if (!u.injuries) u.injuries = [];
-        if (!u.perks) u.perks = {};
-        if (u.profession === undefined) u.profession = null;
-        if (u.mentorId === undefined) u.mentorId = null;
-        if (u.mood == null) u.mood = 70;
-        if (!u.relationships) u.relationships = {};
-        if (u.role === undefined) u.role = null;
-        if (u.merchantRoute === undefined) u.merchantRoute = null;
-        if (u.merchantState === undefined) u.merchantState = null;
-        if (!u.personality && G.rollPersonality) u.personality = G.rollPersonality();
-        if (!u.ambitions && G.rollAmbitions) u.ambitions = G.rollAmbitions();
-        if (u.birthTime == null) u.birthTime = -G.randInt(20, 30) * G.AGE_YEAR;
-        if (u.dead == null) u.dead = false;
-        if (u.isChild == null) u.isChild = false;
-        if (u.generation == null) u.generation = 1;
-        if (!u.parentIds) u.parentIds = [];
-        if (u.legacy == null) u.legacy = 0;
-        if (u.manual == null) u.manual = false;
-        if (u.onExpedition == null) u.onExpedition = false;
-        if (!u.journal) u.journal = [];
-        if (G.refreshGearVisual) G.refreshGearVisual(u);
-        if (G.checkProfession) G.checkProfession(u);
-      }
-      for (const s of G.WORLD.settlements) G.ensureQuests(s.id);
-      const elapsed = Math.max(0, (Date.now() - (saved.lastSave || Date.now())) / 1000);
-      if (elapsed > 5) {
-        const sim = G.simulateOffline(elapsed);
-        setTimeout(() => G.log(`💤 Offline ${formatDuration(sim)} — postavy pracovaly dál.`, 'info'), 150);
-      }
-      G.log('💾 Načteno. Vítej zpět!', 'info');
-    } else {
-      G.state = G.newState();
-      G.state.worldSeed = seed;
-      if (G.showDifficultyModal) {
-        G.showDifficultyModal(function (diffId) {
-          newGame(diffId);
-          G.initWorld(document.getElementById('world'));
-          G.initUI();
-          G.initDebug();
-          G.startLoop();
-          window.addEventListener('beforeunload', () => G.save());
-          document.addEventListener('visibilitychange', () => { if (document.hidden) G.save(); });
-        });
-        return;
-      }
-      newGame('normal');
+    // Vždy nejdřív title screen
+    if (G.showTitleScreen) {
+      G.showTitleScreen({
+        saveInfo: G.getSaveInfo ? G.getSaveInfo(saved) : null,
+        onContinue: () => continueGame(saved),
+        onNewGame: (diffId) => startNewGame(diffId)
+      });
+      return;
     }
 
+    // Fallback (kdyby title_screen.js chyběl)
+    if (saved) continueGame(saved);
+    else startNewGame('normal');
+  }
+
+  function continueGame(saved) {
+    G.state = saved;
+    G.state.worldSeed = G.WORLD_SEED;
+
+    // Orphan state cleanup (K1 z FIX-v3)
+    if (!Array.isArray(G.state.log)) G.state.log = [];
+    if (G.state.combat && G.state.combat.active) {
+      G.state.combat.active = null;
+      G.log('⚔️ Nedokončený souboj byl zrušen.', 'info');
+    }
+    if (G.state.pendingEvents && G.state.pendingEvents.length) {
+      G.state.pendingEvents = [];
+      G.log('🎲 Nevyřešené události byly zrušeny.', 'info');
+    }
+    if (G.state.pendingStory) {
+      G.state.pendingStory = null;
+      G.log('📖 Nevyřešený příběh byl zrušen.', 'info');
+    }
+
+    ensureDefaults();
+    restoreSequences();
+    if (!Object.keys(G.state.economy).length) G.initEconomy();
+    if (G.ensurePolitics) G.ensurePolitics();
+    if (G.ensureDynasty) G.ensureDynasty();
+    repairUnits();
+    if (G.repairAges) G.repairAges();
+
+    for (const s of G.WORLD.settlements) G.ensureQuests(s.id);
+
+    const elapsed = Math.max(0, (Date.now() - (saved.lastSave || Date.now())) / 1000);
+    if (elapsed > 5) {
+      const sim = G.simulateOffline(elapsed);
+      setTimeout(() => G.log(`💤 Offline ${formatDuration(sim)} — postavy pracovaly dál.`, 'info'), 150);
+    }
+    G.log('💾 Načteno. Vítej zpět!', 'info');
+
+    initGame();
+  }
+
+  function startNewGame(diffId) {
+    G.state = G.newState();
+    G.state.worldSeed = G.WORLD_SEED;
+    newGame(diffId);
+    initGame();
+  }
+
+  function initGame() {
     G.initWorld(document.getElementById('world'));
     G.initUI();
     G.initDebug();
     G.startLoop();
     window.addEventListener('beforeunload', () => G.save());
     document.addEventListener('visibilitychange', () => { if (document.hidden) G.save(); });
+  }
+
+  function repairUnits() {
+    for (const u of G.state.units) {
+      if (!u.equipment) u.equipment = { tool:null, weapon:null, armor:null };
+      if (u.maxStamina == null) u.maxStamina = 100;
+      if (u.stamina == null) u.stamina = 100;
+      if (u.resting == null) u.resting = false;
+      if (u.restingAt === undefined) u.restingAt = null;
+      if (!u.injuries) u.injuries = [];
+      if (!u.perks) u.perks = {};
+      if (u.profession === undefined) u.profession = null;
+      if (u.mentorId === undefined) u.mentorId = null;
+      if (u.mood == null) u.mood = 70;
+      if (!u.relationships) u.relationships = {};
+      if (u.role === undefined) u.role = null;
+      if (u.merchantRoute === undefined) u.merchantRoute = null;
+      if (u.merchantState === undefined) u.merchantState = null;
+      if (!u.personality && G.rollPersonality) u.personality = G.rollPersonality();
+      if (!u.ambitions && G.rollAmbitions) u.ambitions = G.rollAmbitions();
+      // FIX (Hotfix A): relativně k aktuálnímu času
+      if (u.birthTime == null) u.birthTime = G.state.time - G.randInt(20, 30) * G.AGE_YEAR;
+      if (u.dead == null) u.dead = false;
+      if (u.isChild == null) u.isChild = false;
+      if (u.generation == null) u.generation = 1;
+      if (!u.parentIds) u.parentIds = [];
+      if (u.legacy == null) u.legacy = 0;
+      if (u.manual == null) u.manual = false;
+      if (u.onExpedition == null) u.onExpedition = false;
+      if (!u.journal) u.journal = [];
+      if (G.refreshGearVisual) G.refreshGearVisual(u);
+      if (G.checkProfession) G.checkProfession(u);
+    }
   }
 
   function ensureDefaults() {
@@ -142,7 +171,6 @@
   }
 
   function newGame(diffId) {
-    G.state = G.newState();
     G.state.worldSeed = G.WORLD_SEED;
     if (diffId) G.setDifficulty(diffId);
     else if (!G.state.settings.difficulty) G.setDifficulty('normal');
