@@ -41,6 +41,53 @@ body {
   border-bottom: 1px solid #2e2b25;
   flex-shrink: 0;
 }
+
+/* === horní lišta: tlačítko menu + přehled surovin === */
+.hud-menu-btn {
+  appearance: none; border: 1px solid #423d32; background: #2e2b25; color: #cfc7b4;
+  border-radius: 9px; width: 34px; height: 30px; padding: 0;
+  font: inherit; font-size: 15px; line-height: 1; cursor: pointer; flex-shrink: 0;
+}
+.hud-menu-btn:hover { background: #3a362c; color: #e8e2d4; }
+.hud-menu-btn:active { transform: scale(.94); }
+.hud-mats {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; background: #1a1915;
+  border-bottom: 1px solid #2e2b25;
+  flex-shrink: 0; min-height: 32px;
+}
+.mats-toggle {
+  appearance: none; border: 1px solid #3a362c; background: #23211c; color: #8d8570;
+  border-radius: 7px; width: 22px; height: 22px; padding: 0;
+  font: inherit; font-size: 11px; line-height: 1; cursor: pointer; flex-shrink: 0;
+}
+.mats-toggle:hover { color: #d8b45a; }
+.mats-scroll {
+  display: flex; gap: 5px; flex: 1; min-width: 0;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.mats-scroll::-webkit-scrollbar { display: none; }
+.mat-chip {
+  display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0;
+  background: #23211c; border: 1px solid #302d26; border-radius: 999px;
+  padding: 2px 8px; font-size: 11.5px; color: #cfc7b4;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.mat-chip b { color: #f0e9d8; font-weight: 700; }
+.mat-chip .mat-q { opacity: .55; font-size: 10px; }
+.mat-chip.mat-more { border-color: #6d5423; color: #d8b45a; cursor: pointer; }
+.mats-summary { font-size: 11px; color: #8d8570; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud-mats:not(.collapsed) .mats-summary { display: none; }
+.hud-mats.collapsed .mats-scroll { display: none; }
+/* úzké displeje: lišta se posouvá prstem, líp se vejde */
+@media (max-width: 620px) {
+  #hud { gap: 7px; padding: 6px 8px; font-size: 12px; }
+  .hud-place { max-width: 32%; font-size: 11px; }
+  .hud-menu-btn { width: 30px; height: 28px; font-size: 14px; }
+  .hud-mats { padding: 4px 8px; gap: 5px; }
+  .mat-chip { font-size: 11px; padding: 2px 7px; }
+}
 .we-chip {
   display: inline-flex; align-items: center; gap: 5px;
   border: 1px solid; border-radius: 999px;

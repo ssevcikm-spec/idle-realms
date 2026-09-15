@@ -149,6 +149,28 @@
       const canvas = document.getElementById('world');
       if (canvas) canvas.addEventListener('pointerdown', () => hint.classList.add('hide'), { once: true });
     }
+
+    // Tlačítko menu na hlavní liště (uložit / nová hra / obtížnost)
+    const menuBtn = document.getElementById('hud-menu');
+    if (menuBtn) menuBtn.addEventListener('click', () => { if (G.openGameMenu) G.openGameMenu(); });
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && G.isGameMenuOpen && G.isGameMenuOpen()) { if (G.closeGameMenu) G.closeGameMenu(); }
+    });
+
+    // Přehled surovin: sbalení/rozbalení + odkaz do batohu
+    const matsToggle = document.getElementById('mats-toggle');
+    if (matsToggle) matsToggle.addEventListener('click', toggleMatsBar);
+    const matsScroll = document.getElementById('mats-scroll');
+    if (matsScroll) matsScroll.addEventListener('click', e => {
+      if (e.target.closest('[data-mats="inventory"]')) G.selectTab('inventory');
+    });
+    const matsBar = document.getElementById('hud-mats');
+    if (matsBar) matsBar.addEventListener('click', e => {
+      if (e.target.closest('.mat-chip') || e.target.closest('.mats-toggle')) return;
+      toggleMatsBar();   // ťuknutí na prázdné místo lišty ji sbalí/rozbalí
+    });
+    applyMatsBar();
+
     render(); renderHud();
     setInterval(renderHud, 400);
     setInterval(autoRefresh, 1000);
@@ -175,6 +197,80 @@
     render();
   }
 
+  /* ---------- horní lišta: přehled surovin + tlačítko menu ---------- */
+
+  /** Kanonické pořadí surovin v liště (obchodované napřed). */
+  function hudMatOrder() {
+    const traded = G.TRADED || [];
+    const rest = Object.keys(G.MATERIALS).filter(m => traded.indexOf(m) === -1 && !G.MATERIALS[m].currency);
+    return traded.concat(rest);
+  }
+  function matQualityTitle(mid) {
+    const m = (G.state.materials || {})[mid];
+    if (!m) return '';
+    const parts = [];
+    for (const q in m) if (m[q] > 0) parts.push(`${G.QUALITY_LABEL[q] || q} ${m[q]}`);
+    return parts.length > 1 ? ' — ' + parts.join(', ') : '';
+  }
+  /** HTML obsahu lišty se surovinami (jen to, co hráč skutečně má). */
+  G.hudMaterialsHtml = function () {
+    const chips = [];
+    for (const mid of hudMatOrder()) {
+      const def = G.MATERIALS[mid];
+      if (!def) continue;
+      const n = G.matCount(mid);
+      if (n <= 0) continue;
+      chips.push(`<span class="mat-chip" title="${G.esc(def.name)}${G.esc(matQualityTitle(mid))}">${def.icon}<b>${n}</b></span>`);
+      if (chips.length >= 26) break;
+    }
+    for (const gid in G.GEMS) {
+      const n = G.matCount('gem_' + gid);
+      if (n > 0) chips.push(`<span class="mat-chip" title="${G.esc(G.GEMS[gid].name)} (gem)">${G.GEMS[gid].icon}<b>${n}</b></span>`);
+    }
+    return chips.join('');
+  };
+  G.hudMaterialKinds = function () {
+    let n = 0;
+    for (const mid in G.MATERIALS) if (G.matCount(mid) > 0) n++;
+    for (const gid in G.GEMS) if (G.matCount('gem_' + gid) > 0) n++;
+    return n;
+  };
+
+  function matsBarOpen() {
+    const s = G.state.settings || {};
+    if (s.matsBar === true || s.matsBar === false) return s.matsBar;
+    return (window.innerWidth || 1024) >= 900;   // auto: na desktopu rovnou otevřeno
+  }
+  function applyMatsBar() {
+    const el = document.getElementById('hud-mats');
+    if (!el) return;
+    const open = matsBarOpen();
+    el.classList.toggle('collapsed', !open);
+    const btn = document.getElementById('mats-toggle');
+    if (btn) { btn.textContent = open ? '▾' : '▸'; btn.title = open ? 'Sbalit přehled surovin' : 'Rozbalit přehled surovin'; }
+    renderMatsBar();
+  }
+  function toggleMatsBar() {
+    const next = !matsBarOpen();
+    if (!G.state.settings) G.state.settings = {};
+    G.state.settings.matsBar = next;
+    applyMatsBar();
+  }
+  function renderMatsBar() {
+    const scroll = document.getElementById('mats-scroll');
+    const summary = document.getElementById('mats-summary');
+    if (!scroll) return;
+    const html = G.hudMaterialsHtml();
+    if (scroll._sig !== html) {
+      scroll._sig = html;
+      const keep = scroll.scrollLeft;
+      scroll.innerHTML = html + (html ? '<button class="mat-chip mat-more" data-mats="inventory" title="Otevřít batoh">🎒 vše</button>' : '');
+      scroll.scrollLeft = keep;
+    }
+    if (summary) summary.textContent = `🎒 ${G.hudMaterialKinds()} druhů surovin`;
+  }
+  G.applyMatsBar = applyMatsBar;
+
   function renderHud() {
     if (!G.state) return;
     setText('hud-time', formatTime(G.state.time));
@@ -188,6 +284,7 @@
       if (lvl > 0) { pEl.style.display = 'inline-flex'; pEl.title = `Prestiž ${lvl}`; pEl.textContent = '⭐' + lvl; }
       else pEl.style.display = 'none';
     }
+    renderMatsBar();
     const ordersBadge = document.getElementById('tab-badge-orders');
     if (ordersBadge) {
       const n = (G.state.orders || []).length;

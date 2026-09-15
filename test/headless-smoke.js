@@ -391,6 +391,31 @@ check('charakterove udalosti: maybeCharacterEvent nespada', () => {
   G.maybeCharacterEvent(u, { nodeKind: 'cave' });
 });
 
+check('hud: prehled surovin v horni liste', () => {
+  G.matAdd('wood', 7, 'common');
+  G.matAdd('stone', 3, 'common');
+  const wood = G.matCount('wood');
+  const html = G.hudMaterialsHtml();
+  assert(html.indexOf('🪵') !== -1 && html.indexOf(`<b>${wood}</b>`) !== -1, 'chybi drevo v prehledu surovin (' + wood + ')');
+  assert(html.indexOf('🪨') !== -1, 'chybi kamen v prehledu surovin');
+  assert(G.hudMaterialKinds() >= 2, 'pocet druhu surovin nesedi');
+});
+check('menu: tlacitko vyvola a zavre menu', () => {
+  assert(typeof G.openGameMenu === 'function' && typeof G.closeGameMenu === 'function', 'chybi funkce menu');
+  G.openGameMenu();
+  assert(G.isGameMenuOpen() === true, 'menu se neotevrelo');
+  G.closeGameMenu();
+  assert(G.isGameMenuOpen() === false, 'menu se nezavrelo');
+});
+check('auto-pokracovani: se savem se nezastavi na menu', () => {
+  G.save();
+  assert(!!localStorageStub.getItem(G.SAVE_KEY), 'save se neulozil');
+  titleOpts = null;
+  vm.runInThisContext(fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8'), { filename: 'js/main.js' });
+  assert(titleOpts === null, 'hra se zastavila na uvodni obrazovce i s ulozenou hrou');
+  assert(!!G.state && G.state.units.length > 0, 'po auto-pokracovani neni stav hry');
+});
+
 console.log('');
 if (failed === 0) { console.log('VYSLEDEK: OK — vse funguje'); process.exit(0); }
 else { console.log('VYSLEDEK: ' + failed + ' chyb'); process.exit(1); }

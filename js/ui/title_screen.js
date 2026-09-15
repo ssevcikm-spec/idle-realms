@@ -40,6 +40,39 @@
     };
   };
 
+  let menuPaused = false;
+  let menuOpen = false;
+
+  /** Je otevřené menu (titulní obrazovka vyvolaná ze hry)? */
+  G.isGameMenuOpen = function () { return menuOpen; };
+
+  /** Otevře menu ze hry (☰ v liště) — hra se pozastaví. */
+  G.openGameMenu = function () {
+    if (menuOpen) return;
+    if (G.isPaused && !G.isPaused()) { G.pauseGame(); menuPaused = true; }
+    menuOpen = true;
+    G.showTitleScreen({
+      saveInfo: G.getSaveInfo(G.state),
+      fromGame: true,
+      onContinue: () => G.closeGameMenu(),
+      onClose: () => G.closeGameMenu(),
+      onNewGame: (diffId) => {
+        G.closeGameMenu();
+        if (G.startNewGame) G.startNewGame(diffId);
+      }
+    });
+  };
+
+  /** Zavře menu a vrátí se do hry. */
+  G.closeGameMenu = function () {
+    if (!menuOpen) return;
+    menuOpen = false;
+    const root = document.getElementById('modal-root');
+    if (root) { root.innerHTML = ''; root.classList.remove('show'); }
+    if (menuPaused) { menuPaused = false; if (G.resumeGame) G.resumeGame(); }
+    if (G.refreshPanel) G.refreshPanel();
+  };
+
   G.showTitleScreen = function (opts) {
     opts = opts || {};
     const root = document.getElementById('modal-root');
@@ -52,6 +85,7 @@
     function renderMain() {
       const si = opts.saveInfo;
       let html = `<div class="title-screen">
+        ${opts.fromGame ? '<button class="title-close" data-ts="close" title="Zpět do hry (Esc)">✕</button>' : ''}
         <div class="title-logo">🏰</div>
         <div class="title-name">Idle Realms</div>
         <div class="title-sub">Idle RPG o vedení, přežití a dědictví</div>`;
@@ -71,8 +105,8 @@
         html += `<button class="title-btn primary" data-ts="continue">
           <span class="tbtn-icon">▶️</span>
           <div class="tbtn-main">
-            <div class="tbtn-title">Pokračovat</div>
-            <div class="tbtn-desc">Načíst rozpracovanou hru</div>
+            <div class="tbtn-title">${opts.fromGame ? 'Zpět do hry' : 'Pokračovat'}</div>
+            <div class="tbtn-desc">${opts.fromGame ? 'Zavřít menu a hrát dál' : 'Načíst rozpracovanou hru'}</div>
           </div>
         </button>`;
       }
@@ -110,6 +144,9 @@
           if (act === 'continue') {
             root.innerHTML = ''; root.classList.remove('show');
             if (opts.onContinue) opts.onContinue();
+          } else if (act === 'close') {
+            if (opts.onClose) opts.onClose();
+            else { root.innerHTML = ''; root.classList.remove('show'); }
           } else if (act === 'new') {
             renderDifficulty();
           } else if (act === 'wipe') {

@@ -21,7 +21,10 @@
     G.WORLD_SEED = seed;
     G.WORLD = G.generateWorld(seed);
 
-    // Vždy nejdřív title screen
+    // Když je co načíst, hra rovnou pokračuje — menu se otevírá tlačítkem ☰ v liště.
+    if (saved) { continueGame(saved); return; }
+
+    // První spuštění: titulní obrazovka s volbou obtížnosti
     if (G.showTitleScreen) {
       G.showTitleScreen({
         saveInfo: G.getSaveInfo ? G.getSaveInfo(saved) : null,
@@ -32,8 +35,7 @@
     }
 
     // Fallback (kdyby title_screen.js chyběl)
-    if (saved) continueGame(saved);
-    else startNewGame('normal');
+    startNewGame('normal');
   }
 
   function continueGame(saved) {
@@ -70,7 +72,7 @@
       const sim = G.simulateOffline(elapsed);
       setTimeout(() => G.log(`💤 Offline ${formatDuration(sim)} — postavy pracovaly dál.`, 'info'), 150);
     }
-    G.log('💾 Načteno. Vítej zpět!', 'info');
+    G.log('💾 Načteno. Vítej zpět! (menu otevřeš tlačítkem ☰ v liště)', 'info');
 
     initGame();
   }
@@ -81,6 +83,7 @@
     newGame(diffId);
     initGame();
   }
+  G.startNewGame = startNewGame;   // používá menu (☰) pro „Nová hra" ze hry
 
   function initGame() {
     G.initWorld(document.getElementById('world'));
@@ -133,6 +136,7 @@
     s.politics = s.politics || { factions: {}, lastCheck: 0 };
     s.dynasty = s.dynasty || { generations: 1, names: [], totalBirths: 0, totalDeaths: 0 };
     s.directives = s.directives || { focusMaterial: null, avoidDanger: false };
+    s.settings = s.settings || { difficulty: null, tutorial: true };
     s.expeditions = s.expeditions || [];
     s.masterworks = s.masterworks || [];
     s.orders = s.orders || [];
