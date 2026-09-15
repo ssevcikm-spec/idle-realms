@@ -262,6 +262,26 @@
     if (i >= 0) G.state.orders.splice(i, 1);
   };
 
+  /** Příkazy seřazené tak, jak se budou vyřizovat (priorita, pak stáří). */
+  G.sortedOrders = function () {
+    return (G.state.orders || []).slice().sort((a, b) => (b.priority - a.priority) || (a.createdAt - b.createdAt));
+  };
+
+  /** Posune příkaz ve frontě o jednu pozici (dir: -1 nahoru = dřív, +1 dolů). */
+  G.moveOrder = function (orderId, dir) {
+    const sorted = G.sortedOrders();
+    if (sorted.length < 2) return false;
+    sorted.forEach((o, idx) => { o.priority = sorted.length - 1 - idx; });
+    const i = sorted.findIndex(o => o.id === orderId);
+    if (i < 0) return false;
+    const j = i + dir;
+    if (j < 0 || j >= sorted.length) return false;
+    const tmp = sorted[i].priority;
+    sorted[i].priority = sorted[j].priority;
+    sorted[j].priority = tmp;
+    return true;
+  };
+
   /** Volné postavy, které mohou vzít daný příkaz (podle cíle). */
   G.orderCandidates = function (order) {
     let units;
@@ -282,7 +302,7 @@
   /** Scheduler: přiřadí příkazy volným postavám (volá se z tickAutonomy PŘED auto-prací). */
   G.tickOrders = function () {
     if (!G.state.orders || !G.state.orders.length) return;
-    const orders = G.state.orders.slice().sort((a, b) => (b.priority - a.priority) || (a.createdAt - b.createdAt));
+    const orders = G.sortedOrders();
     for (const o of orders) {
       const act = G.ACTIVITIES[o.activityId];
       if (!act) { G.cancelOrder(o.id); continue; }

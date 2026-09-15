@@ -64,14 +64,20 @@
     let html = '';
     const mats = G.settlementMarket(settlementId);
     if (!mats.length) return `<div class="empty">Tady se neobchoduje.</div>`;
+    const econ = G.state.economy[settlementId] || { target: {} };
     for (const mid of mats) {
       const m = G.MATERIALS[mid];
       const stock = Math.floor(stockOf(settlementId, mid));
+      const targetStock = Math.round((econ.target[mid] || 0) * ((bonuses && bonuses.stockMult) || 1));
       const buy = G.priceAt(settlementId, mid, 'buy');
       const sell = G.priceAt(settlementId, mid, 'sell');
       const have = G.matCount(mid);
       const isProduced = spec.produces.includes(mid);
       const isConsumed = spec.consumes.includes(mid);
+      const buyDiff = Math.round((buy / m.price - 1) * 100);
+      const sellDiff = Math.round((sell / m.price - 1) * 100);
+      const trendOf = d => d <= -15 ? { i:'▼', c:'#8fbf7a', t:'výhodné' } : d >= 25 ? { i:'▲', c:'#c05a45', t:'drahé' } : { i:'•', c:'#9c937c', t:'normální' };
+      const bt = trendOf(buyDiff), stt = trendOf(sellDiff);
       let tag = '';
       if (isProduced) tag = ' <span class="loc-tag" style="background:#1f2a1c;color:#8fbf7a">výroba</span>';
       else if (isConsumed) tag = ' <span class="loc-tag" style="background:#2c1e1a;color:#cf8f6a">poptávka</span>';
@@ -79,10 +85,10 @@
         <div class="trade-icon">${m.icon}</div>
         <div class="trade-main">
           <div class="trade-name">${G.esc(m.name)}${tag}</div>
-          <div class="trade-sub">sklad <b>${stock}</b> • ty máš <b>${have}</b></div>
+          <div class="trade-sub">sklad <b>${stock}</b>${targetStock ? ` / ${targetStock}` : ''} • ty máš <b>${have}</b></div>
           <div class="trade-prices">
-            <span class="price-buy">koupíš ${buy} 🪙</span>
-            <span class="price-sell">prodáš ${sell} 🪙</span>
+            <span class="price-buy" title="O kolik je cena nad/pod základní cenou ${m.price} 🪙">koupíš ${buy} 🪙 <small style="color:${bt.c}">${bt.i} ${buyDiff > 0 ? '+' : ''}${buyDiff} %</small></span>
+            <span class="price-sell" title="O kolik je výkupní cena nad/pod základní cenou ${m.price} 🪙">prodáš ${sell} 🪙 <small style="color:${stt.c}">${stt.i} ${sellDiff > 0 ? '+' : ''}${sellDiff} %</small></span>
           </div>
         </div>
         <div class="trade-actions">

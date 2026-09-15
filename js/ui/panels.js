@@ -114,10 +114,14 @@
     }).join('');
     const autoActive = dir.focusMaterial ? '' : ' active';
     const dangerActive = dir.avoidDanger ? ' active' : '';
+    const targetRow = dir.focusMaterial
+      ? `<div class="dir-row dir-target"><span class="v-label">Držet alespoň</span>${G.qtyControl('directive:target', { value: dir.focusTarget || 30, max: 200, presets: [10, 30, 60, 100] })}<span class="hint">kusů ${esc(G.MATERIALS[dir.focusMaterial].name)} — pod tuto hranici se práce na materiál upřednostní</span></div>`
+      : '';
     return `<div class="directives">
       <div class="panel-title">🧭 Směrnice — čemu se autonomně věnovat</div>
       <div class="hint" style="text-align:left">Ovlivňuje jen <b>automatické</b> rozhodování postav bez příkazu (příkazy ve frontě a zaměření skupin mají přednost).</div>
       <button class="dir-chip${autoActive}" data-action="set-directive-focus" data-material="" title="Žádné zaměření — postavy si vybírají podle toho, čeho je nedostatek.">✨ Auto</button>${chips}
+      ${targetRow}
       <div class="dir-row"><button class="dir-chip${dangerActive}" data-action="toggle-directive-danger" title="Postavy nebudou chodit na nebezpečné uzly (důl, jeskyně, močál).">🛡️ Vyhýbat se nebezpečí</button></div>
     </div>`;
   }
@@ -232,21 +236,26 @@
       if (e != null && (soonest == null || e < soonest)) soonest = e;
     }
     const waitTxt = soonest != null ? ` Nejbližší uvolnění ≈ ${formatSec(soonest)}.` : '';
+    const sorted = G.sortedOrders ? G.sortedOrders() : orders;
     let html = `<div class="panel-title">📋 Příkazy ve frontě (${orders.length})</div>
-      <div class="hint" style="text-align:left">Vyřídí se automaticky, jakmile bude některá postava volná.${waitTxt}</div>`;
-    for (const o of orders) {
+      <div class="hint" style="text-align:left">Vyřídí se shora dolů, jakmile bude některá postava volná.${waitTxt}</div>`;
+    sorted.forEach((o, idx) => {
       const act = G.ACTIVITIES[o.activityId];
-      if (!act) continue;
+      if (!act) return;
       const qty = act.mode === 'quantity' && o.targetQty ? ` ${o.targetQty}×` : '';
       const place = nodeName(o.nodeId);
-      const who = o.targetType === 'group' ? ' — čeká na skupinu' : o.targetType === 'unit' ? ' — čeká na postavu' : ' — čeká na volnou postavu';
+      const who = o.targetType === 'group' ? 'čeká na skupinu' : o.targetType === 'unit' ? 'čeká na postavu' : 'čeká na volnou postavu';
       html += `<div class="task-row">
-        <div class="task-icon">${act.icon}</div>
+        <div class="task-icon">${idx === 0 ? '1️⃣' : act.icon}</div>
         <div class="task-main"><div class="task-name">${esc(act.name)}${qty}${place ? ` <span style="color:#8d8570;font-weight:400">— ${esc(place)}</span>` : ''}</div>
-          <div class="task-sub">${esc(who.replace(/^ — /, ''))} • priorita ${o.priority || 0}</div></div>
-        <button class="btn-sm ghost" data-action="cancel-order" data-order="${o.id}" title="Zrušit příkaz z fronty">Zrušit</button>
+          <div class="task-sub">${esc(who)} • priorita ${o.priority || 0}</div></div>
+        <div class="order-actions">
+          <button class="btn-sm ghost order-move" data-action="order-up" data-order="${o.id}" title="Posunout nahoru (vyřídí se dřív)" ${idx === 0 ? 'disabled' : ''}>▲</button>
+          <button class="btn-sm ghost order-move" data-action="order-down" data-order="${o.id}" title="Posunout dolů" ${idx === sorted.length - 1 ? 'disabled' : ''}>▼</button>
+          <button class="btn-sm ghost" data-action="cancel-order" data-order="${o.id}" title="Zrušit příkaz z fronty">Zrušit</button>
+        </div>
       </div>`;
-    }
+    });
     return html;
   }
 
@@ -433,8 +442,13 @@
     const alive = s.units.filter(u => !u.dead);
     const dead = s.units.filter(u => u.dead);
     const kids = s.family && s.family.children ? s.family.children : [];
+    const resting = alive.filter(u => u.resting);
     let html = `<div class="panel-title">Postavy (${alive.length})</div>`;
     html += `<button class="btn" data-action="recruit">🧙 Najmout postavu (${G.recruitCost()} zlata)</button>`;
+    if (resting.length) {
+      const lowest = Math.round(Math.min.apply(null, resting.map(u => u.stamina)));
+      html += `<button class="btn ghost" data-action="wake-all" title="Odpočívající postavy se vrátí k práci i s nižší výdrží.">☀️ Vzbudit všechny (${resting.length}) — nejnižší výdrž ${lowest} %</button>`;
+    }
     for (const u of alive) html += unitCardHtml(u);
     if (kids.length) { html += `<div class="panel-title">Děti (${kids.length})</div>`; for (const c of kids) html += childCardHtml(c); }
     if (dead.length) { html += `<div class="panel-title">Zesnulí (${dead.length})</div>`; for (const u of dead) html += deadCardHtml(u); }
@@ -883,7 +897,9 @@
     const labels = { all:'Vše', info:'Info', work:'Práce', economy:'Ekonomika', combat:'Boj', story:'Příběh', social:'Social', politics:'Politika' };
     let html = `<div class="panel-title">Log</div><div class="log-filters">`;
     for (const c of cats) html += `<button class="log-filter ${filter === c ? 'active' : ''}" data-log-filter="${c}">${labels[c] || c}</button>`;
-    html += `</div><div id="log-list" class="log-list"></div>`;
+    html += `</div><input type="text" id="log-search" class="log-search" placeholder="🔍 Hledat v logu…" value="${esc(G.state.logSearch || '')}" />`;
+    html += `<div id="log-count" class="log-count"></div>`;
+    html += `<div id="log-list" class="log-list"></div>`;
     return html;
   };
 
@@ -1000,8 +1016,16 @@
     const el = document.getElementById('log-list');
     if (!el || !G.state) return;
     const filter = G.state.logFilter || 'all';
+    const query = String(G.state.logSearch || '').trim().toLowerCase();
     const lines = G.state.log.slice(-150).reverse();
-    const filtered = filter === 'all' ? lines : lines.filter(l => l.cat === filter);
+    let filtered = filter === 'all' ? lines : lines.filter(l => l.cat === filter);
+    if (query) filtered = filtered.filter(l => String(l.msg).toLowerCase().indexOf(query) !== -1);
+    const counter = document.getElementById('log-count');
+    if (counter) {
+      counter.textContent = query || filter !== 'all'
+        ? `Zobrazeno ${Math.min(80, filtered.length)} / ${filtered.length} zpráv`
+        : `${filtered.length} zpráv (zobrazuji posledních 80)`;
+    }
     el.innerHTML = filtered.slice(0, 80).map(e => `<div class="log-line log-${e.cat || 'info'}"><span class="log-time" title="Herní čas">${formatClock(e.t)}</span>${esc(e.msg)}</div>`).join('');
   };
 })();

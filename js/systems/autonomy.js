@@ -91,8 +91,9 @@
       if (G.timeWorkMod) w *= G.timeWorkMod(a.skill);
       if (dir.focusMaterial && a.output && a.output.some(o => o.material === dir.focusMaterial)) {
         const have = G.matCount(dir.focusMaterial);
-        if (have < 30) w *= 8;
-        else if (have < 60) w *= 1.5;
+        const target = dir.focusTarget || 30;
+        if (have < target) w *= 8;
+        else if (have < target * 2) w *= 1.5;
       } else if (a.output) {
         let need = 0;
         for (const o of a.output) need = Math.max(need, materialNeed(o.material));
@@ -121,7 +122,7 @@
   }
   G.pickActivity = pickActivity;
   G.setDirective = function (key, value) {
-    if (!G.state.directives) G.state.directives = { focusMaterial: null, avoidDanger: false };
+    if (!G.state.directives) G.state.directives = { focusMaterial: null, focusTarget: 30, avoidDanger: false };
     G.state.directives[key] = value;
   };
   G.getDirective = function (key) {
@@ -180,6 +181,14 @@
   G.wakeUnit = function (unit) {
     if (!unit.resting) return;
     unit.resting = false; unit.restingAt = null; unit.status = 'idle';
+  };
+  /** Vzbudí všechny odpočívající postavy; vrací počet probuzených. */
+  G.wakeAllUnits = function () {
+    let n = 0;
+    for (const u of G.state.units) {
+      if (u.resting) { G.wakeUnit(u); n++; }
+    }
+    return n;
   };
 
   G.baseBuildingLevel = function (buildingId) {

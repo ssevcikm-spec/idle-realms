@@ -198,6 +198,51 @@ check('chytre prirazeni: doporucena druzina + volby v modalu', () => {
     assert(html.indexOf('data-action="assign-task-group"') !== -1, 'chybi volba "priradit skupine"');
   }
 });
+check('fronta: razeni a priorita prikazu', () => {
+  G.state.orders = [];
+  const a = G.addOrder({ activityId: 'chop_wood' });
+  const b = G.addOrder({ activityId: 'gather_stone' });
+  const c = G.addOrder({ activityId: 'fish' });
+  let ids = G.sortedOrders().map(o => o.id);
+  assert(ids.join(',') === [a.id, b.id, c.id].join(','), 'vychozi poradi je spatne: ' + ids.join(','));
+  G.moveOrder(c.id, -1);
+  ids = G.sortedOrders().map(o => o.id);
+  assert(ids[1] === c.id, 'posun nahoru nefungoval: ' + ids.join(','));
+  G.moveOrder(c.id, -1);
+  ids = G.sortedOrders().map(o => o.id);
+  assert(ids[0] === c.id, 'druhy posun nahoru nefungoval: ' + ids.join(','));
+  assert(G.moveOrder(c.id, -1) === false, 'posun nad prvni prikaz mel vratit false');
+  assert(G.moveOrder(a.id, 1) === true, 'posun dolu mel projit');
+  ids = G.sortedOrders().map(o => o.id);
+  assert(ids.indexOf(a.id) === 2, 'posun dolu nefungoval: ' + ids.join(','));
+  G.state.orders = [];
+});
+check('hromadne vzbuzeni postav', () => {
+  const us = G.state.units.filter(u => !u.dead && !u.isChild).slice(0, 3);
+  assert(us.length > 0, 'zadne postavy');
+  for (const u of us) { u.resting = true; u.status = 'resting'; u.stamina = 30; }
+  const n = G.wakeAllUnits();
+  assert(n >= us.length, 'nevzbudil vsechny (' + n + ')');
+  assert(us.every(u => !u.resting), 'nekdo zustal odpocivat');
+});
+check('směrnice: cilova hodnota + hledani v logu', () => {
+  G.setDirective('focusMaterial', 'wood');
+  G.setDirective('focusTarget', 77);
+  assert(G.state.directives.focusTarget === 77, 'cilova hodnota se neulozila');
+  G.state.logSearch = 'drev';
+  assert(G.state.logSearch === 'drev', 'hledany vyraz se neulozil');
+  G.renderLog();
+  G.state.logSearch = '';
+  G.setDirective('focusMaterial', null);
+});
+check('trh ukazuje cenu a trend proti zakladu', () => {
+  const sid = G.WORLD.settlements[0].id;
+  const html = G.panelTrade(sid);
+  if (html.indexOf('koupíš') !== -1) {
+    assert(html.indexOf('sklad') !== -1, 'chybi plnost skladu');
+    assert(html.indexOf('%') !== -1, 'chybi trend ceny');
+  }
+});
 check('charakterove udalosti: resolveCharacterEvent', () => {
   const u = G.state.units.find(x => !x.dead && !x.isChild);
   assert(!!u, 'zadna postava');

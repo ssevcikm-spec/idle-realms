@@ -27,7 +27,7 @@
       family: { children: [] },
       politics: { factions: {}, lastCheck: 0 },
       dynasty: { generations: 1, names: [], totalBirths: 0, totalDeaths: 0 },
-      directives: { focusMaterial: null, avoidDanger: false },
+      directives: { focusMaterial: null, focusTarget: 30, avoidDanger: false },
       settings: { difficulty: null, tutorial: true },
       tutorial: null,
       killCounts: { beast: 0, humanoid: 0, monster: 0 },
@@ -38,7 +38,7 @@
       selected: null,
       camera: { x: 7, y: 22, zoom: 1.0 },
       log: [], pendingEvents: [],
-      logFilter: 'all',
+      logFilter: 'all', logSearch: '',
       stats: {
         totalWork: 0, tasksDone: 0, goldEarned: 0, goldSpent: 0,
         injuries: 0, masterworks: 0, combatsWon: 0, combatsLost: 0,
@@ -91,6 +91,7 @@
     save.season = save.season || 'spring';
     save.year = save.year || 1;
     save.logFilter = save.logFilter || 'all';
+    if (save.logSearch == null) save.logSearch = '';
     save.prestige = save.prestige || { level: 0, totalPrestige: 0, unlocks: [] };
     if (!save.prestige.unlocks) save.prestige.unlocks = [];
     if (save.prestige.lastUnlock === undefined) save.prestige.lastUnlock = null;
@@ -101,7 +102,8 @@
     save.family = save.family || { children: [] };
     save.politics = save.politics || { factions: {}, lastCheck: 0 };
     save.dynasty = save.dynasty || { generations: 1, names: [], totalBirths: 0, totalDeaths: 0 };
-    save.directives = save.directives || { focusMaterial: null, avoidDanger: false };
+    save.directives = save.directives || { focusMaterial: null, focusTarget: 30, avoidDanger: false };
+    if (save.directives.focusTarget == null) save.directives.focusTarget = 30;
     save.pendingStory = null;
     save.stats = save.stats || {};
     ['totalWork','tasksDone','goldEarned','goldSpent','injuries','masterworks','combatsWon','combatsLost',

@@ -80,12 +80,19 @@
       handleAction(el.dataset.action, el.dataset);
     });
     content.addEventListener('input', e => {
+      if (e.target && e.target.id === 'log-search') {
+        G.state.logSearch = e.target.value;
+        if (G.renderLog) G.renderLog();
+        return;
+      }
       const el = e.target.closest('input[data-qty-key]');
       if (!el) return;
       const v = parseInt(el.value, 10);
       if (!isFinite(v)) return;
       const max = parseInt(el.dataset.qtyMax, 10) || 500;
-      G.qtySet(el.dataset.qtyKey, Math.max(1, Math.min(max, v)));
+      const v2 = Math.max(1, Math.min(max, v));
+      G.qtySet(el.dataset.qtyKey, v2);
+      applyQtySideEffect(el.dataset.qtyKey, v2);
     });
     content.addEventListener('change', e => {
       const el = e.target.closest('[data-change]'); if (!el) return;
@@ -405,6 +412,9 @@
       case 'assign-task-group': return doAssignTaskGroup(ds.group);
       case 'queue-task':    return doQueueTask();
       case 'cancel-order':  return doCancelOrder(ds.order);
+      case 'order-up':      return doMoveOrder(ds.order, -1);
+      case 'order-down':    return doMoveOrder(ds.order, 1);
+      case 'wake-all':      return doWakeAll();
       case 'recruit':       return doRecruit();
       case 'create-group':  return doCreateGroup();
       case 'kick':          return doKick(ds.unit);
@@ -484,6 +494,7 @@
     const next = G.qtyClamp(cur + delta, max);
     G.qtySet(key, next);
     if (el) el.value = next;
+    applyQtySideEffect(key, next);
   }
   function doQtySet(key, value) {
     if (!key) return;
@@ -492,6 +503,21 @@
     const next = (value === 'max') ? max : G.qtyClamp(parseInt(value, 10), max);
     G.qtySet(key, next);
     if (el) el.value = next;
+    applyQtySideEffect(key, next);
+  }
+  /** Hodnoty, které kromě paměti patří i do stavu hry. */
+  function applyQtySideEffect(key, value) {
+    if (key === 'directive:target' && G.setDirective) G.setDirective('focusTarget', value);
+  }
+  function doMoveOrder(orderId, dir) {
+    if (G.moveOrder) G.moveOrder(orderId, dir);
+    render();
+  }
+  function doWakeAll() {
+    if (!G.wakeAllUnits) return;
+    const n = G.wakeAllUnits();
+    if (n) G.log(`☀️ Probuzeno ${n} postav — vracejí se k práci (i s nižší výdrží).`, 'social');
+    render();
   }
 
   function doSocketGem(ds) {

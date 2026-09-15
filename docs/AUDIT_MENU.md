@@ -305,11 +305,15 @@ Realizováno v fázích M-A … M-E, po každé fázi proběhly
 | **M-B** | `feat: M-B …` | `G.qtyControl` s pamětí hodnot, `[−] [+]` a čipy 1/10/50/Max, `readQty` pro start/obchod/výrobu, dávková výroba `G.craft(id, qty)`, `G.activityEta` + výnos u aktivit |
 | **M-D** | `feat: M-D …` | kandidáti se stavem, vzdáleností k reálnému uzlu a cenou přerušení + „doporučeno", volba „přerušit autonomní práci a přiřadit všem", „přiřadit celé skupině", doporučená družina u souboje (`G.recommendParty`), odhad uvolnění u fronty |
 | **M-E** | `feat: M-E …` | panel se překresluje jen při změně HTML (DOM si drží identitu), přeskočení obnovy při skryté kartě nebo sbaleném panelu |
+| **M-F** | `feat: M-F …` | řazení příkazů ve frontě s prioritou (`G.moveOrder`, `G.sortedOrders`, tlačítka ▲▼), hromadné „☀️ Vzbudit všechny" (`G.wakeAllUnits`), hledání v logu s počtem zpráv, cílová hodnota směrnice (`directives.focusTarget` + `qtyControl`), trend ceny a plnost skladu v trhu |
 
-**Zbývá (neděláno, mimo rozsah oprav):** řazení a přesouvání priority příkazů ve frontě,
-hromadné „Vzbudit všechny", hledání v logu, vlastní „cílová hodnota" u směrnic
-(např. držet 100 dřeva) a zobrazení trendu cen v trhu.
+**Zbývá (neděláno, mimo rozsah oprav):** vizuální upozornění, když hodnota v poli
+narazí na maximum (dnes se jen tiše ořízne), filtr logu podle času (fulltext už je),
+prázdné stavy některých panelů bez odkazu „kde to udělat" a mrtvá kontrola
+`u.role === 'trader'` v `G.startTask` (role se v `autoAssignRoles` nikdy nepřidělí,
+ale starší savy ji mohou mít).
 
-**Nové testy** (`test/headless-smoke.js`, celkem 22 kontrol): `targetQty` ve frontě,
+**Nové testy** (`test/headless-smoke.js`, celkem 26 kontrol): `targetQty` ve frontě,
 nákup gemu, vykreslení všech panelů a modalů, paměť množství + dávková výroba,
-obsah `qtyControl`, doporučená družina a volby v modalu přiřazení.
+obsah `qtyControl`, doporučená družina a volby v modalu přiřazení, řazení příkazů
+podle priority, hromadné buzení, cílová hodnota směrnice, hledání v logu a trend ceny.
