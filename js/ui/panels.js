@@ -182,11 +182,11 @@
           </div>
           <div class="act-actions">
             ${a.mode === 'quantity' ? `<input type="number" min="1" max="500" value="${a.defaultQty || 10}" class="qty-input" data-qty-for="${a.id}" />` : ''}
-            <button class="btn-sm" ${(req.ok && idleUnits.length) ? '' : 'disabled'} data-action="start-task" data-activity="${a.id}" data-node="${n.id}" title="${req.ok ? (idleUnits.length ? '' : 'Žádné volné postavy') : esc(req.reason)}">Start</button>
+            <button class="btn-sm" ${req.ok ? '' : 'disabled'} data-action="start-task" data-activity="${a.id}" data-node="${n.id}" title="${req.ok ? 'Zadat úkol' : esc(req.reason)}">Start</button>
           </div>
         </div>`;
       }
-      html += `<div class="hint">Start přiřadí ${idleUnits.length} volných postav.</div>`;
+      html += `<div class="hint">${idleUnits.length ? 'Start přiřadí ' + idleUnits.length + ' volných postav.' : 'Nejsou volné postavy — Start nabídne volbu (přiřadit hned / zařadit do fronty).'}</div>`;
     }
     const local = G.state.tasks.filter(t => t.nodeId === n.id);
     if (local.length) {
