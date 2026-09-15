@@ -108,6 +108,19 @@ check('20x tickAutonomy() bez vyjimky', () => { for (let i = 0; i < 20; i++) G.t
 check('20x tickEconomy() bez vyjimky', () => { for (let i = 0; i < 20; i++) G.tickEconomy(0.1); });
 check('craft() funguje', () => { if (G.craft) G.craft('plank', [G.state.units[0].id]); });
 check('settlementMarket() funguje', () => { if (G.settlementMarket) G.settlementMarket(G.WORLD.settlements[0].id); });
+check('udalosti jsou vypnute (faze 0)', () => assert(G.EVENTS_ENABLED === false));
+check('fronta prikazu: addOrder + tickOrders', () => {
+  const u = G.state.units.find(x => !x.dead && !x.isChild && !x.onExpedition);
+  assert(!!u, 'zadna pouzitelna postava');
+  if (u.assignedTaskId && G.detachUnit) G.detachUnit(u.id);
+  u.assignedTaskId = null;
+  u.resting = false;
+  if (G.wakeUnit) G.wakeUnit(u);
+  const o = G.addOrder({ activityId: 'chop_wood' });
+  assert(!!o && G.state.orders.some(x => x.id === o.id), 'prikaz se nepridal');
+  G.tickOrders();
+  assert(!G.state.orders.some(x => x.id === o.id), 'prikaz se nevyridil');
+});
 
 console.log('');
 if (failed === 0) { console.log('VYSLEDEK: OK — vse funguje'); process.exit(0); }

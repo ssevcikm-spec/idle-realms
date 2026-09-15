@@ -71,9 +71,54 @@
     </div>`;
   }
 
+  G.taskAssignModal = function (pending) {
+    const closeBtn = '<div class="perk-actions"><button class="btn ghost" data-action="close-modal">Zavřít</button></div></div>';
+    if (!pending) return '<div class="perk-panel"><div class="perk-header">Přiřadit úkol</div>' + closeBtn;
+    const act = G.ACTIVITIES[pending.activityId];
+    if (!act) return '<div class="perk-panel"><div class="perk-header">Neznámá aktivita</div>' + closeBtn;
+    const alive = G.state.units.filter(u => !u.dead && !u.isChild && !u.onExpedition);
+    const node = pending.nodeId
+      ? G.WORLD.nodes.find(n => n.id === pending.nodeId)
+      : (G.findNodeFor ? G.findNodeFor(pending.activityId, alive.map(u => u.id)) : null);
+    const scored = alive.map(u => {
+      const busy = !!u.assignedTaskId || u.resting;
+      const d = node ? Math.hypot(node.x - u.pos.x, node.y - u.pos.y) : 0;
+      return { u: u, busy: busy, d: d };
+    }).sort((a, b) => (a.busy - b.busy) || (a.d - b.d));
+    let html = `<div class="perk-panel">
+      <div class="perk-header">${act.icon} ${esc(act.name)}</div>
+      <div class="perk-hint">Nejsou volné postavy. Buď úkol <b>zařaď do fronty</b> (vyřídí se, až bude někdo volný), nebo ho <b>přiřaď hned</b> některé postavě — přeruší se jí současná práce.</div>
+      <button class="btn" data-action="queue-task">📋 Zařadit do fronty</button>
+      <div class="panel-title">Přiřadit hned</div>`;
+    for (const s of scored) {
+      const u = s.u;
+      const st = u.resting ? '😴 odpočívá' : u.assignedTaskId ? '⚒️ pracuje' : '🟢 volný';
+      html += `<button class="btn-sm ghost" data-action="assign-task-unit" data-unit="${u.id}" style="display:block;width:100%;text-align:left;margin:4px 0">${esc(u.name)} — ${st}${node ? ' • ' + Math.round(s.d) + ' polí' : ''}</button>`;
+    }
+    html += `<div class="perk-actions"><button class="btn ghost" data-action="close-modal">Zrušit</button></div></div>`;
+    return html;
+  };
+
+  function renderOrders() {
+    const orders = G.state.orders || [];
+    if (!orders.length) return '';
+    let html = `<div class="panel-title">📋 Příkazy (${orders.length})</div>`;
+    for (const o of orders) {
+      const act = G.ACTIVITIES[o.activityId];
+      if (!act) continue;
+      html += `<div class="task-row">
+        <div class="task-icon">${act.icon}</div>
+        <div class="task-main"><div class="task-name">${esc(act.name)}</div>
+          <div class="task-sub">čeká na volnou postavu</div></div>
+        <button class="btn-sm ghost" data-action="cancel-order" data-order="${o.id}">Zrušit</button>
+      </div>`;
+    }
+    return html;
+  }
+
   G.panelPlace = function () {
     const sel = G.state.selected;
-    let html = tutorialBanner() + renderDirectives() + renderActivityDashboard();
+    let html = tutorialBanner() + renderDirectives() + renderActivityDashboard() + renderOrders();
     if (!sel) { html += panelNoSelection(); return html; }
     if (sel.type === 'node') return html + panelNode(sel.id);
     if (sel.type === 'settlement') return html + G.panelTrade(sel.id);

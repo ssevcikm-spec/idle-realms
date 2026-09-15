@@ -135,6 +135,7 @@
     s.directives = s.directives || { focusMaterial: null, avoidDanger: false };
     s.expeditions = s.expeditions || [];
     s.masterworks = s.masterworks || [];
+    s.orders = s.orders || [];
     s.dayTime = s.dayTime || 0;
     s.day = s.day || 0;
     s.season = s.season || 'spring';

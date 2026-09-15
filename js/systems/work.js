@@ -183,4 +183,65 @@
     G.state.tasks = G.state.tasks.filter(x => x.id !== t.id);
   }
   G.grantOutput = grantOutput;
+
+  /* ---------- Fronta příkazů (work orders) ---------- */
+
+  /** Přidá příkaz hráče do fronty. */
+  G.addOrder = function (order) {
+    if (!G.state.orders) G.state.orders = [];
+    if (G.state.ordersSeq == null) G.state.ordersSeq = 1;
+    const o = Object.assign({
+      id: 'o' + (G.state.ordersSeq++),
+      targetType: 'any', targetId: null,
+      nodeId: null, targetQty: null,
+      priority: 0, createdAt: G.state.time
+    }, order || {});
+    G.state.orders.push(o);
+    return o;
+  };
+
+  /** Zruší příkaz z fronty. */
+  G.cancelOrder = function (orderId) {
+    if (!G.state.orders) return;
+    const i = G.state.orders.findIndex(o => o.id === orderId);
+    if (i >= 0) G.state.orders.splice(i, 1);
+  };
+
+  /** Volné postavy, které mohou vzít daný příkaz (podle cíle). */
+  G.orderCandidates = function (order) {
+    let units;
+    if (order.targetType === 'unit') {
+      const u = G.getUnit(order.targetId); units = u ? [u] : [];
+    } else if (order.targetType === 'group') {
+      const g = G.getGroup(order.targetId); units = g ? G.groupMembers(g) : [];
+    } else {
+      units = G.state.units;
+    }
+    return units.filter(u => u && !u.dead && !u.isChild && !u.onExpedition && !u.assignedTaskId && !u.resting
+      && !(G.hasSevereInjury && G.hasSevereInjury(u))
+      && !(u.merchantState && u.merchantState.active)
+      && !(G.unitRefusesWork && G.unitRefusesWork(u))
+      && !(u._refuseUntil && G.state.time < u._refuseUntil));
+  };
+
+  /** Scheduler: přiřadí příkazy volným postavám (volá se z tickAutonomy PŘED auto-prací). */
+  G.tickOrders = function () {
+    if (!G.state.orders || !G.state.orders.length) return;
+    const orders = G.state.orders.slice().sort((a, b) => (b.priority - a.priority) || (a.createdAt - b.createdAt));
+    for (const o of orders) {
+      const act = G.ACTIVITIES[o.activityId];
+      if (!act) { G.cancelOrder(o.id); continue; }
+      const idle = G.orderCandidates(o);
+      if (!idle.length) continue;
+      const t = G.startTask(o.activityId, idle.map(u => u.id), {
+        nodeId: o.nodeId || undefined,
+        targetQty: o.targetQty || (act.mode === 'quantity' ? (act.defaultQty || 10) : 1),
+        auto: false
+      });
+      if (t) {
+        G.log(`📋 Příkaz vyřízen: ${act.name} (${idle.length} postav).`, 'work');
+        G.cancelOrder(o.id);
+      }
+    }
+  };
 })();

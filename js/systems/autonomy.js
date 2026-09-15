@@ -8,6 +8,9 @@
     if (timer < INTERVAL) return;
     timer = 0;
 
+    // Fronta příkazů hráče má přednost před automatickou prací
+    if (G.tickOrders) G.tickOrders();
+
     if (G.tickProfessions) G.tickProfessions(INTERVAL);
     if (G.tickRestCheck) G.tickRestCheck();
     if (G.tickStaminaRegen) for (const u of G.state.units) G.tickStaminaRegen(u, INTERVAL);

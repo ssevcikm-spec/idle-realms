@@ -18,7 +18,7 @@
       buildings: {}, units: [], groups: [], tasks: [],
       economy: {}, reputation: {}, settlementRep: {}, quests: {},
       caravans: [], worldEvents: [],
-      expeditions: [], masterworks: [],
+      expeditions: [], masterworks: [], orders: [],
       prestige: { level: 0, totalPrestige: 0, unlocks: [], lastUnlock: null },
       base: { unlocked: false, buildings: {}, accum: {}, x: 14, y: 18 },
       story: { completed: [], flags: {} },
@@ -85,6 +85,7 @@
     save.worldEvents = save.worldEvents || [];
     save.expeditions = save.expeditions || [];
     save.masterworks = save.masterworks || [];
+    save.orders = save.orders || [];
     save.dayTime = save.dayTime || 0;
     save.day = save.day || 0;
     save.season = save.season || 'spring';
