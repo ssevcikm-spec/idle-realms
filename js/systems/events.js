@@ -41,7 +41,12 @@
   let eventTimer = 0;
   const CHECK_EVERY = 55, CHANCE = 0.25;
 
+  // Náhodné popup události jsou dočasně VYPNUTÉ — čekají na přepracování
+  // na osobní momenty postav (viz docs/PLAN_HRATELNOST.md). Zapnutí: = true.
+  G.EVENTS_ENABLED = false;
+
   G.tickEvents = function (dt) {
+    if (!G.EVENTS_ENABLED) return;
     if (G.simulating) return;
     if (G.state.pendingEvents.length) return;
     eventTimer += dt;
