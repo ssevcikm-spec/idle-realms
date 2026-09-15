@@ -878,3 +878,7 @@ input:focus, select:focus, textarea:focus { border-color: #a8813a; }
 /* === EXPEDICE: živý souhrn výběru === */
 .exp-pick-count { font-size: 12px; color: #b8b09a; margin: 6px 0 8px; }
 .exp-pick-count.warn { color: #d8b45a; }
+.rec-tag {
+  background: #2f4a2a; color: #8fbf7a; font-size: 10px; font-weight: 700;
+  padding: 1px 6px; border-radius: 999px; margin-left: 4px;
+}

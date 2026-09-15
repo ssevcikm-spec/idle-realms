@@ -386,6 +386,8 @@
       case 'start-task':    return doStartTask(ds.activity, ds.node);
       case 'cancel-task':   return doCancelTask(ds.task);
       case 'assign-task-unit': return doAssignTaskUnit(ds.unit);
+      case 'assign-task-all':  return doAssignTaskAll();
+      case 'assign-task-group': return doAssignTaskGroup(ds.group);
       case 'queue-task':    return doQueueTask();
       case 'cancel-order':  return doCancelOrder(ds.order);
       case 'recruit':       return doRecruit();
@@ -426,7 +428,7 @@
       case 'stop-merchant': return doStopMerchant(ds.unit);
       case 'merchant-instant-trade': return doMerchantInstant(ds.unit);
       case 'set-custom-merchant-route': return doSetCustomMerchantRoute(ds.unit);
-      case 'attack-here':   return doAttackHere(ds.node);
+      case 'attack-here':   return doAttackHere(ds.node, ds.recommended === '1');
       case 'set-tactic':    return G.setTactic(ds.tactic);
       case 'toggle-auto-abilities': return G.toggleAutoAbilities();
       case 'queue-ability': return doQueueAbility(ds);
@@ -532,24 +534,70 @@
   function doStartTask(activityId, nodeId) {
     const act = G.ACTIVITIES[activityId]; if (!act) return;
     const targetQty = act.mode === 'quantity' ? readQty('act:' + activityId, act.defaultQty || 10, 500) : 1;
-    let freed = 0;
-    for (const t of G.state.tasks.slice()) if (t.auto) { G.cancelTask(t.id); freed++; }
-    const idle = G.state.units.filter(u =>
-      !u.dead && !u.isChild && !u.onExpedition && !u.assignedTaskId && !u.resting
-      && !(G.hasSevereInjury && G.hasSevereInjury(u))
-      && !(u.merchantState && u.merchantState.active)
-      && !(G.unitRefusesWork && G.unitRefusesWork(u)));
+    const idle = idleUnits();
     if (!idle.length) {
-      // Žádné volné postavy → nabídni volbu (přiřadit hned / zařadit do fronty)
+      // Žádné volné postavy → nabídni volbu (fronta / přiřadit hned / skupina)
       pendingAssign = { activityId: activityId, nodeId: nodeId || null, targetQty: targetQty };
       openModal('task-assign');
       return;
     }
     const t = G.startTask(activityId, idle.map(u => u.id), { nodeId: nodeId || undefined, targetQty });
     if (!t) { G.log('⚠️ Nenašel se vhodný uzel.', 'info'); return render(); }
-    if (freed) G.log(`↩️ Přerušeny automatické úkoly (${freed}), zahajuji: ${act.name}.`, 'work');
-    else G.log(`⚒️ Zahájen úkol: ${act.name} (${idle.length} postav).`, 'work');
+    G.log(`⚒️ Zahájen úkol: ${act.name} (${idle.length} postav).`, 'work');
     render();
+  }
+  /** Volné postavy (nikdo je nepřerušuje). */
+  function idleUnits() {
+    return G.state.units.filter(u =>
+      !u.dead && !u.isChild && !u.onExpedition && !u.assignedTaskId && !u.resting
+      && !(G.hasSevereInjury && G.hasSevereInjury(u))
+      && !(u.merchantState && u.merchantState.active)
+      && !(G.unitRefusesWork && G.unitRefusesWork(u))
+      && !(u._refuseUntil && G.state.time < u._refuseUntil));
+  }
+  /** Explicitní varianta: přeruší autonomní práci a pošle na úkol všechny schopné. */
+  function doAssignTaskAll() {
+    const pa = pendingAssign;
+    const act = pa ? G.ACTIVITIES[pa.activityId] : null;
+    if (!pa || !act) return closeModal();
+    let freed = 0;
+    for (const t of G.state.tasks.slice()) if (t.auto) { G.cancelTask(t.id); freed++; }
+    const able = idleUnits();
+    if (!able.length) { G.log('⚠️ Nikdo teď nemůže pracovat.', 'info'); return; }
+    const t = G.startTask(pa.activityId, able.map(u => u.id), {
+      nodeId: pa.nodeId || undefined,
+      targetQty: act.mode === 'quantity' ? (pa.targetQty || act.defaultQty || 10) : 1
+    });
+    if (!t) G.log('⚠️ Nenašel se vhodný uzel pro tuto práci.', 'info');
+    else G.log(`⚒️ ${act.name}: přiřazeno ${able.length} postav (přerušeno ${freed} autonomních úkolů).`, 'work');
+    pendingAssign = null;
+    closeModal();
+  }
+  /** Přiřadí úkol volným členům skupiny (jejich autonomní práci ukončí). */
+  function doAssignTaskGroup(groupId) {
+    const pa = pendingAssign;
+    const act = pa ? G.ACTIVITIES[pa.activityId] : null;
+    const g = G.getGroup(groupId);
+    if (!pa || !act || !g) return closeModal();
+    for (const u of G.groupMembers(g)) {
+      if (!u || !u.assignedTaskId) continue;
+      const t = G.state.tasks.find(x => x.id === u.assignedTaskId);
+      if (t && t.auto) G.cancelTask(t.id);
+    }
+    const members = G.groupMembers(g).filter(u => u && !u.dead && !u.isChild && !u.onExpedition
+      && !u.assignedTaskId && !u.resting
+      && !(G.hasSevereInjury && G.hasSevereInjury(u))
+      && !(u.merchantState && u.merchantState.active)
+      && !(G.unitRefusesWork && G.unitRefusesWork(u)));
+    if (!members.length) { G.log(`⚠️ Ve skupině ${g.name} teď nikdo nemůže pracovat.`, 'info'); return; }
+    const t = G.startTask(pa.activityId, members.map(u => u.id), {
+      nodeId: pa.nodeId || undefined,
+      targetQty: act.mode === 'quantity' ? (pa.targetQty || act.defaultQty || 10) : 1
+    });
+    if (!t) G.log('⚠️ Nenašel se vhodný uzel pro tuto práci.', 'info');
+    else G.log(`👥 ${g.name}: ${act.name} (${members.length} členů).`, 'work');
+    pendingAssign = null;
+    closeModal();
   }
   function doCancelTask(taskId) { G.cancelTask(taskId); render(); }
   function doAssignTaskUnit(unitId) {
@@ -737,13 +785,14 @@
     if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
     if (modal) openModal(modal.type, modal.unitId); else render();
   }
-  function doAttackHere(nodeId) {
+  function doAttackHere(nodeId, recommended) {
     const node = G.WORLD.nodes.find(n => n.id === nodeId); if (!node) return;
     const idle = G.state.units.filter(u => !u.dead && !u.isChild && !u.onExpedition && !u.resting
       && !(G.hasSevereInjury && G.hasSevereInjury(u))
       && !(u.merchantState && u.merchantState.active));
     if (!idle.length) { G.log('⚠️ Žádné volné postavy.', 'info'); return; }
-    G.startCombat(node, idle, { tactic:'balanced' });
+    const party = (recommended && G.recommendParty) ? G.recommendParty(G.nodeDanger(node.kind), idle) : idle;
+    G.startCombat(node, party, { tactic:'balanced' });
   }
   function doQueueAbility(ds) { if (G.queueAbility) G.queueAbility(ds.ally, ds.ability); }
   function doCombatRound() { G.combatRound(); }

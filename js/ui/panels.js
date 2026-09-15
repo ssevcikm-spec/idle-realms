@@ -163,23 +163,60 @@
     const act = G.ACTIVITIES[pending.activityId];
     if (!act) return '<div class="perk-panel"><div class="perk-header">Neznámá aktivita</div>' + closeBtn;
     const alive = G.state.units.filter(u => !u.dead && !u.isChild && !u.onExpedition);
-    const node = pending.nodeId
-      ? G.WORLD.nodes.find(n => n.id === pending.nodeId)
-      : (G.findNodeFor ? G.findNodeFor(pending.activityId, alive.map(u => u.id)) : null);
-    const scored = alive.map(u => {
-      const busy = !!u.assignedTaskId || u.resting;
-      const d = node ? Math.hypot(node.x - u.pos.x, node.y - u.pos.y) : 0;
-      return { u: u, busy: busy, d: d };
-    }).sort((a, b) => (a.busy - b.busy) || (a.d - b.d));
+    const qtyTxt = act.mode === 'quantity' && pending.targetQty ? ` — ${pending.targetQty}×` : '';
+
+    // Kandidáti: stav, vzdálenost k uzlu, který použije právě tato postava, a cena přerušení
+    const cand = alive.map(u => {
+      const node = G.findNodeFor ? G.findNodeFor(pending.activityId, [u.id]) : null;
+      const d = (node && u.pos) ? Math.hypot(node.x - u.pos.x, node.y - u.pos.y) : null;
+      const blocked = G.workBlockReason ? G.workBlockReason(u) : null;
+      const wakeable = blocked === 'odpočívá';
+      const usable = !blocked || wakeable;
+      let stateTxt, note = '';
+      if (u.assignedTaskId) {
+        const t = G.state.tasks.find(x => x.id === u.assignedTaskId);
+        const ta = t ? G.ACTIVITIES[t.activityId] : null;
+        stateTxt = `⚒️ ${ta ? ta.name : 'pracuje'}`;
+        if (t) note = ` — přeruší se${G.taskEta ? ', zbývá ≈ ' + formatSec(G.taskEta(t)) : ''}`;
+      } else if (u.resting) stateTxt = '😴 odpočívá (vzbudí se)';
+      else if (blocked) stateTxt = `🚫 ${blocked}`;
+      else stateTxt = '🟢 volný';
+      return { u, d, usable, stateTxt, note, busy: !!u.assignedTaskId };
+    }).sort((a, b) => (a.usable === b.usable ? 0 : a.usable ? -1 : 1)
+      || (a.busy - b.busy)
+      || ((a.d == null ? 1e9 : a.d) - (b.d == null ? 1e9 : b.d)));
+
     let html = `<div class="perk-panel">
-      <div class="perk-header">${act.icon} ${esc(act.name)}</div>
-      <div class="perk-hint">Nejsou volné postavy. Buď úkol <b>zařaď do fronty</b> (vyřídí se, až bude někdo volný), nebo ho <b>přiřaď hned</b> některé postavě — přeruší se jí současná práce.</div>
+      <div class="perk-header">${act.icon} ${esc(act.name)}${esc(qtyTxt)}</div>
+      <div class="perk-hint">Nejsou volné postavy. Vyber, co má hra udělat: <b>zařadit do fronty</b> (nikoho nevyruší), nebo práci přidělit hned — tomu, kdo je nejblíž, celé skupině, nebo všem schopným.</div>
       <button class="btn" data-action="queue-task">📋 Zařadit do fronty</button>
-      <div class="panel-title">Přiřadit hned</div>`;
-    for (const s of scored) {
-      const u = s.u;
-      const st = u.resting ? '😴 odpočívá' : u.assignedTaskId ? '⚒️ pracuje' : '🟢 volný';
-      html += `<button class="btn-sm ghost" data-action="assign-task-unit" data-unit="${u.id}" style="display:block;width:100%;text-align:left;margin:4px 0">${esc(u.name)} — ${st}${node ? ' • ' + Math.round(s.d) + ' polí' : ''}</button>`;
+      <button class="btn ghost" data-action="assign-task-all" title="Zruší autonomní práci všem, kdo mohou pracovat, a pošle je na tento úkol.">⚡ Přerušit autonomní práci a přiřadit všem</button>`;
+
+    const usableList = cand.filter(c => c.usable);
+    const blockedList = cand.filter(c => !c.usable);
+    html += `<div class="panel-title">Přiřadit jedné postavě</div>`;
+    if (!usableList.length) html += `<div class="empty">Nikdo teď nemůže pracovat.</div>`;
+    usableList.forEach((c, i) => {
+      const u = c.u;
+      const dist = c.d != null ? ` • ${Math.round(c.d)} polí` : '';
+      const rec = i === 0 ? ' <span class="rec-tag">doporučeno</span>' : '';
+      html += `<button class="btn-sm ghost" data-action="assign-task-unit" data-unit="${u.id}" style="display:block;width:100%;text-align:left;margin:4px 0">${esc(u.name)} — ${esc(c.stateTxt)}${esc(c.note)}${dist}${rec}</button>`;
+    });
+    if (blockedList.length) {
+      html += `<details class="unit-skills" style="margin-top:6px"><summary>Nemohou pracovat (${blockedList.length})</summary>`;
+      for (const c of blockedList) html += `<div class="task-sub" style="margin:4px 0">🚫 ${esc(c.u.name)} — ${esc(c.stateTxt.replace(/^🚫 /, ''))}</div>`;
+      html += `</details>`;
+    }
+
+    const groups = (G.state.groups || []).map(g => ({
+      g, members: G.groupMembers(g).filter(u => u && !u.dead && !u.isChild && !u.onExpedition
+        && !(G.hasSevereInjury && G.hasSevereInjury(u)) && !(u.merchantState && u.merchantState.active))
+    })).filter(x => x.members.length);
+    if (groups.length) {
+      html += `<div class="panel-title">Přiřadit celé skupině</div>`;
+      for (const { g, members } of groups) {
+        html += `<button class="btn-sm ghost" data-action="assign-task-group" data-group="${g.id}" style="display:block;width:100%;text-align:left;margin:4px 0">👥 ${esc(g.name)} — ${members.length} členů (${members.map(u => esc(u.name.split(' ')[0])).join(', ')})</button>`;
+      }
     }
     html += `<div class="perk-actions"><button class="btn ghost" data-action="close-modal">Zrušit</button></div></div>`;
     return html;
@@ -188,8 +225,15 @@
   function renderOrders() {
     const orders = G.state.orders || [];
     if (!orders.length) return '';
+    let soonest = null;
+    for (const t of G.state.tasks) {
+      if (!G.taskEta) break;
+      const e = G.taskEta(t);
+      if (e != null && (soonest == null || e < soonest)) soonest = e;
+    }
+    const waitTxt = soonest != null ? ` Nejbližší uvolnění ≈ ${formatSec(soonest)}.` : '';
     let html = `<div class="panel-title">📋 Příkazy ve frontě (${orders.length})</div>
-      <div class="hint" style="text-align:left">Vyřídí se automaticky, jakmile bude některá postava volná.</div>`;
+      <div class="hint" style="text-align:left">Vyřídí se automaticky, jakmile bude některá postava volná.${waitTxt}</div>`;
     for (const o of orders) {
       const act = G.ACTIVITIES[o.activityId];
       if (!act) continue;
@@ -256,8 +300,12 @@
       const safety = Math.round(G.partySafety(idleUnits));
       const need = Math.round(danger * 22);
       const verdict = safety >= need * 1.2 ? 'mělo by to vyjít' : safety >= need * 0.8 ? 'bude to těsné' : 'je to nad síly družiny';
-      html += `<div class="warn-box">💡 Zaútočí <b>${idleUnits.length}</b> volných postav (všech, i vzdálených). Odhad síly družiny <b>${safety}</b> vs. potřeba <b>${need}</b> — ${verdict}.</div>`;
-      html += `<button class="btn attack-btn" data-action="attack-here" data-node="${n.id}" title="Pošle do boje všechny volné postavy, ne jen ty u tohoto uzlu">⚔️ Zaútočit</button>`;
+      const rec = G.recommendParty ? G.recommendParty(danger, idleUnits) : idleUnits;
+      html += `<div class="warn-box">💡 Zaútočí <b>${idleUnits.length}</b> volných postav (všech, i vzdálených). Odhad síly družiny <b>${safety}</b> vs. potřeba <b>${need}</b> — ${verdict}. Doporučená družina: <b>${rec.length}</b> postav.</div>`;
+      html += `<button class="btn attack-btn" data-action="attack-here" data-node="${n.id}" title="Pošle do boje všechny volné postavy, ne jen ty u tohoto uzlu">⚔️ Zaútočit (všichni)</button>`;
+      if (rec.length < idleUnits.length) {
+        html += `<button class="btn ghost attack-btn" data-action="attack-here" data-node="${n.id}" data-recommended="1" title="Menší družina s rozumnou šancí — zbytek může dál pracovat">🛡️ Zaútočit s doporučenou družinou (${rec.length})</button>`;
+      }
     }
     html += `<div class="panel-title">Dostupné práce</div>`;
     if (!acts.length) html += `<div class="empty">Tady se nedá nic dělat.</div>`;

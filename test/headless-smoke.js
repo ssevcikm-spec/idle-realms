@@ -186,6 +186,18 @@ check('qtyControl vykresli ovladani mnozstvi', () => {
   assert(html.indexOf('data-action="qty-step"') !== -1, 'chybi tlacitka +/-');
   assert(html.indexOf('data-action="qty-set"') !== -1, 'chybi cipy');
 });
+check('chytre prirazeni: doporucena druzina + volby v modalu', () => {
+  const units = G.state.units.filter(u => !u.dead && !u.isChild);
+  assert(units.length > 0, 'zadne postavy');
+  const rec = G.recommendParty(2, units);
+  assert(rec.length >= 1 && rec.length <= units.length, 'recommendParty vratil divny pocet: ' + rec.length);
+  const html = G.taskAssignModal({ activityId: 'chop_wood', nodeId: null, targetQty: 25 });
+  assert(html.indexOf('data-action="assign-task-all"') !== -1, 'chybi volba "priradit vsem"');
+  assert(html.indexOf('data-action="queue-task"') !== -1, 'chybi volba "do fronty"');
+  if ((G.state.groups || []).length) {
+    assert(html.indexOf('data-action="assign-task-group"') !== -1, 'chybi volba "priradit skupine"');
+  }
+});
 check('charakterove udalosti: resolveCharacterEvent', () => {
   const u = G.state.units.find(x => !x.dead && !x.isChild);
   assert(!!u, 'zadna postava');

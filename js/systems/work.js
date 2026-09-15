@@ -33,6 +33,18 @@
     for (const gid of groups) G.autoAssignRoles(G.getGroup(gid));
     return t;
   };
+  /** Doporučená družina: nejmenší počet nejsilnějších postav s rozumnou šancí. */
+  G.recommendParty = function (danger, units, factor) {
+    const need = danger * 22 * (factor == null ? 1.2 : factor);
+    const sorted = (units || []).slice().sort((a, b) => G.unitCombatPower(b) - G.unitCombatPower(a));
+    const out = [];
+    for (const u of sorted) {
+      out.push(u);
+      if (G.partySafety(out) >= need) break;
+    }
+    return out;
+  };
+
   /** Proč postava teď nemůže vzít práci? Vrací text důvodu, nebo null (může). */
   G.workBlockReason = function (u) {
     if (!u) return 'Neznámá postava.';
