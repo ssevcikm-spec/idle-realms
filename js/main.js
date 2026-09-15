@@ -160,6 +160,11 @@
     s.caravans = s.caravans || [];
     s.worldEvents = s.worldEvents || [];
     s.base = s.base || { unlocked: false, buildings: {}, accum: {}, x: 14, y: 18 };
+    s.construction = s.construction || [];
+    s.construction.forEach(j => {
+      if (j.site == null) j.site = j.kind === 'base' ? 'base' : j.settlementId;
+      if (j.taskId && !s.tasks.some(t => t.id === j.taskId)) j.taskId = null;
+    });
     s.base.accum = s.base.accum || {};
     s.base.buildings = s.base.buildings || {};
     if (s.base.x == null) s.base.x = 14;
@@ -223,7 +228,7 @@
   }
 
   function restoreSequences() {
-    let maxU = 0, maxG = 0, maxT = 0, maxE = 0, maxQ = 0, maxC = 0, maxWE = 0;
+    let maxU = 0, maxG = 0, maxT = 0, maxE = 0, maxQ = 0, maxC = 0, maxWE = 0, maxCon = 0;
     for (const u of G.state.units) maxU = Math.max(maxU, parseInt(u.id.slice(1), 10) || 0);
     for (const g of G.state.groups) maxG = Math.max(maxG, parseInt(g.id.slice(1), 10) || 0);
     for (const t of G.state.tasks) maxT = Math.max(maxT, parseInt(t.id.slice(1), 10) || 0);
@@ -232,9 +237,11 @@
       maxQ = Math.max(maxQ, parseInt(q.id.slice(1), 10) || 0);
     for (const c of (G.state.caravans || [])) maxC = Math.max(maxC, parseInt(c.id.slice(1), 10) || 0);
     for (const ev of (G.state.worldEvents || [])) maxWE = Math.max(maxWE, parseInt(ev.id.slice(2), 10) || 0);
+    for (const j of (G.state.construction || [])) maxCon = Math.max(maxCon, parseInt(j.id.slice(1), 10) || 0);
     G.setUnitIdSeq(maxU + 1);
     G.setGroupIdSeq(maxG + 1);
     G.setTaskIdSeq(maxT + 1);
+    if (G.setConstructionSeq) G.setConstructionSeq(maxCon + 1);
     if (G.setQuestSeq) G.setQuestSeq(maxQ + 1);
     if (G.setCaravanSeq) G.setCaravanSeq(maxC + 1);
     if (G.setWorldEventSeq) G.setWorldEventSeq(maxWE + 1);

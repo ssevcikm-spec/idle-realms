@@ -356,7 +356,7 @@
     const p = G.taskProgress(t);
     const names = t.unitIds.map(id => { const u = G.getUnit(id); if (!u) return '?'; return esc(u.name.split(' ')[0]) + (u.mentorId ? ' 🎓' : ''); }).join(', ');
     const label = t.mode === 'quantity' ? `${t.producedQty} / ${t.targetQty}` : `${Math.floor(t.workDone)} / ${t.workRequired}`;
-    const place = nodeName(t.nodeId);
+    const place = t.siteName || nodeName(t.nodeId);
     return `<div class="task-row">
       <div class="task-icon">${a.icon}</div>
       <div class="task-main">
@@ -396,6 +396,7 @@
     html += `<div class="hint" style="text-align:left;margin-bottom:10px">Start přiřadí <b>všem volným postavám</b> nejbližší vhodný uzel. Když volné nejsou, nabídne se zařazení do fronty.</div>`;
     html += renderOrders();
     for (const a of Object.values(G.ACTIVITIES)) {
+      if (a.hidden) continue;
       const req = meetsReq(null, a);
       const node = G.WORLD.nearestNode(a.nodeKinds, G.state.camera.x, G.state.camera.y);
       let nodeInfo = '— žádný uzel v dosahu';
@@ -429,6 +430,7 @@
     const out = [];
     for (const aid in G.ACTIVITIES) {
       const a = G.ACTIVITIES[aid];
+      if (a.hidden) continue;
       if (!unitMeetsReq(u, a)) continue;
       const node = G.findNodeFor ? G.findNodeFor(aid, [u.id]) : null;
       if (!node) continue;
@@ -543,7 +545,7 @@
     else if (task) {
       const ta = G.ACTIVITIES[task.activityId];
       taskName = ta ? ta.name : 'Práce';
-      const place = nodeName(task.nodeId);
+      const place = task.siteName || nodeName(task.nodeId);
       taskExtra = (place ? ` • 📍 ${esc(place)}` : '') + esc(taskEtaText(task));
     }
     else if (u.resting) taskName = 'Odpočívá';
@@ -700,7 +702,7 @@
     const s = G.state;
     let html = `<div class="panel-title">Skupiny (${s.groups.length})</div>`;
     html += `<button class="btn" data-action="create-group">➕ Vytvořit skupinu</button>`;
-    const acts = Object.values(G.ACTIVITIES);
+    const acts = Object.values(G.ACTIVITIES).filter(a => !a.hidden);
     for (const g of s.groups) {
       const members = G.groupMembers(g).filter(u => u && !u.dead);
       const ch = G.groupChemistry(g);

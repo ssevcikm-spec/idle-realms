@@ -222,6 +222,11 @@
             const off = hashOffset(u.id);
             target = { x: node.x + 0.5 + off.x, y: node.y + 0.5 + off.y };
             working = true;
+          } else if (t.site) {
+            // stavba (nemá uzel) — stavitelé jdou ke staveništi
+            const off = hashOffset(u.id);
+            target = { x: t.site.x + off.x, y: t.site.y + off.y };
+            working = true;
           }
         }
       }

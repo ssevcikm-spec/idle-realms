@@ -18,15 +18,17 @@
     });
     if (!usable.length) return null;
     const node = opts.nodeId ? G.WORLD.nodes.find(n => n.id === opts.nodeId) : G.findNodeFor(activityId, usable);
-    if (!node) return null;
+    if (!node && !opts.site) return null;
     const t = {
-      id:'t'+(taskIdSeq++), activityId, nodeId: node.id,
+      id:'t'+(taskIdSeq++), activityId, nodeId: node ? node.id : (opts.nodeId || null),
       unitIds: usable.slice(), mode: act.mode,
       targetQty: act.mode === 'quantity' ? Math.max(1, Math.floor(opts.targetQty || act.defaultQty || 10)) : 1,
       producedQty:0, workDone:0, auto: !!opts.auto,
-      workRequired: act.mode === 'timed' ? (act.workRequired || 20) : null,
+      workRequired: act.mode === 'timed' ? (opts.workRequired || act.workRequired || 20) : null,
       startedAt: G.state.time, _dangerAccum:0
     };
+    if (opts.buildJobId) t.buildJobId = opts.buildJobId;
+    if (opts.site) { t.site = { x: opts.site.x, y: opts.site.y }; t.siteName = opts.siteName || null; }
     G.state.tasks.push(t);
     for (const uid of t.unitIds) { const u = G.getUnit(uid); if (u) { u.assignedTaskId = t.id; u.status = 'working'; } }
     const groups = new Set(usable.map(id => G.getUnit(id).groupId).filter(Boolean));
@@ -79,6 +81,7 @@
       if (u && u.assignedTaskId === t.id) { u.assignedTaskId = null; u.status = 'idle'; }
     }
     G.state.tasks.splice(idx, 1);
+    if (t.buildJobId && G.cancelConstruction) G.cancelConstruction(t.buildJobId);
   };
   G.detachUnit = function (unitId) {
     const u = G.getUnit(unitId);
@@ -170,10 +173,12 @@
       const eo = G.perkExtraOutput(u, sid);
       for (const m in eo) extras[m] = (extras[m] || 0) + eo[m];
     }
+    const bonusQuality = G.skillQualityBonus ? G.skillQualityBonus(units, sid) : 0;
+    const bonusYield = G.skillYieldBonus ? G.skillYieldBonus(units, sid) : 0;
     for (const out of act.output) {
       if (!out.qty) continue;
-      const q = G.rollQuality(avgSkill, units, sid);
-      let qty = out.qty;
+      const q = G.rollQuality(avgSkill, units, sid, bonusQuality);
+      let qty = out.qty + bonusYield;
       if (extras[out.material]) qty += extras[out.material];
       G.matAdd(out.material, qty, q);
     }
@@ -229,11 +234,16 @@
     G.state.stats.tasksDone++;
     const active = t.unitIds.map(id => G.getUnit(id)).filter(u => u && !u.dead);
     // Osobní momenty postav po dokončení úkolu (auto + deník, bez hráčských promptů)
-    if (G.maybeCharacterEvent) {
+    if (G.maybeCharacterEvent && !t.buildJobId) {
       const node = G.WORLD.nodes.find(n => n.id === t.nodeId);
       for (const u of active) G.maybeCharacterEvent(u, { nodeKind: node ? node.kind : null, activityId: t.activityId });
     }
-    if (G.onGroupSuccess && active.length) G.onGroupSuccess(active, 3);
+    if (G.onGroupSuccess && active.length && !t.buildJobId) G.onGroupSuccess(active, 3);
+    if (t.buildJobId) {
+      const built = G.finishConstruction ? G.finishConstruction(t.buildJobId) : false;
+      G.state.tasks = G.state.tasks.filter(x => x.id !== t.id);
+      return built;
+    }
     G.log(t.mode === 'quantity' ? `✔ ${act.name} — hotovo (${t.producedQty}×).` : `✔ ${act.name} — dokončeno.`);
     G.state.tasks = G.state.tasks.filter(x => x.id !== t.id);
   }

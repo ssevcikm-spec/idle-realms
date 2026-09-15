@@ -133,23 +133,126 @@
     return def ? def.effect(lvl) : null;
   };
   G.settlementBonuses = function (settlementId) {
-    const out = { sellMult:1, buyMult:1, craftQualityBonus:0, repairDiscount:0, restMult:1, stockMult:1, healMult:1, safetyMult:1, moodMult:1, smithingSpeed:1, herbalismSpeed:1, huntingSpeed:1, alchemySpeed:1, combatTraining:1, xpBonus:1, smithingQuality:0, huntingQuality:0, alchemyQuality:0, herbalismYield:0 };
+    const out = { sellMult:1, buyMult:1, craftQualityBonus:0, buildDiscount:0, restMult:1, stockMult:1, healMult:1, safetyMult:1, moodMult:1, combatTraining:1, xpBonus:1,
+      smithingQuality:0, huntingQuality:0, alchemyQuality:0, herbalismQuality:0,
+      smithingBatch:0, alchemyBatch:0, huntingYield:0, herbalismYield:0 };
     for (const bid in G.BUILDINGS) {
       const eff = G.buildingEffect(settlementId, bid);
       if (!eff) continue;
       for (const k in eff) {
-        if (k === 'craftQualityBonus' || k === 'repairDiscount' || k === 'smithingQuality' || k === 'huntingQuality' || k === 'alchemyQuality' || k === 'herbalismYield') out[k] = (out[k] || 0) + eff[k];
+        if (ADDITIVE_BONUS[k]) out[k] = (out[k] || 0) + eff[k];
         else out[k] = (out[k] || 1) * eff[k];
       }
     }
     return out;
   };
+
+  /** Klíče, které se sčítají (ostatní se násobí). */
+  function additiveKeys() {
+    return ['craftQualityBonus','buildDiscount','smithingQuality','huntingQuality','alchemyQuality','herbalismQuality','smithingBatch','alchemyBatch','huntingYield','herbalismYield'];
+  }
+  const ADDITIVE_BONUS = {};
+  additiveKeys().forEach(k => ADDITIVE_BONUS[k] = true);
+
+  /** Sídlo, u kterého postava stojí (podle dosahu), jinak null. */
+  G.settlementNearUnit = function (unit) {
+    if (!unit || !unit.pos) return null;
+    for (const s of G.WORLD.settlements) {
+      const sd = G.SETTLEMENT_SIZE[s.size];
+      if (Math.hypot(s.x + 0.5 - unit.pos.x, s.y + 0.5 - unit.pos.y) <= sd.radius + 1.5) return s.id;
+    }
+    return null;
+  };
+
+  /** Bonus budov sídla, u kterého postava stojí (jinak výchozí hodnota). */
+  G.unitBonus = function (unit, key, dflt) {
+    const fallback = dflt == null ? 1 : dflt;
+    const sid = G.settlementNearUnit(unit);
+    if (!sid) return fallback;
+    const v = G.settlementBonuses(sid)[key];
+    return v == null ? fallback : v;
+  };
+
+  /** Nejlepší bonus kvality z budov pro danou dovednost (skóre, sčítá se). */
+  G.skillQualityBonus = function (units, skillId) {
+    let best = 0;
+    for (const u of (units || [])) {
+      const sid = G.settlementNearUnit(u);
+      if (!sid) continue;
+      const b = G.settlementBonuses(sid);
+      const v = (b.craftQualityBonus || 0) + (b[skillId + 'Quality'] || 0);
+      if (v > best) best = v;
+    }
+    return best;
+  };
+
+  /** Bonus kusů navíc pro danou dovednost (sběr i výroba). */
+  G.skillYieldBonus = function (units, skillId) {
+    let best = 0;
+    for (const u of (units || [])) {
+      const sid = G.settlementNearUnit(u);
+      if (!sid) continue;
+      const b = G.settlementBonuses(sid);
+      const v = (b[skillId + 'Yield'] || 0) + (b[skillId + 'Batch'] || 0);
+      if (v > best) best = v;
+    }
+    return best;
+  };
+
+  /** Lidsky čitelný popis efektu budovy na dané úrovni (pro UI). */
+  G.buildingEffectText = function (buildingId, level) {
+    const def = G.BUILDINGS[buildingId];
+    if (!def || level <= 0) return '';
+    const e = def.effect(level), out = [];
+    const pct = m => Math.round((m - 1) * 100);
+    for (const k in e) {
+      const v = e[k];
+      if (k === 'sellMult') out.push(`prodejní ceny +${pct(v)} %`);
+      else if (k === 'buyMult') out.push(`nákupní ceny ${pct(v)} %`);
+      else if (k === 'stockMult') out.push(`zásoby sídla +${pct(v)} %`);
+      else if (k === 'restMult') out.push(`odpočinek +${pct(v)} %`);
+      else if (k === 'moodMult') out.push(`nálada z odpočinku +${pct(v)} %`);
+      else if (k === 'healMult') out.push(`hojení +${pct(v)} %`);
+      else if (k === 'safetyMult') out.push(`nebezpečí u sídla ${pct(v)} %`);
+      else if (k === 'combatTraining') out.push(`bojová síla postav u sídla +${pct(v)} %`);
+      else if (k === 'xpBonus') out.push(`XP dovedností u sídla +${pct(v)} %`);
+      else if (k === 'craftQualityBonus') out.push(`kvalita výroby +${v}`);
+      else if (k === 'buildDiscount') out.push(`stavby v sídle −${Math.round(v * 100)} %`);
+      else if (k === 'smithingQuality') out.push(`kvalita kování +${v}`);
+      else if (k === 'alchemyQuality') out.push(`kvalita alchymie +${v}`);
+      else if (k === 'huntingQuality') out.push(`kvalita lovu +${v}`);
+      else if (k === 'herbalismQuality') out.push(`kvalita bylinkářství +${v}`);
+      else if (k === 'smithingBatch') out.push(`+${v} kus navíc při kování`);
+      else if (k === 'alchemyBatch') out.push(`+${v} kus navíc při alchymii`);
+      else if (k === 'huntingYield') out.push(`+${v} surovina navíc z lovu`);
+      else if (k === 'herbalismYield') out.push(`+${v} surovina navíc ze sběru`);
+      else out.push(`${k}: ${v}`);
+    }
+    return out.join(' • ');
+  };
+
+  /** Cena budovy s ohledem na slevu z Dílny. */
+  G.buildingCost = function (settlementId, buildingId, level) {
+    const def = G.BUILDINGS[buildingId];
+    if (!def) return null;
+    const cost = def.cost(level);
+    const disc = (settlementId && G.settlementBonuses) ? (G.settlementBonuses(settlementId).buildDiscount || 0) : 0;
+    if (!disc) return cost;
+    const d = Math.min(0.6, disc);
+    return {
+      gold: Math.max(1, Math.round(cost.gold * (1 - d))),
+      materials: cost.materials.map(m => ({ material: m.material, qty: Math.max(1, Math.round(m.qty * (1 - d))) }))
+    };
+  };
+
   G.canBuild = function (settlementId, buildingId) {
     const def = G.BUILDINGS[buildingId];
     if (!def) return { ok:false, reason:'Neznámá budova.' };
+    const busy = G.constructionAt ? G.constructionAt(settlementId) : null;
+    if (busy) return { ok:false, reason:`Nejdřív dokonči stavbu: ${G.buildingLabel(busy)}.` };
     const lvl = G.buildingLevel(settlementId, buildingId);
     if (lvl >= def.maxLevel) return { ok:false, reason:'Maximální úroveň.' };
-    const cost = def.cost(lvl + 1);
+    const cost = G.buildingCost(settlementId, buildingId, lvl + 1);
     if (G.state.resources.gold < cost.gold) return { ok:false, reason:`Potřebuješ ${cost.gold} zlata.` };
     for (const m of cost.materials) {
       if (G.matCount(m.material) < m.qty) return { ok:false, reason:`Chybí ${m.qty}× ${G.MATERIALS[m.material].name}.` };
@@ -163,12 +266,14 @@
     G.state.resources.gold -= cost.gold;
     G.state.stats.goldSpent = (G.state.stats.goldSpent || 0) + cost.gold;
     for (const m of cost.materials) G.matRemove(m.material, m.qty);
-    const b = G.buildingsAt(settlementId);
-    b[buildingId] = (b[buildingId] || 0) + 1;
-    const def = G.BUILDINGS[buildingId];
+    const lvl = G.buildingLevel(settlementId, buildingId) + 1;
     const s = G.WORLD.settlementById[settlementId];
-    G.log(`🏗️ ${s ? s.name : settlementId}: ${def.name} na úrovni ${b[buildingId]}.`, 'work');
-    return { ok:true, level:b[buildingId] };
+    const def = G.BUILDINGS[buildingId];
+    const job = G.startConstruction('settlement', settlementId, buildingId, lvl);
+    G.log(job.taskId
+      ? `🏗️ ${s ? s.name : settlementId}: stavba ${def.name} (úr. ${lvl}) začala.`
+      : `🧱 ${s ? s.name : settlementId}: ${def.name} (úr. ${lvl}) čeká na stavitele — pošli k sídlu někoho schopného.`, 'work');
+    return { ok:true, level:lvl, job:job };
   };
 
   /* EQUIPMENT */

@@ -68,6 +68,14 @@
       html += `</div>`;
     }
     html += `<div class="panel-title">Budovy</div>`;
+    const st = G.constructionStatus ? G.constructionStatus('base') : null;
+    if (st) {
+      html += `<div class="warn-box">🏗️ Staví se <b>${G.esc(G.buildingLabel(st.job))}</b>`;
+      if (st.task) html += ` — ${Math.round(st.progress * 100)} %${st.eta != null ? `, zbývá ≈ ${G.formatSec(st.eta)}` : ''} • ${st.builders} stavitelů`;
+      else html += ` — čeká na stavitele u základny`;
+      html += `</div>
+        <div class="hint" style="text-align:left">Stavitelé musí být do 4 polí od základny (až 3). Než stavba skončí, nelze začít další.</div>`;
+    }
     for (const bid in G.BASE_BUILDINGS) {
       const def = G.BASE_BUILDINGS[bid];
       const lvl = G.baseBuildingLevel(bid);
@@ -85,6 +93,13 @@
         else if (def.special === 'legendary') rateInfo = `<div class="act-sub" style="color:#8fbf7a">Bonus: +${lvl*5} % šance na legendárku</div>`;
         else if (def.rate) rateInfo = `<div class="act-sub" style="color:#8fbf7a">Produkce: +${(def.rate(lvl)*3600).toFixed(1)}/h</div>`;
       }
+      let nextInfo = '';
+      if (!maxed) {
+        if (def.special === 'gem') nextInfo = `Na úr. ${lvl+1}: ${12*(lvl+1)} gemů/h`;
+        else if (def.special === 'legendary') nextInfo = `Na úr. ${lvl+1}: +${(lvl+1)*5} % šance na legendárku`;
+        else if (def.rate) nextInfo = `Na úr. ${lvl+1}: +${(def.rate(lvl+1)*3600).toFixed(1)}/h`;
+        if (nextInfo) nextInfo = `<div class="act-sub" style="color:#9c937c">${nextInfo}</div>`;
+      }
       const specialTag = def.special ? ' <span class="loc-tag" style="background:#4a3a6b;color:#d8d0f5">speciální</span>' : '';
       html += `<div class="recipe-row ${maxed || !check.ok ? 'locked' : ''}">
         <div class="recipe-icon">${def.icon}</div>
@@ -94,6 +109,7 @@
           ${costText ? `<div class="recipe-io">Další: ${costText}</div>` : ''}
           ${!check.ok && !maxed ? `<div class="act-sub" style="color:#c05a45">🔒 ${G.esc(check.reason)}</div>` : ''}
           ${rateInfo}
+          ${nextInfo}
         </div>
         <button class="btn-sm" ${check.ok ? '' : 'disabled'} data-action="build-base" data-building="${bid}">${maxed ? 'MAX' : 'Postavit'}</button>
       </div>`;

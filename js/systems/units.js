@@ -94,6 +94,7 @@
     if (G.legacyXpMult) mult *= G.legacyXpMult(unit);
     if (G.timeXpMod) mult *= G.timeXpMod();
     if (G.unlockXpMult) mult *= G.unlockXpMult();
+    if (G.unitBonus) mult *= G.unitBonus(unit, 'xpBonus', 1);   // Knihovna u sídla
     if (G.currentDifficulty) mult *= G.currentDifficulty().xpMult;
     amount *= mult;
     if (amount <= 0) return;
@@ -126,6 +127,7 @@
       }
     }
     if (G.currentDifficulty) amount *= G.currentDifficulty().xpMult;
+    if (G.unitBonus) amount *= G.unitBonus(unit, 'xpBonus', 1);   // Knihovna u sídla
     unit.xp += amount; let leveled = false;
     while (unit.xp >= G.unitXpForLevel(unit.level)) {
       unit.xp -= G.unitXpForLevel(unit.level); unit.level++;
@@ -211,6 +213,7 @@
     if (G.personalityMod) p *= G.personalityMod(unit, 'combat');
     if (G.ageMod) p *= G.ageMod(unit, 'str');
     if (G.moodWorkMult) p *= (0.8 + 0.2 * G.moodWorkMult(unit));
+    if (G.unitBonus) p *= G.unitBonus(unit, 'combatTraining', 1);   // Cvičiště u sídla
     return p;
   };
 

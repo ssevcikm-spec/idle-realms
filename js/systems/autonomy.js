@@ -10,6 +10,8 @@
 
     // Fronta příkazů hráče má přednost před automatickou prací
     if (G.tickOrders) G.tickOrders();
+    // Rozestavěné stavby bez stavitelů zkusí získat nové
+    if (G.tickConstruction) G.tickConstruction();
 
     if (G.tickProfessions) G.tickProfessions(INTERVAL);
     if (G.tickRestCheck) G.tickRestCheck();
@@ -71,6 +73,7 @@
     const prof = G.professionOf ? G.professionOf(unit) : null;
     for (const aid in G.ACTIVITIES) {
       const a = G.ACTIVITIES[aid];
+      if (a.hidden) continue;
       if (!meetsReq(unit, a)) continue;
       const node = G.WORLD.nearestNode(a.nodeKinds, unit.pos.x, unit.pos.y);
       if (!node) continue;
@@ -146,13 +149,14 @@
   };
   G.tickStaminaRegen = function (unit, dt) {
     if (unit.dead || !unit.resting) return;
-    let mult = 1;
+    let mult = 1, moodMult = 1;
     if (unit.restingAt && G.settlementBonuses) {
       const b = G.settlementBonuses(unit.restingAt);
       mult = b.restMult;
+      moodMult = b.moodMult || 1;
     }
     unit.stamina = Math.min(unit.maxStamina, unit.stamina + REGEN_BASE * mult * dt);
-    if (unit.mood != null && unit.mood < 90) unit.mood = Math.min(90, unit.mood + 0.4 * mult * dt);
+    if (unit.mood != null && unit.mood < 90) unit.mood = Math.min(90, unit.mood + 0.4 * moodMult * dt);
     if (unit.stamina >= unit.maxStamina) {
       unit.resting = false; unit.restingAt = null; unit.status = 'idle';
       G.log(`💪 ${unit.name} je odpočatý.`, 'social');
@@ -198,6 +202,8 @@
   G.canBuildBase = function (buildingId) {
     const def = G.BASE_BUILDINGS[buildingId];
     if (!def) return { ok:false, reason:'Neznámá budova.' };
+    const busy = G.constructionAt ? G.constructionAt('base') : null;
+    if (busy) return { ok:false, reason:`Nejdřív dokonči stavbu: ${G.buildingLabel(busy)}.` };
     const lvl = G.baseBuildingLevel(buildingId);
     if (lvl >= def.maxLevel) return { ok:false, reason:'Maximální úroveň.' };
     const cost = def.cost(lvl + 1);
@@ -216,10 +222,13 @@
     for (const m of cost.materials) G.matRemove(m.material, m.qty);
     if (!G.state.base) G.state.base = { unlocked:true, buildings:{}, accum:{} };
     if (!G.state.base.buildings) G.state.base.buildings = {};
-    G.state.base.buildings[buildingId] = (G.state.base.buildings[buildingId] || 0) + 1;
     const def = G.BASE_BUILDINGS[buildingId];
-    G.log(`🏗️ Základna: ${def.name} na úroveň ${G.state.base.buildings[buildingId]}.`, 'work');
-    return { ok:true, level: G.state.base.buildings[buildingId] };
+    const lvl = G.baseBuildingLevel(buildingId) + 1;
+    const job = G.startConstruction('base', null, buildingId, lvl);
+    G.log(job.taskId
+      ? `🏗️ Základna: stavba ${def.name} (úr. ${lvl}) začala.`
+      : `🧱 Základna: ${def.name} (úr. ${lvl}) čeká na stavitele — někdo musí být u základny.`, 'work');
+    return { ok:true, level:lvl, job:job };
   };
   G.tryUnlockBase = function () {
     if (G.state.base && G.state.base.unlocked) return false;

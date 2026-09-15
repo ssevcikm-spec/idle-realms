@@ -93,6 +93,8 @@ check('nacteni ' + nonMain.length + ' skriptu bez chyb', () => assert(loadErr ==
 
 const G = windowStub.Game;
 check('window.Game existuje', () => assert(!!G));
+// Deterministický běh: globální RNG se v prohlížeči seeduje z Date.now()
+if (G.setSeed) G.setSeed(20260910);
 
 let titleOpts = null;
 G.showTitleScreen = (opts) => { titleOpts = opts; };
@@ -115,6 +117,8 @@ check('fronta prikazu: addOrder + tickOrders', () => {
   if (u.assignedTaskId && G.detachUnit) G.detachUnit(u.id);
   u.assignedTaskId = null;
   u.resting = false;
+  u._refuseUntil = null;
+  u.mood = Math.max(u.mood || 70, 70);
   if (G.wakeUnit) G.wakeUnit(u);
   const o = G.addOrder({ activityId: 'chop_wood' });
   assert(!!o && G.state.orders.some(x => x.id === o.id), 'prikaz se nepridal');
@@ -128,6 +132,8 @@ check('fronta prikazu drzi mnozstvi (targetQty)', () => {
   if (G.wakeUnit) G.wakeUnit(u);
   u.resting = false;
   u.assignedTaskId = null;
+  u._refuseUntil = null;
+  u.mood = Math.max(u.mood || 70, 70);
   const o = G.addOrder({ activityId: 'chop_wood', targetQty: 37 });
   assert(!!o, 'prikaz se nepridal');
   G.tickOrders();
@@ -281,6 +287,66 @@ check('zakladna: nestavi se sama, ale po volbe hrace', () => {
   assert(G.isBasePlacing() === false, 'rezim umisteni zustal zapnuty');
   assert(G.baseLocationText().length > 0, 'popis polohy je prazdny');
   assert(G.panelBase().indexOf('data-action="center-base"') !== -1, 'panel neumi zobrazit zakladnu na mape');
+});
+check('efekty budov se projevuji', () => {
+  const sid = G.WORLD.settlements[0].id;
+  const s = G.WORLD.settlementById[sid];
+  const u = G.state.units.find(x => !x.dead && !x.isChild);
+  assert(!!u, 'zadna postava');
+  u.pos = { x: s.x + 0.5, y: s.y + 0.5 };
+  const b = G.buildingsAt(sid);
+  // Knihovna -> XP
+  b.library = 0;
+  const xp0 = G.unitBonus(u, 'xpBonus', 1);
+  b.library = 3;
+  assert(G.unitBonus(u, 'xpBonus', 1) > xp0, 'knihovna nezvysuje XP bonus u sidla');
+  // Cviciste -> bojova sila
+  const p0 = G.unitCombatPower(u);
+  b.training_ground = 3;
+  assert(G.unitCombatPower(u) > p0, 'cviciste nezvysuje bojovou silu');
+  // Dilna -> kvalita vyroby a sleva na stavbu
+  const cost0 = G.buildingCost(sid, 'library', 2);
+  b.workshop = 3;
+  assert(G.settlementBonuses(sid).craftQualityBonus > 0, 'dilna nedava bonus kvality');
+  const cost1 = G.buildingCost(sid, 'library', 2);
+  assert(cost1.gold < cost0.gold, 'dilna nedava slevu na stavbu');
+  // Kovarna -> kvalita kovani (cty v textu i ve bonusech)
+  b.forge = 4;
+  assert(G.settlementBonuses(sid).smithingQuality > 0, 'kovarna nedava kvalitu kovani');
+  assert(G.skillQualityBonus([u], 'smithing') > 0, 'kvalita kovani se nepropsala do skore');
+  // Lidsky citelne texty misto syrovych klicu
+  assert(G.buildingEffectText('library', 3).indexOf('XP') !== -1, 'chybi text efektu knihovny');
+  assert(G.buildingEffectText('forge', 2).indexOf('kování') !== -1, 'chybi text efektu kovarny');
+  assert(G.buildingEffectText('workshop', 2).indexOf('sleva') === -1 && G.buildingEffectText('workshop', 2).indexOf('stavby') !== -1, 'chybi text slevy dilny');
+});
+check('stavba: zabere cas, potrebuje stavitele a pak se dokonci', () => {
+  G.state.construction = [];
+  for (const t of G.state.tasks.slice()) G.cancelTask(t.id);
+  const sid = G.WORLD.settlements[1].id;
+  const s = G.WORLD.settlementById[sid];
+  for (const u of G.state.units) {
+    if (u.dead || u.isChild) continue;
+    if (G.wakeUnit) G.wakeUnit(u);
+    u.resting = false;
+    u.pos = { x: s.x + 0.5, y: s.y + 0.5 };
+  }
+  G.state.resources.gold += 100000;
+  for (const m of ['wood','stone','plank','iron_ingot','cloth','bread','fiber','herb','crystal','potion','hide']) G.matAdd(m, 500, 'common');
+  const b = G.buildingsAt(sid);
+  for (const k in b) delete b[k];
+  const res = G.build(sid, 'market');
+  assert(res.ok, 'build selhal: ' + (res.reason || '?'));
+  assert(G.state.construction.length === 1, 'stavba se nezaznamenala');
+  const job = G.state.construction[0];
+  assert(!!job.taskId, 'stavba neziskala stavitele');
+  assert(G.buildingLevel(sid, 'market') === 0, 'budova se postavila okamzite, bez stavby');
+  assert(!G.build(sid, 'tavern').ok, 'druha stavba v tom samem sidle mela byt blokovana');
+  const t = G.state.tasks.find(x => x.id === job.taskId);
+  assert(!!t && t.buildJobId === job.id, 'ukol stavby nema vazbu na stavbu');
+  t.workDone = t.workRequired;
+  G.tickTasks(0.1);
+  assert(G.state.construction.length === 0, 'stavba se nedokoncila');
+  assert(G.buildingLevel(sid, 'market') === 1, 'budova nema po dokonceni uroven 1');
 });
 check('charakterove udalosti: resolveCharacterEvent', () => {
   const u = G.state.units.find(x => !x.dead && !x.isChild);

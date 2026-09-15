@@ -18,7 +18,7 @@
       buildings: {}, units: [], groups: [], tasks: [],
       economy: {}, reputation: {}, settlementRep: {}, quests: {},
       caravans: [], worldEvents: [],
-      expeditions: [], masterworks: [], orders: [],
+      expeditions: [], masterworks: [], orders: [], construction: [],
       prestige: { level: 0, totalPrestige: 0, unlocks: [], lastUnlock: null },
       base: { unlocked: false, buildings: {}, accum: {}, x: 14, y: 18, placing: false, placementOffered: false, suggested: null, moving: false },
       story: { completed: [], flags: {} },
@@ -86,6 +86,10 @@
     save.expeditions = save.expeditions || [];
     save.masterworks = save.masterworks || [];
     save.orders = save.orders || [];
+    save.construction = save.construction || [];
+    save.construction.forEach(j => { if (j.site == null) j.site = j.kind === 'base' ? 'base' : j.settlementId; });
+    // rozestavěné stavby bez odpovídajícího úkolu se mají zkusit znovu rozjet
+    save.construction.forEach(j => { if (j.taskId && !(save.tasks || []).some(t => t.id === j.taskId)) j.taskId = null; });
     save.dayTime = save.dayTime || 0;
     save.day = save.day || 0;
     save.season = save.season || 'spring';

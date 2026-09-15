@@ -11,8 +11,9 @@
 ## 1. Jak to dnes funguje (tok hráče)
 
 1. **Sídla** — hráč ťukne na sídlo → panel Obchod → záložka **Budovy** → „Postavit".
-   Stavba je **okamžitá**: jen zlato + materiály, žádný čas ani stavitel
-   (`js/systems/misc.js:147-172`).
+   Stavba **zabere herní čas a potřebuje stavitele** (viz §5): nejdřív se odečte cena,
+   pak se k sídlu pošle až 3 schopné postavy (do 4 polí), stavba běží jako úkol
+   s postupem a odhadem času. Do dokončení nelze v tom sídle začít další stavbu.
 2. **Základna** — při renomé **25** se sama odemkne a postaví na **pevné pole (14, 18)**
    (`G.BASE_UNLOCK`, `G.BASE_POS` v `js/data/character.js:110-111`,
    `G.tryUnlockBase` v `js/systems/autonomy.js`). Hráč se to dozví jedním řádkem
@@ -25,36 +26,44 @@
 
 ---
 
-## 2. Budovy v sídlech — které efekty skutečně fungují
+## 2. Budovy v sídlech — efekty
 
 `G.BUILDINGS` (`js/data/character.js:40-77`) definuje 12 budov (max. úr. 5).
-Efekty se sčítají v `G.settlementBonuses(sid)` (`js/systems/misc.js:135-146`),
-ale **ne všechny klíče někdo čte**:
+Efekty se sčítají v `G.settlementBonuses(sid)` (`js/systems/misc.js`).
+
+> **Původní stav:** 9 klíčů efektů nikdo nečetl — 6 specializovaných budov
+> (kovárna, bylinková zahrada, lovecká chata, laboratoř, cvičiště, knihovna) byly
+> jen past na zlato a u Dílny/Hospody fungovala jen část slibu.
+> **Nyní jsou všechny efekty napojené na existující systémy** (sloupec „Kdo ho čte").
 
 | Budova | Efekt (klíč) | Kdo ho čte | Stav |
 |---|---|---|---|
-| Tržnice | `sellMult`, `buyMult` | `economy.js:39` (ceny), `misc.js:203` (vybavení), `economy.js:131` (gemy) | ✅ funguje |
-| Sklad | `stockMult` | `economy.js:183` (cíl zásob), `trade.js:71` (zobrazení) | ✅ funguje |
-| Hospoda | `restMult` | `autonomy.js:150-153` (regenerace výdrže) | ✅ funguje |
-| Hospoda | `moodMult` | — nikde | ❌ **mrtvý efekt** (nálada roste jen přes `restMult`) |
-| Lazebna | `healMult` | `misc.js:93` (hojení zranění) | ✅ funguje |
-| Strážnice | `safetyMult` | `combat.js:447` (nebezpečí u sídla) | ✅ funguje |
-| Dílna | `craftQualityBonus`, `repairDiscount` | — nikde | ❌ **mrtvé efekty** |
-| Kovárna | `smithingSpeed`, `smithingQuality` | — nikde | ❌ **mrtvé efekty** |
-| Bylinná zahrada | `herbalismSpeed`, `herbalismYield` | — nikde | ❌ **mrtvé efekty** |
-| Lovecká chata | `huntingSpeed`, `huntingQuality` | — nikde | ❌ **mrtvé efekty** |
-| Alchymistická laboratoř | `alchemySpeed`, `alchemyQuality` | — nikde | ❌ **mrtvé efekty** |
-| Cvičiště | `combatTraining` | — nikde | ❌ **mrtvý efekt** |
-| Knihovna | `xpBonus` | — nikde (`units.js:125` čte `xpBonus` z **výbavy**, ne z budov) | ❌ **mrtvý efekt** |
+| Tržnice | `sellMult`, `buyMult` | `economy.js` (ceny), `misc.js` (vybavení) | ✅ |
+| Sklad | `stockMult` | `economy.js` (cíl zásob), `trade.js` | ✅ |
+| Hospoda | `restMult` | `autonomy.js` (regenerace výdrže) | ✅ |
+| Hospoda | `moodMult` | `autonomy.js` (růst nálady při odpočinku) | ✅ *(dřív mrtvé)* |
+| Lazebna | `healMult` | `misc.js` (hojení zranění) | ✅ |
+| Strážnice | `safetyMult` | `combat.js` (nebezpečí u sídla) | ✅ |
+| Dílna | `craftQualityBonus` | `crafting.js` + `work.js` (skóre kvality) | ✅ *(dřív mrtvé)* |
+| Dílna | `buildDiscount` | `misc.js:buildingCost` (zlevní stavby v sídle) | ✅ *(dřív mrtvé jako `repairDiscount`)* |
+| Kovárna | `smithingQuality`, `smithingBatch` | kvalita a +kusy při kování | ✅ *(dřív mrtvé)* |
+| Bylinná zahrada | `herbalismQuality`, `herbalismYield` | kvalita a +suroviny ze sběru | ✅ *(dřív mrtvé)* |
+| Lovecká chata | `huntingQuality`, `huntingYield` | kvalita a +suroviny z lovu | ✅ *(dřív mrtvé)* |
+| Alchymistická laboratoř | `alchemyQuality`, `alchemyBatch` | kvalita a +kusy při alchymii | ✅ *(dřív mrtvé)* |
+| Cvičiště | `combatTraining` | `units.js:unitCombatPower` (bojová síla postav u sídla) | ✅ *(dřív mrtvé)* |
+| Knihovna | `xpBonus` | `units.js` (`addUnitXp`, `addSkillXp`) | ✅ *(dřív mrtvé)* |
 
-**Důsledek pro hráče:** 6 z 12 budov (všechny „specializované" — kovárna, bylinková
-zahrada, lovecká chata, laboratoř, cvičiště, knihovna) **nemá žádný herní efekt**,
-přestože stojí zlato a materiály. U Dílny a Hospody funguje jen část slibovaného.
-Vysvětlení je v tom, že efekty míří na systémy, které ve hře neexistují (výroba je
-okamžitá → „rychlost kování" nemá co zrychlit; opravy a XP podle sídla také nejsou).
+**Pravidlo působení:** bonusy platí postavám, které stojí **u toho sídla**
+(`G.settlementNearUnit`, dosah `radius + 1,5`). U základny se sídlení budovy
+neuplatňují — základna má vlastní budovy.
 
-**UI tyto budovy ukazuje** (`js/ui/trade.js:125-176`), ale efekt vypisuje syrově
-(`smithingSpeed: 1.10`), takže hráč nemá šanci poznat, že nejde o nic.
+**Konvence efektů:** rychlostní efekty nahradily **kvalita** a **výtěžnost** —
+výroba je okamžitá, takže „+10 % rychlost kování" nemělo co zrychlit
+(`G.skillQualityBonus`, `G.skillYieldBonus`).
+
+V UI se už nevypisují syrové klíče (`smithingSpeed: 1.10`), ale věty
+(`G.buildingEffectText`), a to jak pro **aktivní** úroveň, tak pro **další úroveň**
+(„Na úr. 3: kvalita kování +12 • +1 kus navíc při kování").
 
 ---
 
@@ -68,12 +77,39 @@ okamžitá → „rychlost kování" nemá co zrychlit; opravy a XP podle sídla
 - `gem_smithy` — 1 gem za `300/l` sekund (UI: `12·l`/h).
 - `legendary_forge` — `+5 %` šance na legendárku, čte `combat.js:338`.
 
-Omezení: **žádné požadavky na stavbu** (žádné „potřebuješ X úr. jiné budovy"),
-**žádný čas stavby** a **žádný strop** na počet budov (jen úrovně).
+Omezení: **žádné požadavky na stavbu** (žádné „potřebuješ X úr. jiné budovy")
+a **žádný strop** na počet budov (jen úrovně). Stavba ale nově zabere čas
+a stavitele jako v sídlech (§4).
 
 ---
 
-## 4. Základna: poloha
+## 4. Stavba: čas a stavitelé
+
+`js/systems/construction.js` (nový) — stavba se nepočítá zvlášť, ale **jako běžný
+úkol** s vnitřní aktivitou `construct` (skrytá v UI, `hidden: true`). Díky tomu
+stavitelé:
+
+- jsou zaměstnaní — autonomie je nepřevezme na jinou práci,
+- přeruší svou předchozí práci (jako „přiřadit skupině"),
+- mají viditelný postup a odhad času v panelu (úkol „🏗️ Stavět — Svitavy"),
+- podléhají běžným pravidlům (výdrž, zranění, nebezpečí) a na mapě **dojdou ke staveništi**.
+
+| Parametr | Hodnota |
+|---|---|
+| Pracnost | `32 · úr.²` (sídlo), `45 · úr.²` (základna) |
+| Stavitelé | až **3** schopné postavy do **4 polí** od stavby, řazené podle řemesla |
+| Trvání | pracnost ÷ součet rychlosti stavitelů (řádově sekundy až minuty dle úrovně) |
+| Souběh | **jedna stavba na sídlo/základnu**; další je blokovaná s vysvětlením |
+| Bez stavitelů | stavba čeká („čeká na stavitele") a `tickConstruction` ji zkusí rozjet, jakmile někdo přijde |
+| Zrušení | zrušením úkolu se stavba přeruší a **suroviny propadají** (hláška to řekne) |
+| Uložení | stavby jsou ve `state.construction`, po načtení se znovu napojí na úkoly |
+
+Cena se odečte **při zadání** stavby (`G.canBuild` / `G.build`, resp. `G.canBuildBase`
+/ `G.buildBase`), úroveň budovy se zapíše až po dokončení (`G.finishConstruction`).
+
+---
+
+## 5. Základna: poloha (nálezy před opravou)
 
 Nálezy před opravou:
 
@@ -88,7 +124,7 @@ Nálezy před opravou:
 
 ---
 
-## 5. Co je implementováno (výběr místa)
+## 6. Co je implementováno (výběr místa)
 
 **Tok:** renomé 25 → hra **nenabídne rovnou stavbu**, ale založení:
 log „Vyber místo tlačítkem 🏕️ na mapě" + odznak v panelu místa.
@@ -120,37 +156,38 @@ log „Vyber místo tlačítkem 🏕️ na mapě" + odznak v panelu místa.
 
 ---
 
-## 6. Návrhy na další krok (nyní neimplementováno)
+## 7. Návrhy na další krok
 
-1. **Oživit mrtvé efekty budov** (§2) — bez toho je 6 budov jen past na zlato.
-   Konkrétně navrhuji překlopit je na systémy, které existují:
-   - Dílna: `craftQualityBonus` → přičíst do `G.rollQualityWithBonus`,
-     `repairDiscount` → sleva na materiál při stavbě/opravě výbavy.
-   - Knihovna: `xpBonus` → násobit `G.addSkillXp`/`G.addUnitXp` postavám v dosahu sídla.
-   - Cvičiště: `combatTraining` → násobit `G.unitCombatPower` v dosahu sídla.
-   - Kovárna / laboratoř: „rychlost" nahradit **výtěžností nebo kvalitou** (výroba je
-     okamžitá), případně přidat `craftBatch`.
-   - Lovecká chata / bylinková zahrada: `herbalismYield` → `+1` surovina za dokončený
-     sběr v dosahu sídla.
-   - Hospoda: `moodMult` → použít v `tickStaminaRegen` místo `restMult` i pro náladu.
-2. **Stavba jako činnost** — doba stavby + stavitel (postava se na čas uvolní z práce),
-   nebo aspoň potvrzení u drahých staveb.
-3. **Požadavky a strop základny** — odemykání budov podle úrovně jiných budov
+1. ~~Oživit mrtvé efekty budov~~ — **hotovo** (§2).
+2. ~~Stavba jako činnost (doba stavby + stavitel)~~ — **hotovo** (§5).
+3. **Potvrzení u drahých staveb** — dnes stavbu spustí jeden klik; u staveb nad
+   ~1000 zlata by se hodil souhrn ceny a délky.
+4. **Požadavky a strop základny** — odemykání budov podle úrovně jiných budov
    (např. `gem_smithy` až po `iron_mine` 3) a limit počtu budov na základně.
-4. **Základna v ekonomice** — karavany/obchodníci na základně, vlastní sklad,
+5. **Základna v ekonomice** — karavany/obchodníci na základně, vlastní sklad,
    obrana základny při nebezpečných událostech.
-5. **Zviditelnění polohy** — v panelu ukázat dosah dílen (3 pole) jako kruh na mapě
+6. **Zviditelnění polohy** — v panelu ukázat dosah dílen (3 pole) jako kruh na mapě
    při výběru místa.
 
 ---
 
-## 7. Testy
+## 8. Testy
 
-`test/headless-smoke.js` (celkem 28 kontrol) nově ověřuje:
+`test/headless-smoke.js` (celkem 30 kontrol) nově ověřuje:
 - `G.canPlaceBaseAt` odmítne vodu, skálu, pole s uzlem, pole se sídlem a okraj mapy;
 - `G.suggestBaseSpot()` vrátí platné pole;
 - `G.tryUnlockBase()` **nepostaví** základnu samo, jen nabídne výběr;
 - panel v tomto stavu nabízí `pick-base-spot` i `auto-place-base`;
 - `G.startBasePlacement` / `G.placeBaseAt` / `G.basePos()` uloží zvolenou polohu
   a režim výběru vypnou; `G.baseLocationText()` není prázdný;
-- po postavení panel nabízí `center-base`.
+- po postavení panel nabízí `center-base`;
+- **efekty budov se skutečně projeví**: knihovna zvedne XP bonus, cvičiště bojovou
+  sílu, dílna kvalitu výroby a slevu na stavbu, kovárna kvalitu kování;
+  `G.buildingEffectText` vrací věty místo klíčů;
+- **stavba**: `G.build` odečte cenu a založí stavbu, budova se **nepostaví hned**,
+  stavba získá stavitele a vazbu na úkol, druhá stavba v témže sídle je blokovaná,
+  po dokončení úkolu má budova úroveň 1.
+
+Testovací běh je od nynějška **deterministický** (`G.setSeed(20260910)` v úvodu
+testu) — dřív se globální RNG seedoval z `Date.now()`, takže občas selhaly testy
+závislé na náladě postav (`_refuseUntil`).

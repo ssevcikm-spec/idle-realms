@@ -70,11 +70,13 @@
     let synQuality = 0;
     if (crafter && G.synergyBonus) synQuality = G.synergyBonus(crafter, 'craftQuality');
     if (G.unlockCraftQualityBonus) synQuality += G.unlockCraftQualityBonus();
+    if (crafter && G.skillQualityBonus) synQuality += G.skillQualityBonus([crafter], r.skill);
     let q;
     if (crafter) q = G.rollQualityWithBonus(bestLvl, [crafter], r.skill, synQuality);
     else q = G.rollQuality(bestLvl, [], r.skill);
     let batch = r.output.qty || 1;
     if (crafter && G.perkCraftBatch) batch += G.perkCraftBatch(crafter, r.skill);
+    if (crafter && G.skillYieldBonus) batch += G.skillYieldBonus([crafter], r.skill);
     G.matAdd(r.output.material, batch, q);
     for (const u of G.state.units) if (!u.dead && !u.isChild && G.unitSkill(u, r.skill) >= (r.reqLevel || 1) - 1) G.addSkillXp(u, r.skill, r.xp || 5);
     const crafterName = crafter ? crafter.name.split(' ')[0] : '?';

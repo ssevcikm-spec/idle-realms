@@ -133,6 +133,15 @@
     let html = '';
     const settlement = G.WORLD.settlementById[settlementId];
     const spec = settlement ? G.SETTLEMENT_SPECS[settlement.spec] : null;
+    // Rozestavěná budova v tomto sídle
+    const st = G.constructionStatus ? G.constructionStatus(settlementId) : null;
+    if (st) {
+      html += `<div class="warn-box">🏗️ Staví se <b>${G.esc(G.buildingLabel(st.job))}</b>`;
+      if (st.task) html += ` — ${Math.round(st.progress * 100)} %${st.eta != null ? `, zbývá ≈ ${formatSec(st.eta)}` : ''} • ${st.builders} stavitelů`;
+      else html += ` — čeká na stavitele u sídla`;
+      html += `</div>
+        <div class="hint" style="text-align:left">Stavitelé musí být do 4 polí od sídla (až 3). Než stavba skončí, nelze v tomto sídle začít další.</div>`;
+    }
     // Rozděl budovy na obecné a specializované
     const specialized = {
       mining: ['forge', 'training_ground'],
@@ -151,30 +160,27 @@
       const lvl = G.buildingLevel(settlementId, bid);
       const maxed = lvl >= def.maxLevel;
       const check = G.canBuild(settlementId, bid);
-      const cost = maxed ? null : def.cost(lvl + 1);
+      const cost = maxed ? null : G.buildingCost(settlementId, bid, lvl + 1);
+      const baseCost = maxed ? null : def.cost(lvl + 1);
+      const discounted = !!(cost && baseCost && (cost.gold !== baseCost.gold || (cost.materials[0] && baseCost.materials[0] && cost.materials[0].qty !== baseCost.materials[0].qty)));
       let costText = '';
       if (cost) {
         const mats = cost.materials.map(m => `${G.MATERIALS[m.material].icon} ${m.qty}× ${G.MATERIALS[m.material].name}`).join(' + ');
         costText = `${cost.gold} 🪙${mats ? ' + ' + mats : ''}`;
       }
       let effText = '';
-      if (lvl > 0) {
-        const eff = def.effect(lvl);
-        const parts = [];
-        for (const k in eff) {
-          if (typeof eff[k] === 'number') parts.push(`${k}: ${eff[k].toFixed ? eff[k].toFixed(2) : eff[k]}`);
-        }
-        effText = `<div class="act-sub" style="color:#d8b45a">Aktivní: ${parts.join(' • ')}</div>`;
-      }
+      if (lvl > 0) effText = `<div class="act-sub" style="color:#d8b45a">Aktivní: ${G.esc(G.buildingEffectText(bid, lvl))}</div>`;
+      const nextText = !maxed ? `<div class="act-sub" style="color:#9c937c">Na úr. ${lvl + 1}: ${G.esc(G.buildingEffectText(bid, lvl + 1))}</div>` : '';
       const specTag = isSpecialized ? ' <span class="loc-tag" style="background:#332912;color:#e0bb5e">specializace</span>' : '';
       html += `<div class="recipe-row ${maxed || !check.ok ? 'locked' : ''}">
         <div class="recipe-icon">${def.icon}</div>
         <div class="recipe-main">
           <div class="recipe-name">${G.esc(def.name)}${specTag} <span style="color:#8d8570;font-weight:400">— úr. ${lvl}/${def.maxLevel}</span></div>
           <div class="recipe-sub">${G.esc(def.desc)}</div>
-          ${costText ? `<div class="recipe-io">Další: ${costText}</div>` : ''}
+          ${costText ? `<div class="recipe-io">Další: ${costText}${discounted ? ' <span style="color:#8fbf7a">(sleva z dílny)</span>' : ''}</div>` : ''}
           ${!check.ok && !maxed ? `<div class="act-sub" style="color:#c05a45">🔒 ${G.esc(check.reason)}</div>` : ''}
           ${effText}
+          ${nextText}
         </div>
         <button class="btn-sm" ${check.ok ? '' : 'disabled'} data-action="build" data-settlement="${settlementId}" data-building="${bid}">${maxed ? 'MAX' : 'Postavit'}</button>
       </div>`;
