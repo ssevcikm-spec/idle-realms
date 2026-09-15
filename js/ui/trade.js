@@ -154,7 +154,7 @@
       const cost = maxed ? null : def.cost(lvl + 1);
       let costText = '';
       if (cost) {
-        const mats = cost.materials.map(m => `${G.MATERIALS[m.material].icon} ${m.qty}×`).join(' + ');
+        const mats = cost.materials.map(m => `${G.MATERIALS[m.material].icon} ${m.qty}× ${G.MATERIALS[m.material].name}`).join(' + ');
         costText = `${cost.gold} 🪙${mats ? ' + ' + mats : ''}`;
       }
       let effText = '';

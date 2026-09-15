@@ -75,6 +75,15 @@ body {
   pointer-events: none; transition: opacity .6s ease;
 }
 #map-hint.hide { opacity: 0; }
+/* === výběr místa pro základnu === */
+.placement-hint {
+  position: absolute; left: 8px; right: 8px; bottom: 22px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 7px 8px 7px 12px; border-radius: 10px;
+  background: rgba(20,19,15,.88); border: 1px solid #8fbf7a;
+  color: #d6e8c8; font-size: 12px; font-weight: 600;
+}
+.placement-hint .btn-sm { flex-shrink: 0; }
 #panel {
   flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
   padding: 12px 12px 22px; background: #1b1a17;

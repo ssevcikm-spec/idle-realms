@@ -5,19 +5,43 @@
     if (!G.state.base || !G.state.base.unlocked) {
       const need = G.BASE_UNLOCK.renown;
       const have = Math.floor(G.state.resources.renown);
-      return `<div class="loc-head">
+      const offered = !!(G.state.base && G.state.base.placementOffered);
+      let html = `<div class="loc-head">
         <div class="loc-icon">🏕️</div>
-        <div class="loc-main"><div class="loc-name">Základna</div><div class="loc-sub">Ještě není odemčena</div></div>
-      </div>
-      <div class="warn-box">🔒 Základna se odemkne při renomé ${need}. Máš ${have}.</div>`;
+        <div class="loc-main">
+          <div class="loc-name">Základna</div>
+          <div class="loc-sub">${offered ? 'Máš dost renomé — zbývá vybrat místo' : 'Ještě není odemčena'}</div>
+        </div>
+      </div>`;
+      if (!offered) {
+        html += `<div class="warn-box">🔒 Základna se odemkne při renomé ${need}. Máš ${have}.</div>
+          <div class="hint" style="text-align:left">Až ji odemkneš, <b>sám vybereš, kde vyroste</b> — ťukneš prostě na pole na mapě. Poloha rozhoduje, jak daleko to mají postavy do sídel a k surovinám.</div>`;
+        return html;
+      }
+      const s = G.baseSuggestion ? G.baseSuggestion() : null;
+      html += `<div class="warn-box">🏕️ Vyber, kde základna vyroste. Pozice určuje, co bude po ruce: sídla (obchod, dílny), surovinové uzly a které dílny na základně budou dosažitelné (do 3 polí).</div>`;
+      html += `<button class="btn" data-action="pick-base-spot">📍 Vybrat místo na mapě</button>`;
+      if (s) {
+        html += `<button class="btn ghost" data-action="auto-place-base" title="Položí základnu na nejvýhodnější volné pole">✨ Postavit na doporučeném místě (${s.x}, ${s.y})</button>`;
+        html += `<div class="hint" style="text-align:left">Doporučené místo leží ${G.esc(G.baseLocationText(s.x, s.y))} — blízko sídla i surovin.</div>`;
+      }
+      html += `<div class="hint">Vodítko: 🏕️ tlačítko na mapě kdykoli otevře tento panel.</div>`;
+      return html;
     }
+    const bp = G.basePos ? G.basePos() : G.BASE_POS;
     let html = `<div class="loc-head">
       <div class="loc-icon">🏕️</div>
       <div class="loc-main">
         <div class="loc-name">Tvá základna</div>
-        <div class="loc-sub">Poloha ${G.BASE_POS.x}, ${G.BASE_POS.y}</div>
-        <div class="loc-sub">Pasivní produkce běží i když spíš.</div>
+        <div class="loc-sub">📍 ${G.esc(G.baseLocationText())} (${bp.x}, ${bp.y})</div>
+        <div class="loc-sub">Pasivní produkce běží i když spíš. Dílny na základně mají dosah 3 pole.</div>
       </div>
+    </div>`;
+    html += `<div class="unit-actions">
+      <button class="btn-sm ghost" data-action="center-base" title="Posune mapu na základnu">🎯 Zobrazit na mapě</button>
+      ${G.canMoveBase && G.canMoveBase()
+        ? `<button class="btn-sm ghost" data-action="move-base" title="Dokud na základně nic nestojí, můžeš ji přesunout.">🚚 Přesunout základnu</button>`
+        : `<button class="btn-sm ghost" disabled title="Základnu s postavenými budovami přesunout nelze.">🚚 Přesunout (nelze)</button>`}
     </div>`;
 
     const baseWs = G.workshopsOnBase();
@@ -52,7 +76,7 @@
       const cost = maxed ? null : def.cost(lvl + 1);
       let costText = '';
       if (cost) {
-        const mats = cost.materials.map(m => `${G.MATERIALS[m.material].icon} ${m.qty}×`).join(' + ');
+        const mats = cost.materials.map(m => `${G.MATERIALS[m.material].icon} ${m.qty}× ${G.MATERIALS[m.material].name}`).join(' + ');
         costText = `${cost.gold} 🪙${mats ? ' + ' + mats : ''}`;
       }
       let rateInfo = '';

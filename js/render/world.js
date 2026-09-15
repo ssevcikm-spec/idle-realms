@@ -19,6 +19,13 @@
     document.querySelectorAll('#map-controls .map-btn').forEach(b => {
       b.addEventListener('click', () => mapButton(b.dataset.map));
     });
+    const cancelPlace = document.getElementById('placement-cancel');
+    if (cancelPlace) cancelPlace.addEventListener('click', () => {
+      if (G.cancelBasePlacement) G.cancelBasePlacement();
+      updatePlacementHint();
+      if (G.refreshPanel) G.refreshPanel();
+    });
+    updatePlacementHint();
     // automatické přizpůsobení canvasu při změně velikosti kontejneru (sbalení panelu apod.)
     if (window.ResizeObserver) {
       const wrap = document.getElementById('world-wrap');
@@ -55,12 +62,57 @@
     if (cmd === 'zoom-out') return zoomBy(1/1.2);
     if (cmd === 'toggle-panel') return setPanelCollapsed(!isPanelCollapsed());
     if (cmd === 'toggle-fullscreen') return setFullscreen(!isFullscreen());
+    if (cmd === 'base') return baseButton();
     if (cmd === 'center') {
       const g = G.state.groups.find(x => x.memberIds.length) || null;
       const focus = g ? G.groupMembers(g)[0] : G.state.units[0];
       if (focus) { G.state.camera.x = focus.pos.x; G.state.camera.y = focus.pos.y; clampCamera(); }
     }
   }
+  /* ---------- základna: tlačítko na mapě, výběr místa ---------- */
+
+  function baseButton() {
+    const b = G.state.base || {};
+    if (b.unlocked) {
+      const p = G.basePos ? G.basePos() : G.BASE_POS;
+      centerMapOn(p.x + 0.5, p.y + 0.5);
+      G.state.selected = { type: 'base' };
+      if (G.selectTab) G.selectTab('place');
+      return;
+    }
+    if (b.placementOffered) {
+      const s = G.baseSuggestion ? G.baseSuggestion() : null;
+      if (G.startBasePlacement) G.startBasePlacement(false);
+      if (s) centerMapOn(s.x + 0.5, s.y + 0.5);
+      updatePlacementHint();
+      G.state.selected = { type: 'base' };
+      if (G.selectTab) G.selectTab('place');
+      return;
+    }
+    // ještě není splněné renomé — jen otevři panel, ať hráč ví, co chybí
+    G.state.selected = { type: 'base' };
+    if (G.selectTab) G.selectTab('place');
+  }
+
+  function centerMapOn(x, y) {
+    G.state.camera.x = x; G.state.camera.y = y; clampCamera();
+  }
+  G.centerMapOn = centerMapOn;
+
+  function updatePlacementHint() {
+    const el = document.getElementById('placement-hint');
+    if (!el) return;
+    const placing = G.isBasePlacing && G.isBasePlacing();
+    if (!placing) { el.style.display = 'none'; return; }
+    const moving = !!(G.state.base && G.state.base.moving);
+    const txt = document.getElementById('placement-hint-text');
+    if (txt) txt.textContent = moving
+      ? '🚚 Ťukni na mapu, kam základnu přesunout'
+      : '🏕️ Ťukni na mapu, kde založit základnu';
+    el.style.display = 'flex';
+  }
+  G.updatePlacementHint = updatePlacementHint;
+
   function isPanelCollapsed() {
     const app = document.getElementById('app');
     return app ? app.classList.contains('panel-collapsed') : false;
@@ -96,8 +148,20 @@
     const tilePx = tileSize(), cam = G.state.camera;
     const tx = cam.x + (sx - cw/2) / tilePx;
     const ty = cam.y + (sy - ch/2) / tilePx;
+    // režim výběru místa pro základnu
+    if (G.isBasePlacing && G.isBasePlacing()) {
+      const gx = Math.floor(tx), gy = Math.floor(ty);
+      const res = G.placeBaseAt ? G.placeBaseAt(gx, gy) : { ok:false, reason:'Základnu teď nelze postavit.' };
+      if (!res.ok) { if (G.log) G.log('⚠️ ' + res.reason, 'info'); return; }
+      updatePlacementHint();
+      G.state.selected = { type: 'base' };
+      if (G.selectTab) G.selectTab('place');
+      if (G.refreshPanel) G.refreshPanel();
+      return;
+    }
     if (G.state.base && G.state.base.unlocked) {
-      const bx = G.BASE_POS.x + 0.5, by = G.BASE_POS.y + 0.5;
+      const bp = G.basePos ? G.basePos() : G.BASE_POS;
+      const bx = bp.x + 0.5, by = bp.y + 0.5;
       if (Math.hypot(bx - tx, by - ty) < 1.3) {
         G.state.selected = { type: 'base' };
         if (G.selectTab) G.selectTab('place');
@@ -205,6 +269,10 @@
       ctx.drawImage(art, ox + x*tilePx, oy + y*tilePx, tilePx + 0.5, tilePx + 0.5);
     }
     if (G.state.base && G.state.base.unlocked) drawBase(ox, oy, tilePx);
+    if (G.isBasePlacing && G.isBasePlacing()) {
+      const s = G.baseSuggestion ? G.baseSuggestion() : null;
+      if (s) drawGhostBase(ox, oy, tilePx, s.x, s.y);
+    }
     for (const n of w.nodes) {
       if (n.x < x0-1 || n.x > x1+1 || n.y < y0-1 || n.y > y1+1) continue;
       const kind = G.NODE_KINDS[n.kind];
@@ -256,8 +324,9 @@
   }
 
   function drawBase(ox, oy, tilePx) {
-    const bx = ox + (G.BASE_POS.x + 0.5)*tilePx;
-    const by = oy + (G.BASE_POS.y + 0.5)*tilePx;
+    const bp = G.basePos ? G.basePos() : G.BASE_POS;
+    const bx = ox + (bp.x + 0.5)*tilePx;
+    const by = oy + (bp.y + 0.5)*tilePx;
     ctx.globalAlpha = 0.3; ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.ellipse(bx, by + tilePx*0.4, tilePx*1.1, tilePx*0.4, 0, 0, Math.PI*2); ctx.fill();
     ctx.globalAlpha = 1;
@@ -281,6 +350,29 @@
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = 'rgba(232,197,106,0.9)';
     ctx.fillText('🏕️', bx, by - tilePx*0.8);
+  }
+
+  /** Duch základny na doporučeném místě při výběru polohy. */
+  function drawGhostBase(ox, oy, tilePx, gx, gy) {
+    const cx = ox + (gx + 0.5)*tilePx, cy = oy + (gy + 0.5)*tilePx;
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now()/320);
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = '#1b1a17';
+    ctx.beginPath(); ctx.ellipse(cx, cy, tilePx*0.62 + pulse*2, tilePx*0.62 + pulse*2, 0, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 0.9;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = 'rgba(143,191,122,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, tilePx*0.58 + pulse*2, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = (tilePx*0.5) + 'px serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('🏕️', cx, cy);
+    ctx.font = 'bold ' + Math.max(9, tilePx*0.17) + 'px sans-serif';
+    ctx.fillStyle = 'rgba(143,191,122,0.95)';
+    ctx.fillText('doporučeno', cx, cy + tilePx*0.82);
+    ctx.restore();
   }
 
   function drawCaravans(ox, oy, tilePx, x0, x1, y0, y1) {
@@ -386,7 +478,10 @@
     } else if (sel.type === 'settlement') {
       const s = G.WORLD.settlementById[sel.id]; if (!s) return;
       tx = s.x + 0.5; ty = s.y + 0.5;
-    } else if (sel.type === 'base') { tx = G.BASE_POS.x + 0.5; ty = G.BASE_POS.y + 0.5; }
+    } else if (sel.type === 'base') {
+      const bp = G.basePos ? G.basePos() : G.BASE_POS;
+      tx = bp.x + 0.5; ty = bp.y + 0.5;
+    }
     else return;
     const x = ox + tx*tilePx, y = oy + ty*tilePx;
     const pulse = 0.5 + 0.5 * Math.sin(performance.now()/350);

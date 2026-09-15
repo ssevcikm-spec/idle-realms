@@ -243,6 +243,45 @@ check('trh ukazuje cenu a trend proti zakladu', () => {
     assert(html.indexOf('%') !== -1, 'chybi trend ceny');
   }
 });
+check('zakladna: validace mista', () => {
+  const w = G.WORLD;
+  let water = null, mountain = null;
+  for (let y = 0; y < w.h && (!water || !mountain); y++) for (let x = 0; x < w.w; x++) {
+    const t = w.terrainAt(x, y);
+    if (!water && t === 'water') water = { x: x, y: y };
+    if (!mountain && t === 'mountain') mountain = { x: x, y: y };
+  }
+  if (water) assert(!G.canPlaceBaseAt(water.x, water.y).ok, 'voda mela byt neplatna');
+  if (mountain) assert(!G.canPlaceBaseAt(mountain.x, mountain.y).ok, 'hora mela byt neplatna');
+  const n = w.nodes[0];
+  assert(!G.canPlaceBaseAt(n.x, n.y).ok, 'poli s uzlem melo byt neplatne');
+  const st = w.settlements[0];
+  assert(!G.canPlaceBaseAt(st.x, st.y).ok, 'poli se sidlem melo byt neplatne');
+  assert(!G.canPlaceBaseAt(-1, 5).ok, 'mimo mapu melo byt neplatne');
+  const s = G.suggestBaseSpot();
+  assert(!!s, 'nenaslo se doporucene misto');
+  assert(G.canPlaceBaseAt(s.x, s.y).ok, 'doporucene misto neni platne');
+});
+check('zakladna: nestavi se sama, ale po volbe hrace', () => {
+  G.state.base = { unlocked: false, buildings: {}, accum: {}, x: 14, y: 18, placing: false, placementOffered: false, suggested: null };
+  G.state.resources.renown = 30;
+  assert(G.tryUnlockBase() === true, 'tryUnlockBase neproběhlo');
+  assert(G.state.base.unlocked === false, 'zakladna se postavila sama, bez volby hrace');
+  assert(G.state.base.placementOffered === true, 'nenabidlo se vyber mista');
+  const html = G.panelBase();
+  assert(html.indexOf('data-action="pick-base-spot"') !== -1, 'panel nenabizi vyber mista na mape');
+  assert(html.indexOf('data-action="auto-place-base"') !== -1, 'panel nenabizi doporucene misto');
+  G.startBasePlacement(false);
+  assert(G.isBasePlacing() === true, 'rezim umisteni se nezapnul');
+  const s = G.baseSuggestion();
+  const res = G.placeBaseAt(s.x, s.y);
+  assert(res.ok, 'umisteni selhalo: ' + (res.reason || '?'));
+  assert(G.state.base.unlocked === true, 'zakladna neni po umisteni odemcena');
+  assert(G.basePos().x === s.x && G.basePos().y === s.y, 'poloha se neulozila');
+  assert(G.isBasePlacing() === false, 'rezim umisteni zustal zapnuty');
+  assert(G.baseLocationText().length > 0, 'popis polohy je prazdny');
+  assert(G.panelBase().indexOf('data-action="center-base"') !== -1, 'panel neumi zobrazit zakladnu na mape');
+});
 check('charakterove udalosti: resolveCharacterEvent', () => {
   const u = G.state.units.find(x => !x.dead && !x.isChild);
   assert(!!u, 'zadna postava');

@@ -139,6 +139,10 @@
     else if (a === 'unlock-base') {
       G.state.resources.renown = Math.max(G.state.resources.renown, 25);
       G.tryUnlockBase();
+      if (!G.state.base.unlocked) {
+        const s = G.baseSuggestion ? G.baseSuggestion() : null;
+        if (s) G.placeBaseAt(s.x, s.y);
+      }
     }
     else if (a === 'force-story') {
       if (!G.state.story) G.state.story = { completed: [], flags: {} };

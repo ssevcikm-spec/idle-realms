@@ -224,11 +224,143 @@
   G.tryUnlockBase = function () {
     if (G.state.base && G.state.base.unlocked) return false;
     if (G.state.resources.renown < G.BASE_UNLOCK.renown) return false;
-    if (!G.state.base) G.state.base = { unlocked:false, buildings:{}, accum:{} };
-    G.state.base.unlocked = true;
-    G.state.base.x = G.BASE_POS.x;
-    G.state.base.y = G.BASE_POS.y;
-    G.log(`🏕️ Odemknuta tvá základna! (${G.BASE_POS.x}, ${G.BASE_POS.y}).`, 'work');
+    if (!G.state.base) G.state.base = { unlocked:false, buildings:{}, accum:{}, x: G.BASE_POS.x, y: G.BASE_POS.y };
+    if (G.state.base.placementOffered) return false;
+    G.state.base.placementOffered = true;
+    G.state.base.suggested = null;   // dopočítá se líně
+    const s = G.baseSuggestion();
+    G.log(`🏕️ Máš dost renomé na vlastní základnu! Vyber místo tlačítkem 🏕️ na mapě${s ? ` (doporučeno ${s.x}, ${s.y})` : ''}.`, 'story');
+    return true;
+  };
+
+  /* ---------- základna: poloha, výběr místa ---------- */
+
+  /** Autoritativní poloha základny (stav hry, s fallbackem na výchozí bod). */
+  G.basePos = function () {
+    const b = G.state.base || {};
+    return {
+      x: b.x == null ? G.BASE_POS.x : b.x,
+      y: b.y == null ? G.BASE_POS.y : b.y
+    };
+  };
+
+  G.baseNearestSettlement = function (x, y) {
+    let best = null, bestD = Infinity;
+    for (const s of G.WORLD.settlements) {
+      const d = Math.hypot(s.x - (x == null ? G.basePos().x : x), s.y - (y == null ? G.basePos().y : y));
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best ? { settlement: best, dist: bestD } : null;
+  };
+  G.baseNearestNode = function (x, y) {
+    const p = G.basePos();
+    const tx = x == null ? p.x : x, ty = y == null ? p.y : y;
+    let best = null, bestD = Infinity;
+    for (const n of G.WORLD.nodes) {
+      const d = Math.hypot(n.x - tx, n.y - ty);
+      if (d < bestD) { bestD = d; best = n; }
+    }
+    return best ? { node: best, dist: bestD } : null;
+  };
+
+  /** Lidsky čitelný popis polohy („5 polí od Královské Město, u Dolu"). */
+  G.baseLocationText = function (x, y) {
+    const near = G.baseNearestSettlement(x, y);
+    const nn = G.baseNearestNode(x, y);
+    const parts = [];
+    if (near) parts.push(`${Math.round(near.dist)} polí od ${near.settlement.name}`);
+    if (nn && nn.dist <= 3) parts.push(`u ${G.NODE_KINDS[nn.node.kind].name.toLowerCase()}`);
+    return parts.join(' • ') || 'v divočině';
+  };
+
+  /** Může tady základna stát? Vrací { ok, reason }. */
+  G.canPlaceBaseAt = function (x, y) {
+    const w = G.WORLD;
+    if (x == null || y == null) return { ok:false, reason:'Neplatné pole.' };
+    if (x < 1 || y < 1 || x >= w.w - 1 || y >= w.h - 1) return { ok:false, reason:'Mimo mapu.' };
+    const t = w.terrainAt(x, y);
+    if (t === 'water') return { ok:false, reason:'Na vodě základna stát nemůže.' };
+    if (t === 'mountain') return { ok:false, reason:'Na skále základna stát nemůže.' };
+    const n = w.nodeAt(x, y);
+    if (n) return { ok:false, reason:`Tady je ${G.NODE_KINDS[n.kind].name} — vyber jiné pole.` };
+    const s = w.settlementAt(x, y);
+    if (s) return { ok:false, reason:`Tady leží ${s.name}.` };
+    for (const st of w.settlements) {
+      const d = Math.hypot(st.x - x, st.y - y);
+      if (d <= G.SETTLEMENT_SIZE[st.size].radius + 1.5) {
+        return { ok:false, reason:`Moc blízko ${st.name} — nech odstup ${G.SETTLEMENT_SIZE[st.size].radius + 2} polí.` };
+      }
+    }
+    return { ok:true };
+  };
+
+  /** Nejlepší volné pole: blízko sídla (obchod) i různých surovinových uzlů. */
+  G.suggestBaseSpot = function () {
+    let best = null, bestScore = -Infinity;
+    for (let y = 1; y < G.WORLD.h - 1; y++) {
+      for (let x = 1; x < G.WORLD.w - 1; x++) {
+        if (!G.canPlaceBaseAt(x, y).ok) continue;
+        let score = 0;
+        const near = G.baseNearestSettlement(x, y);
+        if (near) score -= Math.abs(near.dist - 4) * 1.5;   // ~4 pole od sídla: po ruce, ale ne pod hradbami
+        const kinds = new Set();
+        for (const n of G.WORLD.nodes) {
+          const d = Math.hypot(n.x - x, n.y - y);
+          if (d <= 4) { kinds.add(n.kind); score += (5 - d) * 0.6; }
+        }
+        score += kinds.size * 2;
+        if (score > bestScore) { bestScore = score; best = { x: x, y: y, score: Math.round(score) }; }
+      }
+    }
+    return best;
+  };
+
+  /** Doporučené místo (uložené, jinak dopočítané a zapamatované). */
+  G.baseSuggestion = function () {
+    if (!G.state.base) G.state.base = { unlocked:false, buildings:{}, accum:{}, x: G.BASE_POS.x, y: G.BASE_POS.y };
+    const b = G.state.base;
+    if (!b.suggested) b.suggested = G.suggestBaseSpot();
+    return b.suggested;
+  };
+
+  /** Zapne režim výběru místa (nová základna i přesun). */
+  G.startBasePlacement = function (moving) {
+    if (!G.state.base) G.state.base = { unlocked:false, buildings:{}, accum:{}, x: G.BASE_POS.x, y: G.BASE_POS.y };
+    G.state.base.placing = true;
+    G.state.base.moving = !!moving;
+    return true;
+  };
+  G.cancelBasePlacement = function () {
+    if (!G.state.base) return;
+    G.state.base.placing = false;
+    G.state.base.moving = false;
+  };
+  G.isBasePlacing = function () { return !!(G.state.base && G.state.base.placing); };
+
+  /** Postaví (nebo přesune) základnu na dané pole. */
+  G.placeBaseAt = function (x, y) {
+    const check = G.canPlaceBaseAt(x, y);
+    if (!check.ok) return check;
+    const b = G.state.base;
+    const wasUnlocked = !!b.unlocked;
+    if (wasUnlocked && !b.moving) return { ok:false, reason:'Základna už stojí.' };
+    b.x = x; b.y = y;
+    b.unlocked = true;
+    b.placing = false;
+    b.placementOffered = false;
+    if (!b.buildings) b.buildings = {};
+    if (!b.accum) b.accum = {};
+    const loc = G.baseLocationText(x, y);
+    if (wasUnlocked) { b.moving = false; G.log(`🚚 Základna přesunuta — ${loc}.`, 'work'); }
+    else G.log(`🏕️ Základna založena — ${loc}.`, 'story');
+    return { ok:true, x: x, y: y };
+  };
+
+  /** Lze základnu ještě přesunout? (Jen dokud na ní nic nestojí.) */
+  G.canMoveBase = function () {
+    if (!G.state.base || !G.state.base.unlocked) return false;
+    const b = G.state.base.buildings || {};
+    for (const k in b) if (b[k] > 0) return false;
     return true;
   };
 

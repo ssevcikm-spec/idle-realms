@@ -58,7 +58,7 @@ obsluhu v `js/ui/ui.js` — odhalí mrtvá tlačítka):
 powershell.exe -ExecutionPolicy Bypass -File scripts/check-actions.ps1
 ```
 
-Headless smoke test (spustí hru bez prohlížeče přes Node — 26 kontrol):
+Headless smoke test (spustí hru bez prohlížeče přes Node — 28 kontrol):
 
 ```bash
 node test/headless-smoke.js

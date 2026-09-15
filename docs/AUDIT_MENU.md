@@ -306,6 +306,7 @@ Realizováno v fázích M-A … M-E, po každé fázi proběhly
 | **M-D** | `feat: M-D …` | kandidáti se stavem, vzdáleností k reálnému uzlu a cenou přerušení + „doporučeno", volba „přerušit autonomní práci a přiřadit všem", „přiřadit celé skupině", doporučená družina u souboje (`G.recommendParty`), odhad uvolnění u fronty |
 | **M-E** | `feat: M-E …` | panel se překresluje jen při změně HTML (DOM si drží identitu), přeskočení obnovy při skryté kartě nebo sbaleném panelu |
 | **M-F** | `feat: M-F …` | řazení příkazů ve frontě s prioritou (`G.moveOrder`, `G.sortedOrders`, tlačítka ▲▼), hromadné „☀️ Vzbudit všechny" (`G.wakeAllUnits`), hledání v logu s počtem zpráv, cílová hodnota směrnice (`directives.focusTarget` + `qtyControl`), trend ceny a plnost skladu v trhu |
+| **M-G** | `feat: M-G …` | **výběr místa pro základnu**: odemčení už nestaví samo, hráč vybere pole na mapě (režim výběru s lištou), validace místa s důvodem, doporučené pole (`G.suggestBaseSpot`, duch na mapě), popis polohy slovy místo souřadnic, přesun základny dokud na ní nic nestojí, tlačítko 🏕️ na mapě a jeden zdroj pravdy `G.basePos()` — viz `docs/ANALYZA_BUDOVY_A_ZAKLADNA.md` |
 
 **Zbývá (neděláno, mimo rozsah oprav):** vizuální upozornění, když hodnota v poli
 narazí na maximum (dnes se jen tiše ořízne), filtr logu podle času (fulltext už je),

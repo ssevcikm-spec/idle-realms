@@ -160,6 +160,8 @@
     activeParent = SUB_TO_PARENT[subId];
     render();
   };
+  /** Vynutí překreslení panelu i když je HTML stejné (změna stavu mimo panel). */
+  G.refreshPanel = function () { lastPanelHtml = null; render(); };
   G.getActiveTab = function () { return activeSub; };
   G.getActiveParentTab = function () { return activeParent; };
 
@@ -424,6 +426,11 @@
       case 'trade-tab':     return doTradeTab(ds.tab);
       case 'build':         return doBuild(ds.settlement, ds.building);
       case 'build-base':    return doBuildBase(ds.building);
+      case 'pick-base-spot': return doPickBaseSpot();
+      case 'auto-place-base': return doAutoPlaceBase();
+      case 'move-base':     return doMoveBase();
+      case 'center-base':   return doCenterBase();
+      case 'cancel-base-placement': return doCancelBasePlacement();
       case 'buy-equip':     return doBuyEquip(ds.settlement, ds.item);
       case 'buy-gem':       return doBuyGem(ds.settlement, ds.gem);
       case 'sell-equip':    return doSellEquip(ds.item);
@@ -716,6 +723,42 @@
   function doBuildBase(buildingId) {
     const res = G.buildBase(buildingId);
     if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
+    render();
+  }
+  /* --- základna: výběr a přesun místa --- */
+  function doPickBaseSpot() {
+    if (!G.startBasePlacement) return;
+    G.startBasePlacement(false);
+    const s = G.baseSuggestion ? G.baseSuggestion() : null;
+    if (s && G.centerMapOn) G.centerMapOn(s.x + 0.5, s.y + 0.5);
+    if (G.updatePlacementHint) G.updatePlacementHint();
+    G.log('🏕️ Ťukni na mapu, kde chceš základnu založit.', 'info');
+    render();
+  }
+  function doAutoPlaceBase() {
+    const s = G.baseSuggestion ? G.baseSuggestion() : null;
+    if (!s) { G.log('⚠️ Nenašel se vhodný kout pro základnu.', 'info'); return render(); }
+    const res = G.placeBaseAt ? G.placeBaseAt(s.x, s.y) : { ok:false, reason:'Základnu teď nelze postavit.' };
+    if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
+    if (G.updatePlacementHint) G.updatePlacementHint();
+    render();
+  }
+  function doMoveBase() {
+    if (!G.canMoveBase || !G.canMoveBase()) { G.log('⚠️ Základnu s postavenými budovami přesunout nelze.', 'info'); return render(); }
+    G.startBasePlacement(true);
+    if (G.updatePlacementHint) G.updatePlacementHint();
+    G.log('🚚 Ťukni na mapu, kam základnu přesunout.', 'info');
+    render();
+  }
+  function doCenterBase() {
+    const p = G.basePos ? G.basePos() : null;
+    if (p && G.centerMapOn) G.centerMapOn(p.x + 0.5, p.y + 0.5);
+    G.state.selected = { type: 'base' };
+    render();
+  }
+  function doCancelBasePlacement() {
+    if (G.cancelBasePlacement) G.cancelBasePlacement();
+    if (G.updatePlacementHint) G.updatePlacementHint();
     render();
   }
   function doBuyEquip(settlementId, itemId) {

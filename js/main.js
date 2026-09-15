@@ -162,6 +162,10 @@
     s.base = s.base || { unlocked: false, buildings: {}, accum: {}, x: 14, y: 18 };
     s.base.accum = s.base.accum || {};
     s.base.buildings = s.base.buildings || {};
+    if (s.base.x == null) s.base.x = 14;
+    if (s.base.y == null) s.base.y = 18;
+    if (s.base.placementOffered == null) s.base.placementOffered = !!s.base.unlocked;
+    if (s.base.suggested === undefined) s.base.suggested = null;
     s.story = s.story || { completed: [], flags: {} };
     s.achievements = s.achievements || { unlocked: [] };
     s.camera = s.camera || { x: 7, y: 22, zoom: 1 };

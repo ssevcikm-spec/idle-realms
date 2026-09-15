@@ -27,10 +27,15 @@
       <button class="map-btn" data-map="toggle-panel" id="panel-toggle" title="Sbalit / rozbalit panel">▾</button>
       <button class="map-btn" data-map="toggle-fullscreen" id="map-fullscreen-btn" title="Celoobrazovková mapa">⛶</button>
       <button class="map-btn" data-map="center">🎯</button>
+      <button class="map-btn" data-map="base" id="base-btn" title="Základna — výběr místa / zobrazení">🏕️</button>
       <button class="map-btn" data-map="zoom-in">＋</button>
       <button class="map-btn" data-map="zoom-out">−</button>
     </div>
     <div id="map-hint">Tažením posouváš • ťuknutím vybíráš</div>
+    <div id="placement-hint" class="placement-hint" style="display:none">
+      <span id="placement-hint-text">🏕️ Ťukni na mapu, kde založit základnu</span>
+      <button class="btn-sm ghost" id="placement-cancel">Zrušit</button>
+    </div>
   </div>
 
   <main id="panel">
