@@ -13,8 +13,10 @@ Otevři `index.html` v prohlížeči. Nebo `python3 -m http.server 8000`.
 - **Obchodník** — postava cestující mezi sídly, prodává přebytky, buduje vztahy
 - **Výroba** — dílny ve městech, produkční řetězce, kvalita
 - **Ekonomika** — dynamické ceny, specializace, budovy, zakázky, frakce
-- **Svět** — karavany, světové události, příběhové kvesty, dropy
-- **Meta** — prestiž, 22 achievementů, základna
+- **Svět** — karavany, světové události, příběhové kvesty, dropy, expedice, politika
+- **Obsah** — 33 schopností, 34 nepřátel + 6 bossů, sety, gemy, legendárky, synergie
+- **Obtížnosti** — Relax / Normální / Hardcore (ovlivňují smrt, offline, XP)
+- **Meta** — prestiž, 34 achievementů, základna, endgame, tutoriál
 
 ## Ovládání
 - Tažení — pohyb mapou
@@ -49,7 +51,13 @@ powershell.exe -ExecutionPolicy Bypass -File scripts/check-globals.ps1
 pwsh -File scripts/check-globals.ps1
 ```
 
-Smoke test — otevři v prohlížeči (ověří boot, práci, tick a save/load):
+Headless smoke test (spustí hru bez prohlížeče přes Node — 11 kontrol):
+
+```bash
+node test/headless-smoke.js
+```
+
+Smoke test v prohlížeči (rozšířený, 31 kontrol):
 
 ```
 test/smoke.html
