@@ -348,6 +348,37 @@ check('stavba: zabere cas, potrebuje stavitele a pak se dokonci', () => {
   assert(G.state.construction.length === 0, 'stavba se nedokoncila');
   assert(G.buildingLevel(sid, 'market') === 1, 'budova nema po dokonceni uroven 1');
 });
+check('stavba: prezije ztratu stavitelu', () => {
+  G.state.construction = [];
+  for (const t of G.state.tasks.slice()) G.cancelTask(t.id);
+  const sid = G.WORLD.settlements[2].id;
+  const s = G.WORLD.settlementById[sid];
+  for (const u of G.state.units) {
+    if (u.dead || u.isChild) continue;
+    if (G.wakeUnit) G.wakeUnit(u);
+    u.resting = false;
+    u.pos = { x: s.x + 0.5, y: s.y + 0.5 };
+  }
+  G.state.resources.gold += 100000;
+  const b = G.buildingsAt(sid);
+  for (const k in b) delete b[k];
+  const res = G.build(sid, 'warehouse');
+  assert(res.ok, 'build selhal: ' + (res.reason || '?'));
+  const job = G.state.construction[0];
+  assert(!!job.taskId, 'stavba neziskala stavitele');
+  // stavitelé odejdou odpočívat — úkol zůstane bez schopných postav
+  const t = G.state.tasks.find(x => x.id === job.taskId);
+  for (const id of t.unitIds.slice()) {
+    const u = G.getUnit(id);
+    u.assignedTaskId = null;
+    if (G.sendToRest) G.sendToRest(u, true);
+  }
+  t.unitIds = [];
+  G.tickConstruction();
+  assert(G.state.construction.length === 1, 'stavba se pri ztrate stavitelu zahodila');
+  assert(!G.state.tasks.some(x => x.id === t.id), 'prazdny ukol stavby zustal viset');
+  for (const u of G.state.units) if (G.wakeUnit) G.wakeUnit(u);
+});
 check('charakterove udalosti: resolveCharacterEvent', () => {
   const u = G.state.units.find(x => !x.dead && !x.isChild);
   assert(!!u, 'zadna postava');

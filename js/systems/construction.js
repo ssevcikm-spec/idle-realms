@@ -136,7 +136,23 @@
   G.tickConstruction = function () {
     const list = G.state.construction || [];
     for (const job of list.slice()) {
-      if (job.taskId && !G.state.tasks.some(t => t.id === job.taskId)) job.taskId = null;
+      const t = job.taskId ? G.state.tasks.find(x => x.id === job.taskId) : null;
+      if (job.taskId && !t) {
+        job.taskId = null;
+      } else if (t) {
+        // Zůstal stavbě vůbec někdo schopný? Když ne, úkol zrušíme (bez zrušení stavby)
+        // a zkusíme sehnat nové stavitele.
+        const someoneAlive = t.unitIds.some(id => {
+          const u = G.getUnit(id);
+          if (!u || u.dead || u.assignedTaskId !== t.id) return false;
+          return !(G.workBlockReason && G.workBlockReason(u));
+        });
+        if (!someoneAlive) {
+          delete t.buildJobId;
+          G.cancelTask(t.id);
+          job.taskId = null;
+        }
+      }
       if (!job.taskId) G.tryStartConstruction(job);
     }
   };
