@@ -573,6 +573,16 @@
         </details>` : '';
 
     const injuries = u.injuries || [];
+    let healBtn = '';
+    if (injuries.length) {
+      let bestD = Infinity, bestName = '';
+      for (const s of G.WORLD.settlements) {
+        const d = Math.hypot(s.x + 0.5 - u.pos.x, s.y + 0.5 - u.pos.y);
+        if (d < bestD) { bestD = d; bestName = s.name; }
+      }
+      const inRange = bestD <= 4;
+      healBtn = `<button class="btn-sm ghost" data-action="heal-all" data-unit="${u.id}" ${inRange ? '' : 'disabled'} title="${inRange ? `Vyléčí všechna zranění v sídle ${esc(bestName)}.` : `Nejbližší sídlo ${esc(bestName)} je ${bestD.toFixed(1)} polí daleko — léčba jde jen do 4 polí.`}">Vyléčit</button>`;
+    }
     const injuryHtml = injuries.map(inj => {
       const d = G.INJURIES[inj.id];
       const left = Math.max(0, inj.healsAt - s.time);
@@ -632,7 +642,7 @@
         <button class="btn-sm ghost" data-action="toggle-manual" data-unit="${u.id}">${u.manual ? '🤖 Auto' : '🎮 Manuálně'}</button>
         ${u.resting ? `<button class="btn-sm ghost" data-action="wake" data-unit="${u.id}">Vzbudit</button>` : ''}
         ${!u.resting && !task && !u.onExpedition && !(u.merchantState && u.merchantState.active) ? `<button class="btn-sm ghost" data-action="rest" data-unit="${u.id}">Odpočívat</button>` : ''}
-        ${injuries.length ? `<button class="btn-sm ghost" data-action="heal-all" data-unit="${u.id}" title="Vyléčí zranění v nejbližším sídle — postava k němu musí být do 4 polí.">Vyléčit</button>` : ''}
+        ${healBtn}
         <button class="btn-sm ghost" data-action="open-perks" data-unit="${u.id}">✨ Perky${pendingPerks > 0 ? ' (' + pendingPerks + ')' : ''}</button>
         <button class="btn-sm ghost" data-action="open-mentor" data-unit="${u.id}">🎓 Učednictví</button>
         ${!u.onExpedition && !(u.merchantState && u.merchantState.active) ? `<button class="btn-sm ghost" data-action="open-merchant" data-unit="${u.id}">🐎 Obchodník</button>` : ''}

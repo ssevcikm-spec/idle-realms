@@ -290,3 +290,26 @@ Do `test/headless-smoke.js` (nebo nového `test/menu-smoke.js`) doplnit:
 - Nedělat z „Přiřadit hned" výchozí volbu (ruší práci); výchozí má být **fronta**.
 - Nepřidávat nové záložky; problém není struktura (13 podzáložek stačí), ale obsah
   a vysvětlivky uvnitř nich.
+
+---
+
+## 10. Stav realizace (doplněno po implementaci)
+
+Realizováno v fázích M-A … M-E, po každé fázi proběhly
+`scripts/check-globals.ps1`, `scripts/check-actions.ps1` i `test/headless-smoke.js`.
+
+| Fáze | Commit | Co je hotové |
+|---|---|---|
+| **M-A** | `fix: M-A …` | M-01 nákup gemů (`G.gemPrice`/`G.gemAvailableAt`/`G.buyGem` + obsluha), M-02/M-03 `targetQty` přes frontu i „přiřadit hned", M-13 dvojí obsluha přepínače, M-14a čištění `pendingAssign`, M-06 přesné hlášky přes `G.workBlockReason`; nový statický test `scripts/check-actions.ps1` |
+| **M-C** | `feat: M-C …` | fronta i v „Práci" + odznak na záložce, místo a ETA u úkolů (`G.taskEta`), popis a efekty politických programů (`G.programEffectsText`), živý souhrn v modalu expedice, vysvětlivky (směrnice, skupiny, riziko, dílny, sklad zlata, čas v logu), „Vyléčit" s dosahem |
+| **M-B** | `feat: M-B …` | `G.qtyControl` s pamětí hodnot, `[−] [+]` a čipy 1/10/50/Max, `readQty` pro start/obchod/výrobu, dávková výroba `G.craft(id, qty)`, `G.activityEta` + výnos u aktivit |
+| **M-D** | `feat: M-D …` | kandidáti se stavem, vzdáleností k reálnému uzlu a cenou přerušení + „doporučeno", volba „přerušit autonomní práci a přiřadit všem", „přiřadit celé skupině", doporučená družina u souboje (`G.recommendParty`), odhad uvolnění u fronty |
+| **M-E** | `feat: M-E …` | panel se překresluje jen při změně HTML (DOM si drží identitu), přeskočení obnovy při skryté kartě nebo sbaleném panelu |
+
+**Zbývá (neděláno, mimo rozsah oprav):** řazení a přesouvání priority příkazů ve frontě,
+hromadné „Vzbudit všechny", hledání v logu, vlastní „cílová hodnota" u směrnic
+(např. držet 100 dřeva) a zobrazení trendu cen v trhu.
+
+**Nové testy** (`test/headless-smoke.js`, celkem 22 kontrol): `targetQty` ve frontě,
+nákup gemu, vykreslení všech panelů a modalů, paměť množství + dávková výroba,
+obsah `qtyControl`, doporučená družina a volby v modalu přiřazení.

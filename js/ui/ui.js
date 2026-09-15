@@ -160,6 +160,9 @@
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.tagName === 'TEXTAREA')) return;
     if (modal) return;
+    if (document.hidden) return;
+    const app = document.getElementById('app');
+    if (app && app.classList && app.classList.contains && app.classList.contains('panel-collapsed')) return;
     render();
   }
 
@@ -238,26 +241,38 @@
     }).join('');
   }
 
+  /* Překreslujeme jen když se obsah skutečně změní — stejný HTML řetězec znamená
+     žádný innerHTML, takže si DOM drží identitu (fokus, rozepsané hodnoty, scroll). */
+  let lastPanelHtml = null;
+
+  function buildPanelHtml() {
+    switch (activeSub) {
+      case 'place':        return G.panelPlace();
+      case 'activities':   return G.panelActivities();
+      case 'units':        return G.panelUnits();
+      case 'groups':       return G.panelGroups();
+      case 'expeditions':  return G.panelExpeditions();
+      case 'craft':        return G.panelCraft();
+      case 'inventory':    return G.panelInventory();
+      case 'trade':        return G.panelMerchant();
+      case 'reputation':   return G.panelReputation();
+      case 'politics':     return G.panelPolitics();
+      case 'log':          return G.panelLog();
+      case 'achievements': return G.panelAchievements();
+      case 'prestige':     return G.panelPrestige();
+      default:             return `<div class="empty">Neznámý panel: ${G.esc(activeSub)}</div>`;
+    }
+  }
+
   function renderPanelContent() {
     const el = document.getElementById('panel-content');
     if (!el) return;
-    let html = '';
-    switch (activeSub) {
-      case 'place':        html = G.panelPlace(); break;
-      case 'activities':   html = G.panelActivities(); break;
-      case 'units':        html = G.panelUnits(); break;
-      case 'groups':       html = G.panelGroups(); break;
-      case 'expeditions':  html = G.panelExpeditions(); break;
-      case 'craft':        html = G.panelCraft(); break;
-      case 'inventory':    html = G.panelInventory(); break;
-      case 'trade':        html = G.panelMerchant(); break;
-      case 'reputation':   html = G.panelReputation(); break;
-      case 'politics':     html = G.panelPolitics(); break;
-      case 'log':          html = G.panelLog(); break;
-      case 'achievements': html = G.panelAchievements(); break;
-      case 'prestige':     html = G.panelPrestige(); break;
-      default: html = `<div class="empty">Neznámý panel: ${G.esc(activeSub)}</div>`;
+    const html = buildPanelHtml();
+    if (html === lastPanelHtml) {
+      if (activeSub === 'log' && G.renderLog) G.renderLog();
+      return;
     }
+    lastPanelHtml = html;
     el.innerHTML = html;
     if (activeSub === 'log' && G.renderLog) G.renderLog();
   }
