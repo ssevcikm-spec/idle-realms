@@ -35,6 +35,75 @@
     return ` • ⏳ ≈ ${formatSec(eta)}`;
   }
 
+  /* ---------- ovládání množství (qty) ----------
+     Hodnoty se drží v paměti podle klíče, takže je překreslení panelu nesmaže. */
+  const qtyMemory = {};
+  G.qtyGet = function (key, fallback) {
+    const v = qtyMemory[key];
+    return (v == null || !isFinite(v)) ? fallback : v;
+  };
+  G.qtySet = function (key, v) {
+    v = Math.floor(v);
+    if (isFinite(v) && v > 0) qtyMemory[key] = v;
+    return qtyMemory[key];
+  };
+  G.qtyClamp = function (v, max) {
+    v = Math.floor(v);
+    if (!isFinite(v)) return 1;
+    return Math.max(1, Math.min(max || 500, v));
+  };
+  /** Ovládací prvek množství: [−] [input] [+] + čipy (1 / 10 / 50 / Max). */
+  G.qtyControl = function (key, opts) {
+    opts = opts || {};
+    const min = opts.min || 1;
+    const max = opts.max || 500;
+    const presetList = opts.presets || [1, 10, 50];
+    const value = G.qtyClamp(G.qtyGet(key, opts.value || 10), max);
+    const chips = presetList
+      .filter(p => p >= min && p <= max)
+      .map(p => `<button class="qty-chip" data-action="qty-set" data-qty-key="${key}" data-qty-value="${p}">${p}</button>`).join('');
+    const maxChip = (opts.maxLabel !== false) ? `<button class="qty-chip" data-action="qty-set" data-qty-key="${key}" data-qty-value="max">Max</button>` : '';
+    return `<div class="qty-ctl" data-qty-for="${key}">
+      <button class="qty-step" data-action="qty-step" data-qty-key="${key}" data-delta="-1" title="Ubrat">−</button>
+      <input type="number" class="qty-input" data-qty-key="${key}" data-qty-max="${max}" min="${min}" max="${max}" value="${value}" title="Kolik kusů" />
+      <button class="qty-step" data-action="qty-step" data-qty-key="${key}" data-delta="1" title="Přidat">＋</button>
+      <div class="qty-chips">${chips}${maxChip}</div>
+    </div>`;
+  };
+  /** Odhad času práce pro dané množství a dané postavy na daném uzlu. */
+  G.activityEta = function (act, qty, units, node) {
+    if (!act || !node || !units || !units.length) return null;
+    const rich = node.richness || 1;
+    let rate = 0;
+    for (const u of units) {
+      let r = G.unitWorkRate(u, act);
+      const g = u.groupId ? G.getGroup(u.groupId) : null;
+      if (g) r *= G.groupWorkMult(g);
+      rate += r;
+    }
+    if (rate <= 0) return null;
+    const remaining = act.mode === 'quantity' ? qty * (act.workPerUnit || 4) : (act.workRequired || 0);
+    return remaining / (rate * rich);
+  };
+  function activityYieldText(act) {
+    if (!act.output || !act.output.length) return '';
+    const per = act.output.map(o => `${G.MATERIALS[o.material].icon}${o.qty}× ${G.MATERIALS[o.material].name}`).join(' + ');
+    return act.mode === 'timed' ? `Za dokončení: ${per}` : `Za kus: ${per}`;
+  }
+  function idleWorkers() {
+    return G.state.units.filter(u =>
+      !u.dead && !u.isChild && !u.onExpedition && !u.assignedTaskId && !u.resting
+      && !(G.hasSevereInjury && G.hasSevereInjury(u))
+      && !(u.merchantState && u.merchantState.active)
+      && !(G.unitRefusesWork && G.unitRefusesWork(u)));
+  }
+  /** Kolik kusů receptu jde vyrobit z aktuálních zásob. */
+  G.maxCraftable = function (r) {
+    let m = 999;
+    for (const inp of r.inputs) m = Math.min(m, Math.floor(G.matCount(inp.material) / inp.qty));
+    return Math.max(1, m);
+  };
+
   function renderDirectives() {
     const dir = G.state.directives || { focusMaterial: null, avoidDanger: false };
     const mats = ['wood','stone','fiber','herb','grain','hide','fish','coal','iron_ore','crystal'];
@@ -197,15 +266,20 @@
         const req = meetsReq(n, a);
         const tm = G.timeWorkMod ? G.timeWorkMod(a.skill) : 1;
         const tmTag = tm !== 1 ? ` <span style="color:${tm > 1 ? '#8fbf7a' : '#c05a45'}">(${tm > 1 ? '+' : ''}${Math.round((tm-1)*100)} % čas)</span>` : '';
+        const qty = a.mode === 'quantity' ? G.qtyClamp(G.qtyGet('act:' + a.id, a.defaultQty || 10), 500) : 1;
+        const eta = req.ok ? G.activityEta(a, qty, idleUnits, n) : null;
+        const yieldTxt = activityYieldText(a);
+        const etaTxt = eta != null ? ` • ⏳ ≈ ${formatSec(eta)} pro ${idleUnits.length} postav` : '';
         html += `<div class="act-row ${req.ok ? '' : 'locked'}">
           <div class="act-icon">${a.icon}</div>
           <div class="act-main">
             <div class="act-name">${esc(a.name)}</div>
             <div class="act-sub">${G.SKILLS[a.skill].icon} ${esc(G.SKILLS[a.skill].name)} • ${G.ATTR_LABEL[a.attr]}${tmTag}</div>
+            ${yieldTxt ? `<div class="act-sub" style="color:#8fbf7a">${yieldTxt}${etaTxt}</div>` : ''}
             ${req.ok ? '' : `<div class="act-sub">🔒 ${esc(req.reason)}</div>`}
           </div>
           <div class="act-actions">
-            ${a.mode === 'quantity' ? `<input type="number" min="1" max="500" value="${a.defaultQty || 10}" class="qty-input" data-qty-for="${a.id}" />` : ''}
+            ${a.mode === 'quantity' ? G.qtyControl('act:' + a.id, { value: a.defaultQty || 10, max: 500 }) : ''}
             <button class="btn-sm" ${req.ok ? '' : 'disabled'} data-action="start-task" data-activity="${a.id}" data-node="${n.id}" title="${req.ok ? 'Zadat úkol' : esc(req.reason)}">Start</button>
           </div>
         </div>`;
@@ -269,16 +343,22 @@
       const node = G.WORLD.nearestNode(a.nodeKinds, G.state.camera.x, G.state.camera.y);
       let nodeInfo = '— žádný uzel v dosahu';
       if (node) { const kind = G.NODE_KINDS[node.kind]; const danger = G.nodeDanger ? G.nodeDanger(node.kind) : 0; const dLabel = G.DANGER_LABEL[danger] || G.DANGER_LABEL[0]; nodeInfo = `${kind.icon} ${esc(kind.name)} <span style="color:${dLabel.color}">(${dLabel.text})</span>`; }
+      const idle = idleWorkers();
+      const qty = a.mode === 'quantity' ? G.qtyClamp(G.qtyGet('act:' + a.id, a.defaultQty || 10), 500) : 1;
+      const eta = (req.ok && node) ? G.activityEta(a, qty, idle, node) : null;
+      const yieldTxt = activityYieldText(a);
+      const etaTxt = eta != null ? ` • ⏳ ≈ ${formatSec(eta)} pro ${idle.length} postav` : '';
       html += `<div class="act-row ${(req.ok && node) ? '' : 'locked'}">
         <div class="act-icon">${a.icon}</div>
         <div class="act-main">
           <div class="act-name">${esc(a.name)}</div>
           <div class="act-sub">${G.SKILLS[a.skill].icon} ${esc(G.SKILLS[a.skill].name)} • ${nodeInfo}</div>
+          ${yieldTxt ? `<div class="act-sub" style="color:#8fbf7a">${yieldTxt}${etaTxt}</div>` : ''}
           ${req.ok ? '' : `<div class="act-sub">🔒 ${esc(req.reason)}</div>`}
         </div>
         <div class="act-actions">
-          ${a.mode === 'quantity' ? `<input type="number" min="1" max="500" value="${a.defaultQty || 10}" class="qty-input" data-qty-for="${a.id}" />` : ''}
-          <button class="btn-sm" ${(req.ok && node) ? '' : 'disabled'} data-action="start-task" data-activity="${a.id}" title="${req.ok ? (node ? '' : 'Žádný vhodný uzel') : esc(req.reason)}">Start</button>
+          ${a.mode === 'quantity' ? G.qtyControl('act:' + a.id, { value: a.defaultQty || 10, max: 500 }) : ''}
+          <button class="btn-sm" ${(req.ok && node) ? '' : 'disabled'} data-action="start-task" data-activity="${a.id}" title="${req.ok ? (node ? 'Zadat úkol' : 'Žádný vhodný uzel') : esc(req.reason)}">Start</button>
         </div>
       </div>`;
     }
@@ -658,7 +738,10 @@
           <div class="recipe-io">${io}</div>
           ${check.ok ? '' : `<div class="act-sub" style="color:#c05a45">🔒 ${esc(check.reason)}</div>`}
         </div>
-        <button class="btn-sm" ${check.ok ? '' : 'disabled'} data-action="craft" data-recipe="${rid}">Vyrobit</button>
+        <div class="act-actions">
+          ${G.qtyControl('recipe:' + rid, { value: 1, max: G.maxCraftable(r), maxLabel: true })}
+          <button class="btn-sm" ${check.ok ? '' : 'disabled'} data-action="craft" data-recipe="${rid}" title="${check.ok ? 'Vyrobit zvolené množství' : esc(check.reason)}">Vyrobit</button>
+        </div>
       </div>`;
     }
     return html;

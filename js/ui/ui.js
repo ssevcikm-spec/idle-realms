@@ -79,6 +79,14 @@
       const el = e.target.closest('[data-action]'); if (!el) return;
       handleAction(el.dataset.action, el.dataset);
     });
+    content.addEventListener('input', e => {
+      const el = e.target.closest('input[data-qty-key]');
+      if (!el) return;
+      const v = parseInt(el.value, 10);
+      if (!isFinite(v)) return;
+      const max = parseInt(el.dataset.qtyMax, 10) || 500;
+      G.qtySet(el.dataset.qtyKey, Math.max(1, Math.min(max, v)));
+    });
     content.addEventListener('change', e => {
       const el = e.target.closest('[data-change]'); if (!el) return;
       handleChange(el.dataset.change, el.dataset, el.value);
@@ -373,6 +381,8 @@
 
   function handleAction(action, ds) {
     switch (action) {
+      case 'qty-step':      return doQtyStep(ds.qtyKey, parseInt(ds.delta, 10) || 0);
+      case 'qty-set':       return doQtySet(ds.qtyKey, ds.qtyValue);
       case 'start-task':    return doStartTask(ds.activity, ds.node);
       case 'cancel-task':   return doCancelTask(ds.task);
       case 'assign-task-unit': return doAssignTaskUnit(ds.unit);
@@ -439,6 +449,34 @@
     }
   }
 
+  /* --- ovládání množství: hodnoty drží paměť v panels.js --- */
+  function qtyInputEl(key) { return document.querySelector(`input[data-qty-key="${key}"]`); }
+  function qtyMaxOf(el) { return (el && parseInt(el.dataset.qtyMax, 10)) || 500; }
+  function readQty(key, fallback, max) {
+    const el = qtyInputEl(key);
+    const raw = (el && el.value !== '') ? el.value : G.qtyGet(key, fallback);
+    const v = G.qtyClamp(parseInt(raw, 10), max || qtyMaxOf(el));
+    if (G.qtySet) G.qtySet(key, v);
+    return v;
+  }
+  function doQtyStep(key, delta) {
+    if (!key || !delta) return;
+    const el = qtyInputEl(key);
+    const max = qtyMaxOf(el);
+    const cur = readQty(key, 1, max);
+    const next = G.qtyClamp(cur + delta, max);
+    G.qtySet(key, next);
+    if (el) el.value = next;
+  }
+  function doQtySet(key, value) {
+    if (!key) return;
+    const el = qtyInputEl(key);
+    const max = qtyMaxOf(el);
+    const next = (value === 'max') ? max : G.qtyClamp(parseInt(value, 10), max);
+    G.qtySet(key, next);
+    if (el) el.value = next;
+  }
+
   function doSocketGem(ds) {
     const res = G.socketGem(ds.item, ds.gem);
     if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
@@ -493,11 +531,7 @@
   }
   function doStartTask(activityId, nodeId) {
     const act = G.ACTIVITIES[activityId]; if (!act) return;
-    let targetQty = 1;
-    if (act.mode === 'quantity') {
-      const input = document.querySelector(`input[data-qty-for="${activityId}"]`);
-      targetQty = Math.max(1, Math.min(500, parseInt(input && input.value, 10) || act.defaultQty || 10));
-    }
+    const targetQty = act.mode === 'quantity' ? readQty('act:' + activityId, act.defaultQty || 10, 500) : 1;
     let freed = 0;
     for (const t of G.state.tasks.slice()) if (t.auto) { G.cancelTask(t.id); freed++; }
     const idle = G.state.units.filter(u =>
@@ -570,14 +604,16 @@
     render();
   }
   function doCraft(recipeId) {
-    const res = G.craft(recipeId);
+    const r = G.RECIPES[recipeId];
+    const max = r && G.maxCraftable ? G.maxCraftable(r) : 1;
+    const qty = readQty('recipe:' + recipeId, 1, max);
+    const res = G.craft(recipeId, qty);
     if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
     render();
   }
   function doTrade(mode, ds) {
     const sid = ds.settlement, mid = ds.material;
-    const input = document.querySelector(`input[data-trade-qty="${mid}"]`);
-    const qty = Math.max(1, Math.min(999, parseInt(input && input.value, 10) || 1));
+    const qty = readQty('mat:' + mid, 1, 999);
     const res = mode === 'buy' ? G.buyMaterial(sid, mid, qty) : G.sellMaterial(sid, mid, qty);
     if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
     render();

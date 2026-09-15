@@ -86,9 +86,9 @@
           </div>
         </div>
         <div class="trade-actions">
-          <input type="number" min="1" max="999" value="1" data-trade-qty="${mid}" />
-          <button class="btn-sm" data-action="trade-buy" data-settlement="${settlementId}" data-material="${mid}">Koupit</button>
-          <button class="btn-sm ghost" data-action="trade-sell" data-settlement="${settlementId}" data-material="${mid}">Prodat</button>
+          ${G.qtyControl('mat:' + mid, { value: 1, max: 999, presets: [1, 10, 50] })}
+          <button class="btn-sm" data-action="trade-buy" data-settlement="${settlementId}" data-material="${mid}" title="Koupit zvolené množství (sklad ${stock})">Koupit</button>
+          <button class="btn-sm ghost" data-action="trade-sell" data-settlement="${settlementId}" data-material="${mid}" title="Prodat zvolené množství (máš ${have})">Prodat</button>
         </div>
       </div>`;
     }

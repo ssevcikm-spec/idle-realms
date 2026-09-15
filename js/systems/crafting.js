@@ -22,10 +22,44 @@
 
   const MASTERWORK_SUFFIXES = ['Drtič','Strážce','Ostří','Blesk','Pevnost','Sláva','Pomsta','Svítání','Soumrak','Věčnost','Bouře','Klid','Duch','Stín','Plamen','Mráz'];
 
-  G.craft = function (recipeId) {
+  /**
+   * Vyrobí `qty` kusů (výchozí 1). Zastaví se, když dojdou suroviny nebo
+   * přestane platit některá podmínka receptu. Loguje jeden souhrn.
+   */
+  G.craft = function (recipeId, qty) {
     const r = G.RECIPES[recipeId];
     const check = G.canCraft(recipeId);
     if (!check.ok) return check;
+    qty = Math.max(1, Math.min(999, Math.floor(qty || 1)));
+    const made = [];
+    for (let i = 0; i < qty; i++) {
+      if (i > 0) { const c = G.canCraft(recipeId); if (!c.ok) break; }
+      const res = craftOnce(recipeId);
+      if (!res.ok) break;
+      made.push(res);
+    }
+    if (!made.length) return { ok:false, reason:'Výroba se nezdařila.' };
+    const totalQty = made.reduce((s, x) => s + x.qty, 0);
+    const crafterName = made[made.length - 1].crafterName;
+    const masterworks = made.filter(x => x.masterwork);
+    if (made.length === 1) {
+      const one = made[0];
+      if (one.masterwork) G.log(`✨ Mistrovské dílo: "${one.masterwork}" — ${one.qty}× (${G.QUALITY_LABEL[one.quality]}).`, 'work');
+      else G.log(`🔨 Vyrobeno: ${one.qty}× ${r.name} (${G.QUALITY_LABEL[one.quality]}) — ${crafterName}.`, 'work');
+    } else {
+      const counts = {};
+      for (const x of made) counts[x.quality] = (counts[x.quality] || 0) + 1;
+      const qTxt = Object.keys(counts).map(q => `${G.QUALITY_LABEL[q]} ${counts[q]}×`).join(', ');
+      G.log(`🔨 Vyrobeno ${made.length}× ${r.name} — celkem ${totalQty}× (${qTxt}) — ${crafterName}.`, 'work');
+      if (masterworks.length) G.log(`✨ Z toho ${masterworks.length}× mistrovské dílo.`, 'work');
+    }
+    return { ok:true, made: made.length, qty: totalQty, quality: made[made.length - 1].quality };
+  };
+
+  function craftOnce(recipeId) {
+    const r = G.RECIPES[recipeId];
+    const check = G.canCraft(recipeId);
+    if (!check.ok) return { ok:false, reason:check.reason };
     let crafter = null, bestLvl = 0;
     if (r.workshop) { const found = G.findCraftsmanForRecipe(recipeId); crafter = found.unit; bestLvl = G.unitSkill(crafter, r.skill); }
     else { for (const u of G.state.units) { if (u.dead || u.isChild || u.resting || u.onExpedition) continue; if (u.merchantState && u.merchantState.active) continue; const lv = G.unitSkill(u, r.skill); if (lv > bestLvl) { bestLvl = lv; crafter = u; } } }
@@ -44,18 +78,16 @@
     G.matAdd(r.output.material, batch, q);
     for (const u of G.state.units) if (!u.dead && !u.isChild && G.unitSkill(u, r.skill) >= (r.reqLevel || 1) - 1) G.addSkillXp(u, r.skill, r.xp || 5);
     const crafterName = crafter ? crafter.name.split(' ')[0] : '?';
-    let extra = '';
+    let masterwork = null;
     if (q === 'masterwork' && crafter && G.chance(0.30)) {
       const suffix = G.pick(MASTERWORK_SUFFIXES);
-      const itemName = `${crafter.name.split(' ')[1] || crafterName}ův ${r.name} ${suffix}`;
-      G.log(`✨ Mistrovské dílo: "${itemName}" — ${batch}× (${G.QUALITY_LABEL[q]}).`, 'work');
+      masterwork = `${crafter.name.split(' ')[1] || crafterName}ův ${r.name} ${suffix}`;
       G.state.stats.namedMasterworks = (G.state.stats.namedMasterworks || 0) + 1;
       if (!G.state.masterworks) G.state.masterworks = [];
-      G.state.masterworks.push({ id: 'mw' + Date.now(), name: itemName, recipe: rid2name(recipeId), craftsman: crafter.name, craftsmanId: crafter.id, material: r.output.material, qty: batch, time: G.state.time });
-      extra = ' ✨';
-    } else G.log(`🔨 Vyrobeno: ${batch}× ${r.name} (${G.QUALITY_LABEL[q]}) — ${crafterName}.${extra}`, 'work');
-    return { ok:true, quality:q, qty:batch };
-  };
+      G.state.masterworks.push({ id: 'mw' + Date.now(), name: masterwork, recipe: rid2name(recipeId), craftsman: crafter.name, craftsmanId: crafter.id, material: r.output.material, qty: batch, time: G.state.time });
+    }
+    return { ok:true, quality:q, qty:batch, crafterName, masterwork };
+  }
 
   function rid2name(recipeId) { return G.RECIPES[recipeId] ? G.RECIPES[recipeId].name : recipeId; }
 

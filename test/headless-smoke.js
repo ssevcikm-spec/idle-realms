@@ -169,6 +169,23 @@ check('modaly se vykresli bez vyjimky', () => {
   assert(typeof G.expeditionModal() === 'string', 'expeditionModal');
   assert(typeof G.taskAssignModal({ activityId:'chop_wood', nodeId:null, targetQty:25 }) === 'string', 'taskAssignModal');
 });
+check('mnozstvi: pamet hodnot a davkova vyroba', () => {
+  G.qtySet('act:chop_wood', 42);
+  assert(G.qtyGet('act:chop_wood', 10) === 42, 'qtyGet nevratil ulozenou hodnotu');
+  assert(G.qtyClamp(9999, 500) === 500, 'qtyClamp nezastropoval');
+  assert(G.qtyClamp(0, 500) === 1, 'qtyClamp nepodlazil');
+  assert(G.qtyClamp(NaN, 500) === 1, 'qtyClamp nezvlada NaN');
+  G.matAdd('wood', 20, 'common');
+  const before = G.matCount('plank');
+  const res = G.craft('plank', 3);
+  if (res.ok) assert(G.matCount('plank') === before + res.qty, 'davkova vyroba nepridala spravny pocet');
+});
+check('qtyControl vykresli ovladani mnozstvi', () => {
+  const html = G.qtyControl('act:chop_wood', { value: 20, max: 500 });
+  assert(html.indexOf('data-qty-key="act:chop_wood"') !== -1, 'chybi data-qty-key');
+  assert(html.indexOf('data-action="qty-step"') !== -1, 'chybi tlacitka +/-');
+  assert(html.indexOf('data-action="qty-set"') !== -1, 'chybi cipy');
+});
 check('charakterove udalosti: resolveCharacterEvent', () => {
   const u = G.state.units.find(x => !x.dead && !x.isChild);
   assert(!!u, 'zadna postava');
