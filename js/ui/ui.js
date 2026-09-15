@@ -55,6 +55,12 @@
   }
 
   G.initUI = function () {
+    if (G._uiInited) {   // opětovné spuštění (nová hra z menu) — jen překresli
+      lastPanelHtml = null;
+      render(); renderHud();
+      return;
+    }
+    G._uiInited = true;
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const parentId = btn.dataset.tab;

@@ -7,6 +7,11 @@
   let dragging = false, dragged = false, lastX = 0, lastY = 0;
 
   G.initWorld = function (el) {
+    if (G._worldInited) {          // nová hra ze hry: jen přesměruj na nový canvas
+      if (el) { canvas = el; ctx = canvas.getContext('2d'); resize(); lastTs = performance.now(); }
+      return;
+    }
+    G._worldInited = true;
     canvas = el; ctx = canvas.getContext('2d');
     resize();
     window.addEventListener('resize', resize);
