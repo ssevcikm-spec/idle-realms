@@ -78,6 +78,30 @@
     t.unitIds = t.unitIds.filter(id => id !== unitId);
     if (!t.unitIds.length) G.cancelTask(tid);
   };
+  /** Odhad zbývajícího času úkolu v sekundách (null = nikdo nepracuje). */
+  G.taskEta = function (t) {
+    const act = G.ACTIVITIES[t.activityId];
+    if (!act) return null;
+    const node = G.WORLD.nodes.find(n => n.id === t.nodeId);
+    const rich = node ? node.richness : 1;
+    let rate = 0;
+    for (const uid of t.unitIds) {
+      const u = G.getUnit(uid);
+      if (!u || u.dead || u.isChild || u.assignedTaskId !== t.id || u.resting) continue;
+      if (G.hasSevereInjury && G.hasSevereInjury(u)) continue;
+      if (G.unitRefusesWork && G.unitRefusesWork(u)) continue;
+      let r = G.unitWorkRate(u, act);
+      const g = u.groupId ? G.getGroup(u.groupId) : null;
+      if (g) r *= G.groupWorkMult(g);
+      rate += r;
+    }
+    if (rate <= 0) return null;
+    const remaining = t.mode === 'quantity'
+      ? Math.max(0, t.targetQty * (act.workPerUnit || 4) - t.workDone)
+      : Math.max(0, (t.workRequired || 0) - t.workDone);
+    return remaining / (rate * rich);
+  };
+
   G.taskProgress = function (t) {
     if (t.mode === 'quantity') return t.targetQty > 0 ? Math.min(1, t.producedQty / t.targetQty) : 0;
     return Math.min(1, t.workDone / t.workRequired);

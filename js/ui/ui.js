@@ -108,6 +108,7 @@
         const cur = memberToggle.dataset.selected === 'true';
         memberToggle.dataset.selected = cur ? 'false' : 'true';
         memberToggle.classList.toggle('selected', !cur);
+        updateExpCounter();
         return;
       }
       const expPick = e.target.closest('[data-action="select-expedition"]');
@@ -115,6 +116,7 @@
         pickedExpedition = expPick.dataset.expedition;
         modalRoot.querySelectorAll('.expedition-pick').forEach(b => b.classList.remove('selected'));
         expPick.classList.add('selected');
+        updateExpCounter();
         return;
       }
       const prestigePick = e.target.closest('[data-action="select-prestige-unlock"]');
@@ -165,6 +167,12 @@
     if (pEl) {
       if (lvl > 0) { pEl.style.display = 'inline-flex'; pEl.title = `Prestiž ${lvl}`; pEl.textContent = '⭐' + lvl; }
       else pEl.style.display = 'none';
+    }
+    const ordersBadge = document.getElementById('tab-badge-orders');
+    if (ordersBadge) {
+      const n = (G.state.orders || []).length;
+      if (n > 0) { ordersBadge.style.display = 'inline-block'; ordersBadge.textContent = n; ordersBadge.title = `${n}× příkaz ve frontě`; }
+      else ordersBadge.style.display = 'none';
     }
     const season = G.seasonInfo ? G.seasonInfo() : null;
     const phase = G.phaseInfo ? G.phaseInfo() : null;
@@ -257,6 +265,30 @@
     restoreDetailsState(detailsState);
     if (panel) panel.scrollTop = scrollTop;
     if (activeSub === 'place') renderHud();
+  }
+
+  function updateExpCounter() {
+    const root = document.getElementById('modal-root');
+    if (!root) return;
+    const el = root.querySelector('#exp-pick-count');
+    if (!el) return;
+    const picked = Array.from(root.querySelectorAll('.member-pick.selected')).map(b => b.dataset.unit);
+    const n = picked.length;
+    const tpl = pickedExpedition ? G.EXPEDITIONS[pickedExpedition] : null;
+    const food = tpl && G.expeditionFoodCost ? G.expeditionFoodCost(pickedExpedition, Math.max(1, n)) : 0;
+    let chanceTxt = '— vyber expedici';
+    if (tpl) {
+      const power = picked.reduce((s, id) => {
+        const u = G.getUnit(id);
+        return s + (u ? G.unitCombatPower(u) + G.unitSkill(u, 'scouting') * 3 : 0);
+      }, 0);
+      const need = tpl.difficulty * 30;
+      const chance = G.clamp(0.30 + (power / Math.max(1, need)) * 0.40, 0.20, 0.95);
+      chanceTxt = `${Math.round(chance * 100)} %`;
+    }
+    const ok = n >= G.EXPEDITION_MIN_PARTY && n <= G.EXPEDITION_MAX_PARTY;
+    el.classList.toggle('warn', !ok);
+    el.innerHTML = `Vybráno <b>${n}</b> / ${G.EXPEDITION_MIN_PARTY}–${G.EXPEDITION_MAX_PARTY} • 🍞 ${food} jídla • šance ≈ ${chanceTxt}`;
   }
 
   function openModal(type, unitId) {
@@ -592,7 +624,9 @@
       if (d < bestD) { bestD = d; best = s; }
     }
     if (!best || bestD > 4) {
-      G.log('⚠️ Postava není v dosahu žádného sídla (max 4 dlaždice).', 'info');
+      G.log(best
+        ? `⚠️ ${u.name} je příliš daleko od sídla ${best.name} (${bestD.toFixed(1)} polí, max 4).`
+        : '⚠️ V dosahu není žádné sídlo.', 'info');
       return render();
     }
     let count = 0;

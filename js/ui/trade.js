@@ -39,7 +39,7 @@
         ${srepLine}
         ${wsLine}
         ${polLine}
-        <div class="loc-sub">Sklad zlata: ${Math.floor(st.gold).toLocaleString('cs-CZ')} 🪙</div>
+        <div class="loc-sub" title="Sídlo zaplatí za tvé zboží jen do výše tohoto zlata — pak musí prodat, aby mělo zase čím platit.">Sklad zlata: ${Math.floor(st.gold).toLocaleString('cs-CZ')} 🪙</div>
       </div>
     </div>`;
 

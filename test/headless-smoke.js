@@ -148,6 +148,27 @@ check('buyGem: nakup gemu funguje', () => {
   assert(G.matCount('gem_' + gid) === before + 1, 'gem se nepridal');
   assert(G.state.resources.gold === 5, 'zlato se odecetlo spatne: ' + G.state.resources.gold);
 });
+check('vsechny panely se vykresli bez vyjimky', () => {
+  const fns = ['panelPlace','panelActivities','panelUnits','panelGroups','panelExpeditions',
+    'panelCraft','panelInventory','panelMerchant','panelReputation','panelPolitics',
+    'panelLog','panelAchievements','panelPrestige','panelBase'];
+  for (const f of fns) {
+    assert(typeof G[f] === 'function', 'chybi ' + f);
+    const html = G[f]();
+    assert(typeof html === 'string' && html.length > 0, f + ' nic nevykreslil');
+  }
+  const sid = G.WORLD.settlements[0].id;
+  assert(typeof G.panelTrade(sid) === 'string', 'panelTrade nevykreslil');
+});
+check('modaly se vykresli bez vyjimky', () => {
+  const u = G.state.units.find(x => !x.dead);
+  assert(!!u, 'zadna postava');
+  assert(typeof G.perkPanel(u.id) === 'string', 'perkPanel');
+  assert(typeof G.mentorPanel(u.id) === 'string', 'mentorPanel');
+  assert(typeof G.merchantPanel(u.id) === 'string', 'merchantPanel');
+  assert(typeof G.expeditionModal() === 'string', 'expeditionModal');
+  assert(typeof G.taskAssignModal({ activityId:'chop_wood', nodeId:null, targetQty:25 }) === 'string', 'taskAssignModal');
+});
 check('charakterove udalosti: resolveCharacterEvent', () => {
   const u = G.state.units.find(x => !x.dead && !x.isChild);
   assert(!!u, 'zadna postava');

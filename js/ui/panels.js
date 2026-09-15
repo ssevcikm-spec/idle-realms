@@ -18,6 +18,22 @@
     if (m > 0) return `${m} min`;
     return `${s} s`;
   }
+  G.formatSec = formatSec;
+  function formatClock(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = Math.floor(sec%60);
+    return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+  function nodeName(nodeId) {
+    const n = G.WORLD.nodes.find(x => x.id === nodeId);
+    return n && G.NODE_KINDS[n.kind] ? G.NODE_KINDS[n.kind].name : null;
+  }
+  function taskEtaText(t) {
+    if (!G.taskEta) return '';
+    const eta = G.taskEta(t);
+    if (eta == null) return ' • ⏸ nikdo nepracuje';
+    return ` • ⏳ ≈ ${formatSec(eta)}`;
+  }
 
   function renderDirectives() {
     const dir = G.state.directives || { focusMaterial: null, avoidDanger: false };
@@ -25,14 +41,15 @@
     const chips = mats.map(m => {
       const active = dir.focusMaterial === m ? ' active' : '';
       const def = G.MATERIALS[m];
-      return `<button class="dir-chip${active}" data-action="set-directive-focus" data-material="${m}">${def.icon} ${esc(def.name)}</button>`;
+      return `<button class="dir-chip${active}" data-action="set-directive-focus" data-material="${m}" title="Postavy budou přednostně dělat práce, které dávají ${esc(def.name)} — dokud ho nemáš dost.">${def.icon} ${esc(def.name)}</button>`;
     }).join('');
     const autoActive = dir.focusMaterial ? '' : ' active';
     const dangerActive = dir.avoidDanger ? ' active' : '';
     return `<div class="directives">
       <div class="panel-title">🧭 Směrnice — čemu se autonomně věnovat</div>
-      <button class="dir-chip${autoActive}" data-action="set-directive-focus" data-material="">✨ Auto</button>${chips}
-      <div class="dir-row"><button class="dir-chip${dangerActive}" data-action="toggle-directive-danger">🛡️ Vyhýbat se nebezpečí</button></div>
+      <div class="hint" style="text-align:left">Ovlivňuje jen <b>automatické</b> rozhodování postav bez příkazu (příkazy ve frontě a zaměření skupin mají přednost).</div>
+      <button class="dir-chip${autoActive}" data-action="set-directive-focus" data-material="" title="Žádné zaměření — postavy si vybírají podle toho, čeho je nedostatek.">✨ Auto</button>${chips}
+      <div class="dir-row"><button class="dir-chip${dangerActive}" data-action="toggle-directive-danger" title="Postavy nebudou chodit na nebezpečné uzly (důl, jeskyně, močál).">🛡️ Vyhýbat se nebezpečí</button></div>
     </div>`;
   }
 
@@ -102,15 +119,19 @@
   function renderOrders() {
     const orders = G.state.orders || [];
     if (!orders.length) return '';
-    let html = `<div class="panel-title">📋 Příkazy (${orders.length})</div>`;
+    let html = `<div class="panel-title">📋 Příkazy ve frontě (${orders.length})</div>
+      <div class="hint" style="text-align:left">Vyřídí se automaticky, jakmile bude některá postava volná.</div>`;
     for (const o of orders) {
       const act = G.ACTIVITIES[o.activityId];
       if (!act) continue;
+      const qty = act.mode === 'quantity' && o.targetQty ? ` ${o.targetQty}×` : '';
+      const place = nodeName(o.nodeId);
+      const who = o.targetType === 'group' ? ' — čeká na skupinu' : o.targetType === 'unit' ? ' — čeká na postavu' : ' — čeká na volnou postavu';
       html += `<div class="task-row">
         <div class="task-icon">${act.icon}</div>
-        <div class="task-main"><div class="task-name">${esc(act.name)}</div>
-          <div class="task-sub">čeká na volnou postavu</div></div>
-        <button class="btn-sm ghost" data-action="cancel-order" data-order="${o.id}">Zrušit</button>
+        <div class="task-main"><div class="task-name">${esc(act.name)}${qty}${place ? ` <span style="color:#8d8570;font-weight:400">— ${esc(place)}</span>` : ''}</div>
+          <div class="task-sub">${esc(who.replace(/^ — /, ''))} • priorita ${o.priority || 0}</div></div>
+        <button class="btn-sm ghost" data-action="cancel-order" data-order="${o.id}" title="Zrušit příkaz z fronty">Zrušit</button>
       </div>`;
     }
     return html;
@@ -163,8 +184,11 @@
       </div>
     </div>`;
     if (danger >= 2 && idleUnits.length) {
-      html += `<div class="warn-box">💡 Posíláš ${idleUnits.length} postav. Odhad síly: ${Math.round(G.partySafety(idleUnits))} / potřeba ${Math.round(danger*22)}.</div>`;
-      html += `<button class="btn attack-btn" data-action="attack-here" data-node="${n.id}">⚔️ Zaútočit</button>`;
+      const safety = Math.round(G.partySafety(idleUnits));
+      const need = Math.round(danger * 22);
+      const verdict = safety >= need * 1.2 ? 'mělo by to vyjít' : safety >= need * 0.8 ? 'bude to těsné' : 'je to nad síly družiny';
+      html += `<div class="warn-box">💡 Zaútočí <b>${idleUnits.length}</b> volných postav (všech, i vzdálených). Odhad síly družiny <b>${safety}</b> vs. potřeba <b>${need}</b> — ${verdict}.</div>`;
+      html += `<button class="btn attack-btn" data-action="attack-here" data-node="${n.id}" title="Pošle do boje všechny volné postavy, ne jen ty u tohoto uzlu">⚔️ Zaútočit</button>`;
     }
     html += `<div class="panel-title">Dostupné práce</div>`;
     if (!acts.length) html += `<div class="empty">Tady se nedá nic dělat.</div>`;
@@ -201,15 +225,16 @@
     const p = G.taskProgress(t);
     const names = t.unitIds.map(id => { const u = G.getUnit(id); if (!u) return '?'; return esc(u.name.split(' ')[0]) + (u.mentorId ? ' 🎓' : ''); }).join(', ');
     const label = t.mode === 'quantity' ? `${t.producedQty} / ${t.targetQty}` : `${Math.floor(t.workDone)} / ${t.workRequired}`;
+    const place = nodeName(t.nodeId);
     return `<div class="task-row">
       <div class="task-icon">${a.icon}</div>
       <div class="task-main">
-        <div class="task-name">${esc(a.name)}</div>
+        <div class="task-name">${esc(a.name)}${place ? ` <span style="color:#8d8570;font-weight:400">— ${esc(place)}</span>` : ''}</div>
         <div class="task-sub">${names}</div>
         <div class="progress"><div class="progress-bar" style="width:${(p*100).toFixed(1)}%"></div></div>
-        <div class="task-sub">${label}</div>
+        <div class="task-sub">${label}${taskEtaText(t)}</div>
       </div>
-      <button class="btn-sm danger" data-action="cancel-task" data-task="${t.id}">✕</button>
+      <button class="btn-sm danger" data-action="cancel-task" data-task="${t.id}" title="Zrušit úkol (postavy se uvolní)">✕</button>
     </div>`;
   }
 
@@ -237,7 +262,8 @@
 
   G.panelActivities = function () {
     let html = `<div class="panel-title">Všechny práce</div>`;
-    html += `<div class="hint" style="text-align:left;margin-bottom:10px">Start přiřadí <b>všem volným postavám</b> nejbližší vhodný uzel.</div>`;
+    html += `<div class="hint" style="text-align:left;margin-bottom:10px">Start přiřadí <b>všem volným postavám</b> nejbližší vhodný uzel. Když volné nejsou, nabídne se zařazení do fronty.</div>`;
+    html += renderOrders();
     for (const a of Object.values(G.ACTIVITIES)) {
       const req = meetsReq(null, a);
       const node = G.WORLD.nearestNode(a.nodeKinds, G.state.camera.x, G.state.camera.y);
@@ -369,9 +395,15 @@
     const ageInfo = G.ageLabel(age);
     const task = u.assignedTaskId ? s.tasks.find(t => t.id === u.assignedTaskId) : null;
     let taskName = 'Volno';
+    let taskExtra = '';
     if (u.onExpedition) taskName = '⛵ Na expedici';
     else if (u.merchantState && u.merchantState.active) taskName = `Obchodník`;
-    else if (task) taskName = G.ACTIVITIES[task.activityId].name;
+    else if (task) {
+      const ta = G.ACTIVITIES[task.activityId];
+      taskName = ta ? ta.name : 'Práce';
+      const place = nodeName(task.nodeId);
+      taskExtra = (place ? ` • 📍 ${esc(place)}` : '') + esc(taskEtaText(task));
+    }
     else if (u.resting) taskName = 'Odpočívá';
     else if (u._refuseUntil && G.state.time < u._refuseUntil) taskName = 'Odmítá pracovat';
     const groupName = u.groupId && G.getGroup(u.groupId) ? G.getGroup(u.groupId).name : '—';
@@ -466,13 +498,13 @@
       <details class="unit-personality"><summary>🎭 Osobnost</summary><div class="pers-grid">${persBars}</div></details>
       ${relHtml}
       <div class="unit-equip">${renderSlot(u, 'tool', '🔧 Nástroj')}${renderSlot(u, 'weapon', '⚔️ Zbraň')}${renderSlot(u, 'armor', '🛡️ Zbroj')}</div>
-      <div class="unit-task">${u.onExpedition ? '⛵' : u.merchantState && u.merchantState.active ? '🐎' : u.resting ? '💤' : task ? '⚒️' : '🟢'} ${esc(taskName)}</div>
+      <div class="unit-task">${u.onExpedition ? '⛵' : u.merchantState && u.merchantState.active ? '🐎' : u.resting ? '💤' : task ? '⚒️' : '🟢'} ${esc(taskName)}${taskExtra}</div>
       ${(!u.onExpedition && !(u.merchantState && u.merchantState.active) && !u.dead) ? `<select class="unit-task-select" data-change="unit-task" data-unit="${u.id}"><option value="">⚒️ Přiřadit práci…</option>${unitActivityOptions(u)}</select>` : ''}
       <div class="unit-actions">
         <button class="btn-sm ghost" data-action="toggle-manual" data-unit="${u.id}">${u.manual ? '🤖 Auto' : '🎮 Manuálně'}</button>
         ${u.resting ? `<button class="btn-sm ghost" data-action="wake" data-unit="${u.id}">Vzbudit</button>` : ''}
         ${!u.resting && !task && !u.onExpedition && !(u.merchantState && u.merchantState.active) ? `<button class="btn-sm ghost" data-action="rest" data-unit="${u.id}">Odpočívat</button>` : ''}
-        ${injuries.length ? `<button class="btn-sm ghost" data-action="heal-all" data-unit="${u.id}">Vyléčit</button>` : ''}
+        ${injuries.length ? `<button class="btn-sm ghost" data-action="heal-all" data-unit="${u.id}" title="Vyléčí zranění v nejbližším sídle — postava k němu musí být do 4 polí.">Vyléčit</button>` : ''}
         <button class="btn-sm ghost" data-action="open-perks" data-unit="${u.id}">✨ Perky${pendingPerks > 0 ? ' (' + pendingPerks + ')' : ''}</button>
         <button class="btn-sm ghost" data-action="open-mentor" data-unit="${u.id}">🎓 Učednictví</button>
         ${!u.onExpedition && !(u.merchantState && u.merchantState.active) ? `<button class="btn-sm ghost" data-action="open-merchant" data-unit="${u.id}">🐎 Obchodník</button>` : ''}
@@ -524,6 +556,7 @@
       html += `<div class="group-card">
         <div class="group-head"><div class="group-name">👥 ${esc(g.name)}</div><div class="group-count">${members.length}</div></div>
         <div class="group-stats"><span>Chemie: <b style="color:${ch.color}">${ch.label}</b></span><span>Síla: <b>${Math.round(avgSafety)}</b></span></div>
+        <div class="hint" style="text-align:left">Chemie = průměr vztahů mezi členy. Kladná zvyšuje produktivitu i boj, záporná je sráží.</div>
         <div class="group-roles">`;
       for (const roleId in G.ROLES) {
         const r = G.ROLES[roleId];
@@ -532,6 +565,7 @@
         html += `<span class="role-chip ${valid ? 'has' : 'empty'}" title="${r.desc}">${r.icon} ${r.name}: ${valid ? esc(holder.name.split(' ')[0]) : '—'}</span>`;
       }
       html += `</div><div class="group-focus"><label class="v-label">Zaměření</label><select data-change="group-focus" data-group="${g.id}"><option value="">— volná vůle —</option>${acts.map(a => `<option value="${a.id}" ${g.focus === a.id ? 'selected' : ''}>${a.icon} ${esc(a.name)}</option>`).join('')}</select></div>
+      <div class="hint" style="text-align:left">Zaměření = trvalý úkol skupiny: jakmile jsou členové volní, sami se na něj vydají.</div>
       <div class="group-members">${members.map(u => `<span class="member-chip" style="border-color:${u.color}">${esc(u.name.split(' ')[0])}${u.resting ? ' 💤' : ''}${(u.injuries && u.injuries.length) ? ' 🩹' : ''}${u.mentorId ? ' 🎓' : ''}${u.merchantState && u.merchantState.active ? ' 🐎' : ''}${u.onExpedition ? ' ⛵' : ''}<button class="chip-x" data-action="kick" data-unit="${u.id}">×</button></span>`).join('') || '<span class="hint">Žádní členové</span>'}</div>
       <div class="group-add"><select data-change="add-to-group" data-group="${g.id}"><option value="">+ přidat člena…</option>${s.units.filter(u => !u.dead && u.groupId !== g.id).map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select></div>
     </div>`;
@@ -574,25 +608,30 @@
     if (avail.length < G.EXPEDITION_MIN_PARTY) {
       return `<div class="perk-panel"><div class="perk-header">⛵ Vyslat expedici</div><div class="perk-hint">Potřebuješ alespoň ${G.EXPEDITION_MIN_PARTY} volné postavy.</div><div class="perk-actions"><button class="btn" data-action="close-modal">Zavřít</button></div></div>`;
     }
-    let html = `<div class="perk-panel"><div class="perk-header">⛵ Vyslat expedici</div><div class="perk-hint">Vyber expedici a označ ${G.EXPEDITION_MIN_PARTY}–${G.EXPEDITION_MAX_PARTY} postav. Expedice spotřebuje jídlo (chléb/ryba) na cestu.</div><div class="panel-title">1. Vyber expedici</div>`;
+    let html = `<div class="perk-panel"><div class="perk-header">⛵ Vyslat expedici</div><div class="perk-hint">Vyber expedici a označ ${G.EXPEDITION_MIN_PARTY}–${G.EXPEDITION_MAX_PARTY} postav. Expedice spotřebuje jídlo (chléb/ryba) na cestu. Postavy, které zrovna pracují, o svůj úkol přijdou.</div><div class="panel-title">1. Vyber expedici</div>`;
     for (const id in G.EXPEDITIONS) {
       const tpl = G.EXPEDITIONS[id];
+      const rewards = (tpl.rewardPool || []).map(r => G.MATERIALS[r.material] ? G.MATERIALS[r.material].icon : '💎').join(' ');
+      const food = G.expeditionFoodCost ? G.expeditionFoodCost(id, G.EXPEDITION_MIN_PARTY) : 0;
       html += `<button class="expedition-pick" data-action="select-expedition" data-expedition="${id}">
         <div class="exp-pick-head"><span class="exp-pick-icon">${tpl.icon}</span> <b>${esc(tpl.name)}</b></div>
         <div class="exp-pick-desc">${esc(tpl.desc)}</div>
-        <div class="exp-pick-info">${tpl.minDays}–${tpl.maxDays} dní • obtížnost ${tpl.difficulty}/5</div>
+        <div class="exp-pick-info">${tpl.minDays}–${tpl.maxDays} dní • obtížnost ${tpl.difficulty}/5 • 🍞 ${food} jídla za ${G.EXPEDITION_MIN_PARTY} postavy${rewards ? ` • odměny: ${rewards}` : ''}</div>
       </button>`;
     }
     html += `<div class="panel-title">2. Označ postavy</div><div class="member-picker" id="exp-member-picker">`;
     for (const u of avail) {
-      html += `<button class="member-pick" data-action="toggle-exp-member" data-unit="${u.id}" data-selected="false">${esc(u.name)} <span style="opacity:.6">(Lv${u.level}, ⚔${Math.round(G.unitCombatPower(u))})</span></button>`;
+      const busy = u.assignedTaskId ? ' • ⚒️ pracuje (přeruší se)' : ' • 🟢 volný';
+      html += `<button class="member-pick" data-action="toggle-exp-member" data-unit="${u.id}" data-selected="false">${esc(u.name)} <span style="opacity:.6">(Lv${u.level}, ⚔${Math.round(G.unitCombatPower(u))}${busy})</span></button>`;
     }
-    html += `</div><div class="perk-actions"><button class="btn" data-action="confirm-expedition">⛵ Vyslat</button><button class="btn ghost" data-action="close-modal">Zavřít</button></div></div>`;
+    html += `</div><div class="exp-pick-count" id="exp-pick-count">Vybráno <b>0</b> / ${G.EXPEDITION_MIN_PARTY}–${G.EXPEDITION_MAX_PARTY} • 🍞 0 • šance ≈ —</div>`;
+    html += `<div class="perk-actions"><button class="btn" data-action="confirm-expedition">⛵ Vyslat</button><button class="btn ghost" data-action="close-modal">Zavřít</button></div></div>`;
     return html;
   };
 
   G.panelCraft = function () {
-    let html = `<div class="panel-title">Dílny</div>`;
+    let html = `<div class="panel-title">Dílny</div>
+      <div class="hint" style="text-align:left">Přístup = postava je v dosahu sídla (nebo základny), kde dílna stojí.</div>`;
     const status = G.workshopStatus();
     for (const st of status) {
       const w = st.workshop;
@@ -671,7 +710,8 @@
   G.panelPolitics = function () {
     if (!G.politicsOverview) return `<div class="empty">Politika není dostupná.</div>`;
     const overview = G.politicsOverview();
-    let html = `<div class="panel-title">🏛️ Politika</div>`;
+    let html = `<div class="panel-title">🏛️ Politika</div>
+      <div class="hint" style="text-align:left">Vítězný program platí pro celou frakci do dalších voleb. Podpora stojí zlato — každá další podpora stejného kandidáta je o 100 🪙 dražší.</div>`;
     for (const o of overview) {
       const f = o.faction, st = o.phase;
       if (st === 'election') {
@@ -680,12 +720,14 @@
           const prog = G.POLITICAL_PROGRAMS[c.program];
           const isPlayer = c.isPlayer;
           const supportPrice = G.supportPrice(f.id);
-          html += `<div class="politics-candidate ${isPlayer ? 'player' : ''}"><div class="candidate-name">${isPlayer ? '👑 ' : ''}${esc(c.name)}</div><div class="candidate-program">${prog.icon} ${esc(prog.name)}</div>${!isPlayer ? `<button class="btn-sm ghost" data-action="support-candidate" data-faction="${f.id}" data-candidate="${c.id}">Podpořit (${supportPrice} 🪙)</button>` : ''}</div>`;
+          const effects = G.programEffectsText ? G.programEffectsText(prog) : '';
+          html += `<div class="politics-candidate ${isPlayer ? 'player' : ''}"><div class="candidate-name">${isPlayer ? '👑 ' : ''}${esc(c.name)}</div><div class="candidate-program" title="${esc(prog.desc)}">${prog.icon} ${esc(prog.name)}</div>${effects ? `<div class="candidate-effects">${esc(prog.desc)} — <b>${esc(effects)}</b></div>` : ''}${!isPlayer ? `<button class="btn-sm ghost" data-action="support-candidate" data-faction="${f.id}" data-candidate="${c.id}" title="${esc(prog.desc)}">Podpořit (${supportPrice} 🪙)</button>` : ''}</div>`;
         }
         html += `</div>`;
       } else if (o.winner) {
         const prog = G.POLITICAL_PROGRAMS[o.winner.program];
-        html += `<div class="politics-card" style="border-color:${f.color}"><div class="politics-head"><span style="color:${f.color}">${f.icon} ${esc(f.name)}</span><span class="politics-badge">${esc(o.winner.name.split(' ')[0])}</span></div><div class="politics-winner">${prog.icon} ${esc(prog.name)}</div></div>`;
+        const effects = G.programEffectsText ? G.programEffectsText(prog) : '';
+        html += `<div class="politics-card" style="border-color:${f.color}"><div class="politics-head"><span style="color:${f.color}">${f.icon} ${esc(f.name)}</span><span class="politics-badge">${esc(o.winner.name.split(' ')[0])}</span></div><div class="politics-winner">${prog.icon} ${esc(prog.name)}</div><div class="candidate-effects">${esc(prog.desc)}${effects ? ` — <b>${esc(effects)}</b>` : ''}</div></div>`;
       } else {
         const left = o.nextElection - G.state.time;
         html += `<div class="politics-card" style="border-color:${f.color}"><div class="politics-head"><span style="color:${f.color}">${f.icon} ${esc(f.name)}</span><span class="politics-badge">klid</span></div><div class="rep-motto">Další volby za ${formatSec(left)}</div></div>`;
@@ -819,6 +861,6 @@
     const filter = G.state.logFilter || 'all';
     const lines = G.state.log.slice(-150).reverse();
     const filtered = filter === 'all' ? lines : lines.filter(l => l.cat === filter);
-    el.innerHTML = filtered.slice(0, 80).map(e => `<div class="log-line log-${e.cat || 'info'}">${esc(e.msg)}</div>`).join('');
+    el.innerHTML = filtered.slice(0, 80).map(e => `<div class="log-line log-${e.cat || 'info'}"><span class="log-time" title="Herní čas">${formatClock(e.t)}</span>${esc(e.msg)}</div>`).join('');
   };
 })();

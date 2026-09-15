@@ -66,6 +66,24 @@
     return prog ? prog.effects : null;
   };
 
+  /** Lidsky čitelný souhrn efektů programu (pro UI). */
+  G.programEffectsText = function (prog) {
+    if (!prog || !prog.effects) return '';
+    const e = prog.effects, out = [];
+    if (e.priceMods) {
+      for (const k in e.priceMods) {
+        const diff = Math.round((e.priceMods[k] - 1) * 100);
+        const label = k === 'all' ? 'všechny ceny' : (G.MATERIALS[k] ? G.MATERIALS[k].name.toLowerCase() : k);
+        out.push(`${label} ${diff > 0 ? '+' : ''}${diff} %`);
+      }
+    }
+    if (e.questBonus) out.push(`+${e.questBonus} zakázky`);
+    if (e.xpBonus) out.push(`XP +${Math.round((e.xpBonus - 1) * 100)} %`);
+    if (e.safetyBonus) out.push(`nebezpečí ${Math.round((e.safetyBonus - 1) * 100)} %`);
+    if (e.repBonus) out.push(`zisk reputace +${Math.round((e.repBonus - 1) * 100)} %`);
+    return out.join(' • ');
+  };
+
   /** Cena podpory kandidáta (roste s počtem už podpořených). */
   G.supportPrice = function (factionId) {
     const st = G.state.politics.factions[factionId];

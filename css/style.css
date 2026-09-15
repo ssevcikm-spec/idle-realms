@@ -845,3 +845,20 @@ input:focus, select:focus, textarea:focus { border-color: #a8813a; }
 .summary-item span:first-child { color: #8d8570; }
 .summary-item span:last-child { color: #d8b45a; font-weight: 700; }
 .chapter-tag { text-align: center; color: #b3a4e8; font-style: italic; margin: 8px 0; }
+
+/* === FRONTA PŘÍKAZŮ: odznak na záložce === */
+.tab-btn { position: relative; }
+.tab-btn .tab-badge, .tab-btn.active .tab-badge {
+  position: absolute; top: 2px; left: 50%; margin-left: 10px;
+  min-width: 15px; padding: 0 4px;
+  background: #d8b45a; color: #241f14;
+  font-size: 9px; font-weight: 800; line-height: 15px;
+  border-radius: 8px; text-align: center; white-space: nowrap;
+}
+/* === LOG: herní čas u zprávy === */
+.log-time { color: #6d6656; font-variant-numeric: tabular-nums; margin-right: 6px; font-size: 11px; }
+/* === POLITIKA: efekty programu === */
+.candidate-effects { font-size: 11px; color: #9c937c; margin-bottom: 4px; line-height: 1.35; }
+/* === EXPEDICE: živý souhrn výběru === */
+.exp-pick-count { font-size: 12px; color: #b8b09a; margin: 6px 0 8px; }
+.exp-pick-count.warn { color: #d8b45a; }
