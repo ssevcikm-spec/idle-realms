@@ -121,6 +121,33 @@ check('fronta prikazu: addOrder + tickOrders', () => {
   G.tickOrders();
   assert(!G.state.orders.some(x => x.id === o.id), 'prikaz se nevyridil');
 });
+check('fronta prikazu drzi mnozstvi (targetQty)', () => {
+  for (const t of G.state.tasks.slice()) G.cancelTask(t.id);
+  const u = G.state.units.find(x => !x.dead && !x.isChild && !x.onExpedition && !(x.merchantState && x.merchantState.active));
+  assert(!!u, 'zadna pouzitelna postava');
+  if (G.wakeUnit) G.wakeUnit(u);
+  u.resting = false;
+  u.assignedTaskId = null;
+  const o = G.addOrder({ activityId: 'chop_wood', targetQty: 37 });
+  assert(!!o, 'prikaz se nepridal');
+  G.tickOrders();
+  const t = G.state.tasks.find(x => x.activityId === 'chop_wood');
+  assert(!!t, 'prikaz se nevyridil');
+  assert(t.targetQty === 37, 'targetQty se prenesl spatne: ' + t.targetQty);
+});
+check('buyGem: nakup gemu funguje', () => {
+  const city = G.WORLD.settlements.find(s => s.size === 'city') || G.WORLD.settlements[0];
+  assert(!!city, 'zadne sidlo');
+  const gid = Object.keys(G.GEMS)[0];
+  const price = G.gemPrice(city.id, gid);
+  assert(price > 0, 'cena gemu je 0');
+  G.state.resources.gold = price + 5;
+  const before = G.matCount('gem_' + gid);
+  const res = G.buyGem(city.id, gid);
+  assert(res.ok, 'nakup selhal: ' + (res.reason || '?'));
+  assert(G.matCount('gem_' + gid) === before + 1, 'gem se nepridal');
+  assert(G.state.resources.gold === 5, 'zlato se odecetlo spatne: ' + G.state.resources.gold);
+});
 check('charakterove udalosti: resolveCharacterEvent', () => {
   const u = G.state.units.find(x => !x.dead && !x.isChild);
   assert(!!u, 'zadna postava');

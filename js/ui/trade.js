@@ -98,18 +98,19 @@
       html += `<div class="panel-title">💎 Gemy</div>`;
       for (const gid in G.GEMS) {
         const g = G.GEMS[gid];
-        if (def.size === 'town' && g.tier >= 3) continue;
-        const price = Math.round(g.price * bonuses.buyMult);
+        if (G.gemAvailableAt ? !G.gemAvailableAt(settlementId, gid) : (def.size === 'town' && g.tier >= 3)) continue;
+        const price = G.gemPrice ? G.gemPrice(settlementId, gid) : Math.round(g.price * bonuses.buyMult);
         const afford = G.state.resources.gold >= price;
+        const owned = G.matCount('gem_' + gid);
         html += `<div class="trade-row">
           <div class="trade-icon">${g.icon}</div>
           <div class="trade-main">
             <div class="trade-name">${G.esc(g.name)}</div>
-            <div class="trade-sub">${G.esc(g.desc)} • T${g.tier}</div>
+            <div class="trade-sub">${G.esc(g.desc)} • T${g.tier}${owned ? ` • máš <b>${owned}</b>` : ''}</div>
           </div>
           <div class="trade-actions">
             <span class="price-buy">${price} 🪙</span>
-            <button class="btn-sm" ${afford ? '' : 'disabled'} data-action="buy-gem" data-settlement="${settlementId}" data-gem="${gid}">Koupit</button>
+            <button class="btn-sm" ${afford ? '' : 'disabled'} title="${afford ? 'Koupit gem' : `Chybí ${price - Math.floor(G.state.resources.gold)} zlata`}" data-action="buy-gem" data-settlement="${settlementId}" data-gem="${gid}">Koupit</button>
           </div>
         </div>`;
       }

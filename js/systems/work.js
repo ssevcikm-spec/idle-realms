@@ -33,6 +33,20 @@
     for (const gid of groups) G.autoAssignRoles(G.getGroup(gid));
     return t;
   };
+  /** Proč postava teď nemůže vzít práci? Vrací text důvodu, nebo null (může). */
+  G.workBlockReason = function (u) {
+    if (!u) return 'Neznámá postava.';
+    if (u.dead) return 'je mrtvý';
+    if (u.isChild) return 'je dítě';
+    if (u.onExpedition) return 'je na expedici';
+    if (u.resting) return 'odpočívá';
+    if (u.role === 'trader' || (u.merchantState && u.merchantState.active)) return 'je obchodník';
+    if (G.hasSevereInjury && G.hasSevereInjury(u)) return 'má těžké zranění';
+    if (G.unitRefusesWork && G.unitRefusesWork(u)) return 'odmítá pracovat';
+    if (u._refuseUntil && G.state.time < u._refuseUntil) return 'odmítá pracovat';
+    return null;
+  };
+
   G.findNodeFor = function (activityId, unitIds) {
     const act = G.ACTIVITIES[activityId]; if (!act) return null;
     let cx = 0, cy = 0, n = 0;

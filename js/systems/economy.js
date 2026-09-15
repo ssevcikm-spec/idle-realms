@@ -123,6 +123,42 @@
     return { ok:true, total };
   };
 
+  /** Cena gemu v sídle — stejný vzorec pro zobrazení i pro nákup. */
+  G.gemPrice = function (settlementId, gemId) {
+    const g = G.GEMS[gemId];
+    const def = G.WORLD.settlementById[settlementId];
+    if (!g || !def) return 0;
+    const b = G.settlementBonuses ? G.settlementBonuses(settlementId) : { buyMult:1 };
+    const srep = G.settlementRepMods(settlementId);
+    return Math.max(1, Math.round(g.price * b.buyMult * srep.buyMult));
+  };
+
+  /** Prodává dané sídlo tento gem? (metropole vše, město do tieru 2) */
+  G.gemAvailableAt = function (settlementId, gemId) {
+    const def = G.WORLD.settlementById[settlementId];
+    const g = G.GEMS[gemId];
+    if (!def || !g) return false;
+    if (def.size === 'city') return true;
+    if (def.size === 'town') return g.tier < 3;
+    return false;
+  };
+
+  G.buyGem = function (settlementId, gemId) {
+    const st = G.state.economy[settlementId];
+    const g = G.GEMS[gemId];
+    if (!st || !g) return { ok:false, reason:'Neznámý gem.' };
+    if (!G.gemAvailableAt(settlementId, gemId)) return { ok:false, reason:'Tady tento gem neprodávají.' };
+    const price = G.gemPrice(settlementId, gemId);
+    if (G.state.resources.gold < price) return { ok:false, reason:`Potřebuješ ${price} zlata.` };
+    G.state.resources.gold -= price;
+    G.state.stats.goldSpent = (G.state.stats.goldSpent || 0) + price;
+    st.gold += Math.round(price * 0.9);
+    G.matAdd('gem_' + gemId, 1, 'common');
+    G.addSettlementRep(settlementId, 0.5);
+    G.log(`💎 Koupil jsi ${g.icon} ${g.name} za ${price} zlata.`, 'economy');
+    return { ok:true, price };
+  };
+
   function rollPurchaseQuality(settlementId) {
     const def = G.WORLD.settlementById[settlementId];
     const bonus = def && def.size === 'city' ? 0.25 : def && def.size === 'town' ? 0.15 : 0.05;

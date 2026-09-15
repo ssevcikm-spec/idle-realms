@@ -51,7 +51,14 @@ powershell.exe -ExecutionPolicy Bypass -File scripts/check-globals.ps1
 pwsh -File scripts/check-globals.ps1
 ```
 
-Headless smoke test (spustí hru bez prohlížeče přes Node — 11 kontrol):
+Statická kontrola ovládacích prvků UI (každé `data-action` / `data-change` musí mít
+obsluhu v `js/ui/ui.js` — odhalí mrtvá tlačítka):
+
+```bash
+powershell.exe -ExecutionPolicy Bypass -File scripts/check-actions.ps1
+```
+
+Headless smoke test (spustí hru bez prohlížeče přes Node — 17 kontrol):
 
 ```bash
 node test/headless-smoke.js

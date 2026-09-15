@@ -127,12 +127,6 @@
       const act = e.target.closest('[data-action]');
       if (act) handleAction(act.dataset.action, act.dataset);
     });
-    modalRoot.addEventListener('change', e => {
-      const el = e.target.closest('[data-action="toggle-auto-abilities"]');
-      if (!el) return;
-      if (G.toggleAutoAbilities) G.toggleAutoAbilities();
-    });
-
     const hint = document.getElementById('map-hint');
     if (hint) {
       const canvas = document.getElementById('world');
@@ -283,6 +277,7 @@
   }
   function closeModal() {
     modal = null;
+    pendingAssign = null;
     pickedExpedition = null;
     pickedPrestigeUnlock = null;
     const root = document.getElementById('modal-root');
@@ -361,6 +356,7 @@
       case 'build':         return doBuild(ds.settlement, ds.building);
       case 'build-base':    return doBuildBase(ds.building);
       case 'buy-equip':     return doBuyEquip(ds.settlement, ds.item);
+      case 'buy-gem':       return doBuyGem(ds.settlement, ds.gem);
       case 'sell-equip':    return doSellEquip(ds.item);
       case 'unequip':       return doUnequip(ds.unit, ds.slot);
       case 'rest':          return doRest(ds.unit);
@@ -454,14 +450,22 @@
     const u = G.getUnit(unitId);
     const act = G.ACTIVITIES[activityId];
     if (!u || !act) return render();
+    if (u.resting && G.wakeUnit) G.wakeUnit(u);
+    const blocked = G.workBlockReason ? G.workBlockReason(u) : null;
+    if (blocked) { G.log(`⚠️ ${u.name} teď nemůže pracovat — ${blocked}.`, 'info'); return render(); }
     if (u.assignedTaskId && G.detachUnit) G.detachUnit(unitId);
     const t = G.startTask(activityId, [unitId], { targetQty: act.mode === 'quantity' ? (act.defaultQty || 10) : 1 });
-    if (!t) { G.log('⚠️ Není dostupný vhodný uzel.', 'info'); return render(); }
+    if (!t) { G.log('⚠️ Není dostupný vhodný uzel pro tuto práci.', 'info'); return render(); }
     G.log(`⚒️ ${u.name} dostal úkol: ${act.name}.`, 'work');
     render();
   }
   function doStartTask(activityId, nodeId) {
     const act = G.ACTIVITIES[activityId]; if (!act) return;
+    let targetQty = 1;
+    if (act.mode === 'quantity') {
+      const input = document.querySelector(`input[data-qty-for="${activityId}"]`);
+      targetQty = Math.max(1, Math.min(500, parseInt(input && input.value, 10) || act.defaultQty || 10));
+    }
     let freed = 0;
     for (const t of G.state.tasks.slice()) if (t.auto) { G.cancelTask(t.id); freed++; }
     const idle = G.state.units.filter(u =>
@@ -471,14 +475,9 @@
       && !(G.unitRefusesWork && G.unitRefusesWork(u)));
     if (!idle.length) {
       // Žádné volné postavy → nabídni volbu (přiřadit hned / zařadit do fronty)
-      pendingAssign = { activityId: activityId, nodeId: nodeId || null };
+      pendingAssign = { activityId: activityId, nodeId: nodeId || null, targetQty: targetQty };
       openModal('task-assign');
       return;
-    }
-    let targetQty = 1;
-    if (act.mode === 'quantity') {
-      const input = document.querySelector(`input[data-qty-for="${activityId}"]`);
-      targetQty = Math.max(1, Math.min(500, parseInt(input && input.value, 10) || act.defaultQty || 10));
     }
     const t = G.startTask(activityId, idle.map(u => u.id), { nodeId: nodeId || undefined, targetQty });
     if (!t) { G.log('⚠️ Nenašel se vhodný uzel.', 'info'); return render(); }
@@ -492,12 +491,14 @@
     const act = pa ? G.ACTIVITIES[pa.activityId] : null;
     if (!pa || !u || !act) return closeModal();
     if (u.resting && G.wakeUnit) G.wakeUnit(u);
+    const blocked = G.workBlockReason ? G.workBlockReason(u) : null;
+    if (blocked) { G.log(`⚠️ ${u.name} teď nemůže pracovat — ${blocked}.`, 'info'); return; }
     if (u.assignedTaskId && G.detachUnit) G.detachUnit(unitId);
     const t = G.startTask(pa.activityId, [unitId], {
       nodeId: pa.nodeId || undefined,
-      targetQty: act.mode === 'quantity' ? (act.defaultQty || 10) : 1
+      targetQty: act.mode === 'quantity' ? (pa.targetQty || act.defaultQty || 10) : 1
     });
-    if (!t) G.log('⚠️ Není dostupný vhodný uzel.', 'info');
+    if (!t) G.log('⚠️ Není dostupný vhodný uzel pro tuto práci.', 'info');
     else G.log(`⚒️ ${u.name} dostal úkol: ${act.name}.`, 'work');
     pendingAssign = null;
     closeModal();
@@ -506,8 +507,9 @@
     const pa = pendingAssign;
     const act = pa ? G.ACTIVITIES[pa.activityId] : null;
     if (!pa || !act) return closeModal();
-    if (G.addOrder) G.addOrder({ activityId: pa.activityId, nodeId: pa.nodeId });
-    G.log(`📋 Do fronty: ${act.name} — vyřídí se, až bude někdo volný.`, 'work');
+    if (G.addOrder) G.addOrder({ activityId: pa.activityId, nodeId: pa.nodeId, targetQty: pa.targetQty || null });
+    const qtyTxt = act.mode === 'quantity' && pa.targetQty ? ` (${pa.targetQty}×)` : '';
+    G.log(`📋 Do fronty: ${act.name}${qtyTxt} — vyřídí se, až bude někdo volný.`, 'work');
     pendingAssign = null;
     closeModal();
   }
@@ -561,6 +563,12 @@
   }
   function doBuyEquip(settlementId, itemId) {
     const res = G.buyEquipment(settlementId, itemId);
+    if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
+    render();
+  }
+  function doBuyGem(settlementId, gemId) {
+    if (!G.buyGem) return;
+    const res = G.buyGem(settlementId, gemId);
     if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
     render();
   }
