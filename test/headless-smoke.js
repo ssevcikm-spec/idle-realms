@@ -407,6 +407,66 @@ check('menu: tlacitko vyvola a zavre menu', () => {
   G.closeGameMenu();
   assert(G.isGameMenuOpen() === false, 'menu se nezavrelo');
 });
+check('pribeh: volba se projevi a ma trvaly efekt', () => {
+  const txt = G.storyEffectText([{ type:'renown', value:3 }, { type:'set_flag', flag:'plan', value:'base' }]);
+  assert(txt.indexOf('+3 ⭐') !== -1, 'chybi popis renome v nahledu');
+  assert(txt.indexOf('renomé 20') !== -1, 'chybi popis trvaleho efektu');
+  G.state.pendingStory = null;
+  G.state.story = { completed: [], flags: {}, choices: {} };
+  G.state.time = Math.max(G.state.time, 200);
+  G.tickStory(20);
+  assert(!!G.state.pendingStory, 'pribehovy popup se nespustil');
+  assert(G.state.pendingStory.choices[0].preview.length > 0, 'volba nema nahled efektu');
+  const renownBefore = G.state.resources.renown;
+  G.resolveStory(0);
+  assert(G.state.pendingStory === null, 'popup zustal otevreny');
+  assert(G.state.story.completed.indexOf('arrival') !== -1, 'pribeh se nezapsal jako dokonceny');
+  assert(G.state.story.choices.arrival === 0, 'volba se nezapamatovala');
+  assert(G.storyFlag('plan') === 'base', 'vlajka plan se nenastavila');
+  assert(G.state.resources.renown > renownBefore, 'renome se nepridalo');
+  assert(G.baseUnlockRenown() === 20, 'volba plan=base nezvýhodnila zakladnu');
+});
+check('pribeh: popupy se daji vypnout v menu', () => {
+  G.state.story = { completed: [], flags: {}, choices: {} };
+  G.state.pendingStory = null;
+  if (!G.state.settings) G.state.settings = {};
+  G.state.settings.storyPopups = false;
+  G.state.time = 5000;
+  G.tickStory(20); G.tickStory(20);
+  assert(G.state.pendingStory === null, 'pribeh se spustil i pri vypnutych popupech');
+  G.state.settings.storyPopups = true;
+  G.tickStory(20);
+  assert(!!G.state.pendingStory, 'pribeh se nespustil po zapnuti popupu');
+  G.state.pendingStory = null;
+  G.resumeGame();
+});
+check('pribeh: trvale efekty ovlivnuji hru', () => {
+  const u = G.state.units.find(x => !x.dead && !x.isChild);
+  // plan=trade -> vyssi prodejni ceny (hledame sidlo s dost vysokou cenou, aby se to nezaokrouhlilo)
+  let sid = null, sellPlain = 0;
+  for (const s of G.WORLD.settlements) {
+    const v = G.priceAt(s.id, 'crystal', 'sell');
+    if (v >= 12) { sid = s.id; sellPlain = v; break; }
+  }
+  assert(!!sid, 'nenaslo se sidlo s cenou krystalu');
+  G.state.story.flags.plan = 'trade';
+  const sellTrade = G.priceAt(sid, 'crystal', 'sell');
+  G.state.story.flags.plan = null;
+  assert(sellTrade > sellPlain, 'plan=trade nezvysuje prodejni ceny (' + sellPlain + ' -> ' + sellTrade + ')');
+  const p0 = G.unitCombatPower(u);
+  G.state.story.flags.plan = 'war';
+  assert(G.unitCombatPower(u) > p0, 'plan=war nezvysuje bojovou silu');
+  G.state.story.flags.plan = null;
+  G.state.reputation.league = 50;
+  G.addRep('league', -20);
+  const lostPlain = 50 - G.state.reputation.league;
+  G.state.reputation.league = 50;
+  G.state.story.flags.allegiance = 'independent';
+  G.addRep('league', -20);
+  const lostIndep = 50 - G.state.reputation.league;
+  assert(lostIndep < lostPlain, 'allegiance=independent nezmirnuje ztraty reputace');
+  G.state.story.flags.allegiance = null;
+});
 check('auto-pokracovani: se savem se nezastavi na menu', () => {
   G.save();
   assert(!!localStorageStub.getItem(G.SAVE_KEY), 'save se neulozil');

@@ -382,8 +382,61 @@
 
   /* ---------- příběhové kvesty ---------- */
   let storyTimer = 0;
+
+  /** Jsou příběhové popupy zapnuté? (menu → přepínač) */
+  G.storyPopupsEnabled = function () {
+    const s = G.state.settings || {};
+    return s.storyPopups !== false;
+  };
+
+  /** Hodnota příběhové vlajky (trvalé rozhodnutí hráče). */
+  G.storyFlag = function (name) {
+    const f = G.state.story && G.state.story.flags;
+    return f ? f[name] : undefined;
+  };
+
+  /** Trvalé efekty vlajek — jediné místo, kde se popisují. */
+  const FLAG_EFFECTS = {
+    'plan:base': 'trvale: 🏕️ základna už při renomé 20 (místo 25)',
+    'plan:trade': 'trvale: ⚖️ prodejní ceny +8 %',
+    'plan:war': 'trvale: ⚔️ bojová síla postav +10 %',
+    'allegiance:crown': 'trvale: 👑 zisky reputace u Koruny +25 %',
+    'allegiance:free': 'trvale: 🌲 zisky reputace u Bratrstva a cechu +25 %',
+    'allegiance:independent': 'trvale: ⚖️ ztráty reputace poloviční',
+    'oath:forest': 'trvale: 🌿 +1 bylina z každého sběru',
+    'cave_cleared': 'trvale: 💎 +1 krystal z těžby krystalu',
+    'cave_sealed': 'trvale: 🪨 nebezpečí v jeskyních −40 %',
+    'merchant_unlocked': 'záznam: 🐎 obchodník na cestách',
+    'chapter1_done': 'záznam: 📖 první kapitola uzavřena'
+  };
+  G.storyFlagEffectText = function (flag, value) {
+    return FLAG_EFFECTS[flag + ':' + value] || FLAG_EFFECTS[flag] || `záznam: ${flag} = ${value}`;
+  };
+
+  /** Lidsky čitelný popis efektů volby (náhled před volbou i souhrn po ní). */
+  G.storyEffectText = function (effects) {
+    const out = [];
+    const mat = (m) => G.MATERIALS[m] ? `${G.MATERIALS[m].icon} ${G.MATERIALS[m].name}` : m;
+    for (const e of (effects || [])) {
+      if (e.type === 'log') continue;
+      else if (e.type === 'mat') out.push(`${e.qty >= 0 ? '+' : ''}${e.qty}× ${mat(e.material)}`);
+      else if (e.type === 'cost_mat') out.push(`−${e.qty}× ${mat(e.material)}`);
+      else if (e.type === 'gold') out.push(`${e.value >= 0 ? '+' : ''}${e.value} 🪙`);
+      else if (e.type === 'cost_gold') out.push(`−${e.value} 🪙`);
+      else if (e.type === 'renown') out.push(`${e.value >= 0 ? '+' : ''}${e.value} ⭐`);
+      else if (e.type === 'bonus_rep') {
+        const f = G.FACTIONS[e.faction];
+        out.push(`${e.value >= 0 ? '+' : ''}${e.value} reputace${f ? ` (${f.name})` : ''}`);
+      } else if (e.type === 'combat') out.push(`⚔️ souboj (obtížnost ${e.difficulty})`);
+      else if (e.type === 'unlock_base') out.push('🏕️ odemkne základnu');
+      else if (e.type === 'set_flag') out.push(G.storyFlagEffectText(e.flag, e.value));
+    }
+    return out.join(' • ');
+  };
+
   G.tickStory = function (dt) {
     if (G.simulating) return;
+    if (!G.storyPopupsEnabled()) return;
     if (G.state.pendingStory) return;
     if (G.state.pendingEvents && G.state.pendingEvents.length) return;
     storyTimer += dt;
@@ -397,7 +450,10 @@
       if (!ok) continue;
       G.state.pendingStory = {
         id: q.id, title: q.title, text: q.text,
-        choices: q.choices.map((c, i) => ({ text: c.text, index: i }))
+        choices: q.choices.map((c, i) => ({
+          text: c.text, index: i,
+          preview: G.storyEffectText(c.effects || [])
+        }))
       };
       G.pauseGame();
       G.showStoryModal(G.state.pendingStory);
@@ -408,17 +464,24 @@
     const ps = G.state.pendingStory;
     if (!ps) return;
     const def = G.STORY_QUESTS.find(q => q.id === ps.id);
-    if (!def) { G.state.pendingStory = null; G.resumeGame(); return; }
+    if (!def) { G.state.pendingStory = null; G.hideStoryModal(); G.resumeGame(); return; }
     const choice = def.choices[choiceIndex];
     if (!choice) return;
-    applyStoryEffects(choice.effects || []);
+    const summary = applyStoryEffects(choice.effects || []);
     if (!G.state.story) G.state.story = { completed:[], flags:{} };
+    if (!G.state.story.choices) G.state.story.choices = {};
     if (!G.state.story.completed.includes(def.id)) G.state.story.completed.push(def.id);
+    G.state.story.choices[def.id] = choiceIndex;
     G.state.pendingStory = null;
     G.hideStoryModal();
     G.resumeGame();
+    const line = `📖 ${def.title} — ${choice.text}${summary ? ` — ${summary}` : ''}`;
+    G.log(line, 'story');
+    if (G.toast) G.toast(`📖 ${def.title}: ${choice.text}${summary ? ` — ${summary}` : ''}`, 'story');
   };
+  /** Provede efekty volby a vrátí lidsky čitelný souhrn, co se stalo. */
   function applyStoryEffects(effects) {
+    const done = [];
     for (const e of effects) {
       if (e.type === 'log') G.log(e.text);
       else if (e.type === 'mat') {
@@ -436,7 +499,10 @@
         G.state.story.flags[e.flag] = e.value;
       } else if (e.type === 'unlock_base') { if (G.tryUnlockBase) G.tryUnlockBase(); }
       else if (e.type === 'combat') applyCombat(e.difficulty);
+      const t = G.storyEffectText([e]);
+      if (t) done.push(t);
     }
+    return done.join(' • ');
   }
   function applyCombat(difficulty) {
     const idle = G.state.units.filter(u => !u.resting && !(G.hasSevereInjury && G.hasSevereInjury(u)));

@@ -432,7 +432,9 @@
   G.checkDanger = function (task, dt) {
     const node = G.WORLD.nodes.find(n => n.id === task.nodeId);
     if (!node) return false;
-    const danger = G.nodeDanger(node.kind);
+    let danger = G.nodeDanger(node.kind);
+    // zapečetěná jeskyně (příběhová volba) je bezpečnější
+    if (danger > 0 && node.kind === 'cave' && G.storyFlag && G.storyFlag('cave_sealed')) danger *= 0.6;
     if (danger <= 0) return false;
     const units = task.unitIds.map(id => G.getUnit(id)).filter(u => u && !u.dead && !u.isChild);
     const active = units.filter(u => !u.resting && u.assignedTaskId === task.id);

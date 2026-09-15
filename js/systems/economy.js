@@ -54,6 +54,7 @@
       if (produces) p *= 0.70;
       if (consumes) p *= 1.35;
       p *= G.bestSellBonus() * b.sellMult * rep.sellMult * srep.sellMult * we * tm * pol;
+      if (G.storyFlag && G.storyFlag('plan') === 'trade') p *= 1.08;   // příběhová volba: ovládnout obchod
       return Math.max(1, Math.round(p));
     }
   };
@@ -212,8 +213,15 @@
   };
   G.addRep = function (factionId, delta) {
     if (!G.state.reputation) G.state.reputation = {};
+    // trvalé rozhodnutí z příběhu: přízeň jedné straně, neutralita mírní ztráty
+    const alleg = G.storyFlag ? G.storyFlag('allegiance') : null;
+    let d = delta;
+    if (d > 0) {
+      if ((alleg === 'crown' && factionId === 'crown') ||
+          (alleg === 'free' && (factionId === 'brotherhood' || factionId === 'guild'))) d *= 1.25;
+    } else if (d < 0 && alleg === 'independent') d *= 0.5;
     const before = G.getRep(factionId);
-    const after = G.clamp(before + delta, -100, 150);
+    const after = G.clamp(before + d, -100, 150);
     G.state.reputation[factionId] = after;
     const oldTier = G.repTier(before), newTier = G.repTier(after);
     if (oldTier.id !== newTier.id) {

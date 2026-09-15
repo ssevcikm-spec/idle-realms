@@ -3,7 +3,7 @@
 
   G.panelBase = function () {
     if (!G.state.base || !G.state.base.unlocked) {
-      const need = G.BASE_UNLOCK.renown;
+      const need = G.baseUnlockRenown ? G.baseUnlockRenown() : G.BASE_UNLOCK.renown;
       const have = Math.floor(G.state.resources.renown);
       const offered = !!(G.state.base && G.state.base.placementOffered);
       let html = `<div class="loc-head">

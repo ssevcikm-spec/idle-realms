@@ -214,6 +214,7 @@
     if (G.ageMod) p *= G.ageMod(unit, 'str');
     if (G.moodWorkMult) p *= (0.8 + 0.2 * G.moodWorkMult(unit));
     if (G.unitBonus) p *= G.unitBonus(unit, 'combatTraining', 1);   // Cvičiště u sídla
+    if (G.storyFlag && G.storyFlag('plan') === 'war') p *= 1.10;     // příběhová volba: stát se legendou v boji
     return p;
   };
 

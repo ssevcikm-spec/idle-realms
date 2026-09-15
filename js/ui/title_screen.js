@@ -70,6 +70,14 @@
     const root = document.getElementById('modal-root');
     if (root) { root.innerHTML = ''; root.classList.remove('show'); }
     if (menuPaused) { menuPaused = false; if (G.resumeGame) G.resumeGame(); }
+    // Menu překrylo případný jiný modal — vrať ho zpět, ať se hra nezasekne.
+    if (G.state && G.state.combat && G.state.combat.active && G.showCombatModal) {
+      G.showCombatModal(G.state.combat.active);
+    } else if (G.state && G.state.pendingStory && G.showStoryModal) {
+      G.showStoryModal(G.state.pendingStory);
+    } else if (G.state && G.state.pendingEvents && G.state.pendingEvents.length && G.showEventModal) {
+      G.showEventModal(G.state.pendingEvents[0]);
+    }
     if (G.refreshPanel) G.refreshPanel();
   };
 
@@ -130,6 +138,7 @@
       }
 
       html += `</div>
+        ${opts.fromGame ? `<label class="title-toggle"><input type="checkbox" id="story-toggle" ${(G.storyPopupsEnabled && G.storyPopupsEnabled()) ? 'checked' : ''}> Příběhové popupy (volby s trvalými efekty)</label>` : ''}
         <div class="title-footer">
           Verze savu ${G.SAVE_VERSION} • klávesa <span class="title-key">D</span> = debug
         </div>
@@ -137,6 +146,15 @@
 
       root.innerHTML = `<div class="modal-backdrop title-backdrop">${html}</div>`;
       root.classList.add('show');
+
+      const storyToggle = root.querySelector('#story-toggle');
+      if (storyToggle) storyToggle.addEventListener('change', () => {
+        if (!G.state.settings) G.state.settings = {};
+        G.state.settings.storyPopups = !!storyToggle.checked;
+        G.log(storyToggle.checked
+          ? '📖 Příběhové popupy zapnuty.'
+          : '📖 Příběhové popupy vypnuty — příběh se přeskočí (můžeš je vrátit v menu ☰).', 'info');
+      });
 
       root.querySelectorAll('[data-ts]').forEach(btn => {
         btn.addEventListener('click', () => {

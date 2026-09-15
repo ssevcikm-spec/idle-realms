@@ -230,9 +230,14 @@
       : `🧱 Základna: ${def.name} (úr. ${lvl}) čeká na stavitele — někdo musí být u základny.`, 'work');
     return { ok:true, level:lvl, job:job };
   };
+  /** Od kolika renomé se odemyká základna (volba v příběhu ji umí zlevnit). */
+  G.baseUnlockRenown = function () {
+    return (G.storyFlag && G.storyFlag('plan') === 'base') ? 20 : G.BASE_UNLOCK.renown;
+  };
+
   G.tryUnlockBase = function () {
     if (G.state.base && G.state.base.unlocked) return false;
-    if (G.state.resources.renown < G.BASE_UNLOCK.renown) return false;
+    if (G.state.resources.renown < G.baseUnlockRenown()) return false;
     if (!G.state.base) G.state.base = { unlocked:false, buildings:{}, accum:{}, x: G.BASE_POS.x, y: G.BASE_POS.y };
     if (G.state.base.placementOffered) return false;
     G.state.base.placementOffered = true;

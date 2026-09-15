@@ -203,6 +203,25 @@
     render();
   }
 
+  /* ---------- plovoucí hlášky (toast) ---------- */
+  G.toast = function (text, kind) {
+    const root = document.getElementById('toast-root');
+    if (!root || !text) return;
+    const el = document.createElement('div');
+    el.className = 'toast' + (kind ? ' toast-' + kind : '');
+    el.textContent = text;
+    root.appendChild(el);
+    setTimeout(() => {
+      el.classList.add('out');
+      setTimeout(() => { if (el.remove) el.remove(); }, 400);
+    }, 6000);
+    // drž nejvýš 3 hlášky
+    while (root.children && root.children.length > 3) {
+      const first = root.children[0];
+      if (first && first.remove) first.remove(); else break;
+    }
+  };
+
   /* ---------- horní lišta: přehled surovin + tlačítko menu ---------- */
 
   /** Kanonické pořadí surovin v liště (obchodované napřed). */
@@ -1054,8 +1073,12 @@
       <div class="modal-title">${G.esc(ps.title)}</div>
       <div class="modal-text">${G.esc(ps.text)}</div>
       <div class="modal-choices">
-        ${ps.choices.map(c => `<button class="btn story-choice" data-story-choice="${c.index}">${G.esc(c.text)}</button>`).join('')}
+        ${ps.choices.map(c => `<button class="btn story-choice" data-story-choice="${c.index}" title="${G.esc(c.preview || '')}">
+          <span class="story-choice-text">${G.esc(c.text)}</span>
+          ${c.preview ? `<span class="story-choice-preview">${G.esc(c.preview)}</span>` : ''}
+        </button>`).join('')}
       </div>
+      <div class="story-hint">Volba se projeví hned (materiály, renomé, reputace) a některé mají <b>trvalý efekt</b> do další hry.</div>
     </div></div>`;
     root.classList.add('show');
     modal = { type: 'story' };

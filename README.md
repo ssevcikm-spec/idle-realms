@@ -13,7 +13,7 @@ Otevři `index.html` v prohlížeči. Nebo `python3 -m http.server 8000`.
 - **Obchodník** — postava cestující mezi sídly, prodává přebytky, buduje vztahy
 - **Výroba** — dílny ve městech, produkční řetězce, kvalita
 - **Ekonomika** — dynamické ceny, specializace, budovy, zakázky, frakce
-- **Svět** — karavany, světové události, příběhové kvesty, dropy, expedice, politika
+- **Svět** — karavany, světové události, příběhové kvesty (volby s trvalými efekty), dropy, expedice, politika
 - **Obsah** — 33 schopností, 34 nepřátel + 6 bossů, sety, gemy, legendárky, synergie
 - **Obtížnosti** — Relax / Normální / Hardcore (ovlivňují smrt, offline, XP)
 - **Meta** — prestiž, 34 achievementů, základna, endgame, tutoriál
@@ -21,7 +21,7 @@ Otevři `index.html` v prohlížeči. Nebo `python3 -m http.server 8000`.
 ## Ovládání
 - Tažení — pohyb mapou
 - Ťuknutí — výběr uzlu / sídla / základny
-- **☰ v horní liště** — menu (zpět do hry, nová hra, obtížnost, smazání savu), zavře i `Esc`
+- **☰ v horní liště** — menu (zpět do hry, nová hra, obtížnost, přepínač příběhových popupů, smazání savu), zavře i `Esc`
 - **Lišta surovin** pod HUD — co máš; na mobilu se posouvá prstem, šipkou ▸/▾ ji sbalíš
 - **Klávesa D** — debug
 
@@ -63,7 +63,7 @@ obsluhu v `js/ui/ui.js` — odhalí mrtvá tlačítka):
 powershell.exe -ExecutionPolicy Bypass -File scripts/check-actions.ps1
 ```
 
-Headless smoke test (spustí hru bez prohlížeče přes Node — 34 kontrol, deterministicky):
+Headless smoke test (spustí hru bez prohlížeče přes Node — 37 kontrol, deterministicky):
 
 ```bash
 node test/headless-smoke.js

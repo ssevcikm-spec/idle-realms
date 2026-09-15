@@ -21,7 +21,7 @@
       expeditions: [], masterworks: [], orders: [], construction: [],
       prestige: { level: 0, totalPrestige: 0, unlocks: [], lastUnlock: null },
       base: { unlocked: false, buildings: {}, accum: {}, x: 14, y: 18, placing: false, placementOffered: false, suggested: null, moving: false },
-      story: { completed: [], flags: {} },
+      story: { completed: [], flags: {}, choices: {} },
       achievements: { unlocked: [] },
       combat: { active: null },
       family: { children: [] },
@@ -107,6 +107,8 @@
     save.base.placing = false;   // výběr místa je jen dočasný stav
     save.base.moving = false;
     save.story = save.story || { completed: [], flags: {} };
+    if (!save.story.flags) save.story.flags = {};
+    if (!save.story.choices) save.story.choices = {};
     save.achievements = save.achievements || { unlocked: [] };
     save.combat = save.combat || { active: null };
     save.family = save.family || { children: [] };

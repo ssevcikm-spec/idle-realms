@@ -175,10 +175,14 @@
     }
     const bonusQuality = G.skillQualityBonus ? G.skillQualityBonus(units, sid) : 0;
     const bonusYield = G.skillYieldBonus ? G.skillYieldBonus(units, sid) : 0;
+    // trvalé efekty příběhových voleb
+    const oathForest = (G.storyFlag && sid === 'herbalism' && G.storyFlag('oath') === 'forest') ? 1 : 0;
+    const caveCrystal = (G.storyFlag && G.storyFlag('cave_cleared')) ? 1 : 0;
     for (const out of act.output) {
       if (!out.qty) continue;
       const q = G.rollQuality(avgSkill, units, sid, bonusQuality);
-      let qty = out.qty + bonusYield;
+      let qty = out.qty + bonusYield + oathForest;
+      if (out.material === 'crystal' && caveCrystal) qty += caveCrystal;
       if (extras[out.material]) qty += extras[out.material];
       G.matAdd(out.material, qty, q);
     }

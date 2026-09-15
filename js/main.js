@@ -176,6 +176,8 @@
     if (s.base.placementOffered == null) s.base.placementOffered = !!s.base.unlocked;
     if (s.base.suggested === undefined) s.base.suggested = null;
     s.story = s.story || { completed: [], flags: {} };
+    if (!s.story.flags) s.story.flags = {};
+    if (!s.story.choices) s.story.choices = {};
     s.achievements = s.achievements || { unlocked: [] };
     s.camera = s.camera || { x: 7, y: 22, zoom: 1 };
     s.camera.zoom = G.clamp(s.camera.zoom || 1, 0.55, 2.0);
