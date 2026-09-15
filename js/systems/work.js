@@ -178,6 +178,11 @@
     }
     G.state.stats.tasksDone++;
     const active = t.unitIds.map(id => G.getUnit(id)).filter(u => u && !u.dead);
+    // Osobní momenty postav po dokončení úkolu (auto + deník, bez hráčských promptů)
+    if (G.maybeCharacterEvent) {
+      const node = G.WORLD.nodes.find(n => n.id === t.nodeId);
+      for (const u of active) G.maybeCharacterEvent(u, { nodeKind: node ? node.kind : null, activityId: t.activityId });
+    }
     if (G.onGroupSuccess && active.length) G.onGroupSuccess(active, 3);
     G.log(t.mode === 'quantity' ? `✔ ${act.name} — hotovo (${t.producedQty}×).` : `✔ ${act.name} — dokončeno.`);
     G.state.tasks = G.state.tasks.filter(x => x.id !== t.id);

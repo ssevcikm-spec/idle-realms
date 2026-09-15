@@ -121,6 +121,17 @@ check('fronta prikazu: addOrder + tickOrders', () => {
   G.tickOrders();
   assert(!G.state.orders.some(x => x.id === o.id), 'prikaz se nevyridil');
 });
+check('charakterove udalosti: resolveCharacterEvent', () => {
+  const u = G.state.units.find(x => !x.dead && !x.isChild);
+  assert(!!u, 'zadna postava');
+  const before = G.matCount('crystal');
+  G.resolveCharacterEvent(u, { icon: '💎', journal: 'Test nalez.', effects: [{ type: 'mat', material: 'crystal', qty: [1, 2] }] });
+  assert(G.matCount('crystal') > before, 'mat efekt se neprovedl');
+});
+check('charakterove udalosti: maybeCharacterEvent nespada', () => {
+  const u = G.state.units.find(x => !x.dead && !x.isChild);
+  G.maybeCharacterEvent(u, { nodeKind: 'cave' });
+});
 
 console.log('');
 if (failed === 0) { console.log('VYSLEDEK: OK — vse funguje'); process.exit(0); }

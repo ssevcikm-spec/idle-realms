@@ -478,4 +478,67 @@
   G.isAchieved = function (id) {
     return G.state.achievements && G.state.achievements.unlocked && G.state.achievements.unlocked.includes(id);
   };
+
+  /* ---------- Osobní momenty postav (auto + deník, bez hráčských promptů) ---------- */
+
+  // Postavové události jsou ZAPNUTÉ (na rozdíl od starých popup událostí).
+  G.CHARACTER_EVENTS_ENABLED = true;
+  G.CHARACTER_EVENT_CHANCE = 0.12;
+
+  G.CHARACTER_EVENTS = [
+    { id:'find_glowstone', icon:'💎', weight:1, when:{ nodeKinds:['cave','mine'] },
+      effects:[{ type:'mat', material:'crystal', qty:[1,2] }],
+      journal:'Narazil na třpytivý krystal.' },
+    { id:'rich_herb', icon:'🌿', weight:1, when:{ nodeKinds:['grove','forest','marsh'] },
+      effects:[{ type:'mat', material:'herb', qty:[1,3] }],
+      journal:'Našel vzácnou bylinu.' },
+    { id:'inspiration', icon:'✨', weight:1,
+      effects:[{ type:'xp', value:15 }],
+      journal:'Při práci ho napadlo něco nového.' },
+    { id:'help_traveler', icon:'🙏', weight:1, when:{ nodeKinds:['meadow','grove'] },
+      effects:[{ type:'mood', value:6 }, { type:'renown', value:1 }],
+      journal:'Pomohl ztracenému poutníkovi.' },
+    { id:'good_day', icon:'😊', weight:1,
+      effects:[{ type:'mood', value:5 }],
+      journal:'Dnešní práce ho těšila.' },
+    { id:'lucky_coins', icon:'🪙', weight:1,
+      effects:[{ type:'gold', value:[2,8] }],
+      journal:'Našel pár mincí.' }
+  ];
+
+  /** Aplikuje efekty a zapíše osobní moment do deníku + logu. */
+  G.resolveCharacterEvent = function (unit, ev) {
+    if (!unit || !ev) return null;
+    const name = unit.name.split(' ')[0];
+    for (const e of (ev.effects || [])) {
+      if (e.type === 'mat' && e.material) {
+        const q = Array.isArray(e.qty) ? G.randInt(e.qty[0], e.qty[1]) : (e.qty || 1);
+        G.matAdd(e.material, q, 'common');
+      } else if (e.type === 'xp') {
+        if (G.addUnitXp) G.addUnitXp(unit, e.value || 10);
+      } else if (e.type === 'mood') {
+        if (G.addMood) G.addMood(unit, e.value || 5);
+      } else if (e.type === 'renown') {
+        G.state.resources.renown += (e.value || 1);
+      } else if (e.type === 'gold') {
+        const g = Array.isArray(e.value) ? G.randInt(e.value[0], e.value[1]) : (e.value || 5);
+        G.state.resources.gold = Math.max(0, G.state.resources.gold + g);
+      }
+    }
+    if (G.addJournal) G.addJournal(unit, ev.journal, ev.icon);
+    G.log(`${ev.icon} ${name}: ${ev.journal}`, 'social');
+    return ev;
+  };
+
+  /** Šance na osobní moment (volá se např. po dokončení úkolu). */
+  G.maybeCharacterEvent = function (unit, ctx) {
+    if (!G.CHARACTER_EVENTS_ENABLED) return null;
+    if (!unit || unit.dead || unit.isChild) return null;
+    if (!G.chance(G.CHARACTER_EVENT_CHANCE)) return null;
+    const pool = (G.CHARACTER_EVENTS || []).filter(ev =>
+      !ev.when || !ev.when.nodeKinds || (ctx && ctx.nodeKind && ev.when.nodeKinds.indexOf(ctx.nodeKind) >= 0));
+    const list = pool.length ? pool : G.CHARACTER_EVENTS;
+    if (!list.length) return null;
+    return G.resolveCharacterEvent(unit, G.pick(list));
+  };
 })();
