@@ -519,6 +519,7 @@
     drawSettlementWall(px, py, tilePx, s.size);
     const sorted = list.slice().sort((a, b) => a.dy - b.dy);
     for (const b of sorted) drawHouse(ox + (cx + b.dx)*tilePx, oy + (cy + b.dy)*tilePx, b.w*tilePx, b.h*tilePx, pal, b.seed);
+    drawSettlementProps(s, px, py, tilePx);
     const facId = G.SETTLEMENT_FACTION && G.SETTLEMENT_FACTION[s.id];
     const fac = facId && G.FACTIONS ? G.FACTIONS[facId] : null;
     if (fac) {
@@ -538,6 +539,80 @@
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = v > 0 ? '#8fbf7a' : '#c05a45';
       ctx.fillText(v > 0 ? '♥' : '✖', ox + (cx + 0.8)*tilePx, oy + (cy - 0.8)*tilePx);
+    }
+  }
+
+  /** Vizuální specializace sídla: těžní věž, pila, silo, stánky… */
+  function drawSettlementProps(s, px, py, tilePx) {
+    const spec = s.spec;
+    if (spec === 'mining') {
+      // těžní věž na severu
+      const x = px, y = py - tilePx * 1.15;
+      ctx.strokeStyle = '#3a332a'; ctx.lineWidth = Math.max(1.5, tilePx * 0.06);
+      ctx.beginPath();
+      ctx.moveTo(x - tilePx * 0.24, y + tilePx * 0.30); ctx.lineTo(x - tilePx * 0.24, y - tilePx * 0.28);
+      ctx.lineTo(x - tilePx * 0.05, y - tilePx * 0.62); ctx.lineTo(x + tilePx * 0.24, y - tilePx * 0.28);
+      ctx.lineTo(x + tilePx * 0.24, y + tilePx * 0.30); ctx.closePath(); ctx.stroke();
+      ctx.strokeStyle = '#4a3a2a'; ctx.lineWidth = Math.max(1, tilePx * 0.04);
+      ctx.beginPath(); ctx.moveTo(x, y - tilePx * 0.62); ctx.lineTo(x, y - tilePx * 0.05); ctx.stroke();
+      ctx.fillStyle = '#6d5b45';
+      ctx.beginPath(); ctx.arc(x, y - tilePx * 0.02, tilePx * 0.10, 0, Math.PI * 2); ctx.fill();
+      // haldy rudy
+      for (let i = 0; i < 3; i++) {
+        const hx = px + (i - 1) * tilePx * 0.85, hy = py + tilePx * 0.55;
+        ctx.fillStyle = i % 2 ? '#6f6a60' : '#7a6f5a';
+        ctx.beginPath(); ctx.ellipse(hx, hy, tilePx * 0.28, tilePx * 0.15, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#8a8175';
+        ctx.beginPath(); ctx.arc(hx + tilePx * 0.1, hy - tilePx * 0.06, tilePx * 0.05, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (spec === 'forestry') {
+      // kruhová pila
+      const sx = px + tilePx * 0.95, sy = py - tilePx * 0.55;
+      ctx.strokeStyle = '#8a8a92'; ctx.lineWidth = Math.max(1, tilePx * 0.05);
+      ctx.beginPath(); ctx.arc(sx, sy, tilePx * 0.28, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#5d6b7a'; ctx.beginPath(); ctx.arc(sx, sy, tilePx * 0.06, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#4a3a28'; ctx.lineWidth = Math.max(1, tilePx * 0.05);
+      ctx.beginPath(); ctx.moveTo(sx, sy + tilePx * 0.28); ctx.lineTo(sx, sy + tilePx * 0.48); ctx.stroke();
+      // skládané klády
+      for (let i = 0; i < 3; i++) {
+        const lx = px + (i - 1) * tilePx * 0.8, ly = py + tilePx * 0.55;
+        ctx.strokeStyle = '#6a523a'; ctx.lineWidth = tilePx * 0.13; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(lx - tilePx * 0.3, ly); ctx.lineTo(lx + tilePx * 0.3, ly); ctx.stroke();
+        ctx.fillStyle = '#c9a06a';
+        ctx.beginPath(); ctx.arc(lx - tilePx * 0.3, ly, tilePx * 0.065, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(lx + tilePx * 0.3, ly, tilePx * 0.065, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (spec === 'farming') {
+      // silo
+      const x = px - tilePx * 1.05, y = py;
+      ctx.fillStyle = '#9c8b6f'; ctx.fillRect(x - tilePx * 0.22, y - tilePx * 0.68, tilePx * 0.44, tilePx * 0.68);
+      ctx.fillStyle = '#8a6a44';
+      ctx.beginPath(); ctx.moveTo(x - tilePx * 0.22, y - tilePx * 0.68); ctx.lineTo(x, y - tilePx * 1.0); ctx.lineTo(x + tilePx * 0.22, y - tilePx * 0.68); ctx.closePath(); ctx.fill();
+      // stohy sena
+      for (let i = 0; i < 2; i++) {
+        const hx = px + tilePx * (0.3 + i * 0.6), hy = py + tilePx * 0.52;
+        ctx.fillStyle = '#c9a94e';
+        ctx.beginPath(); ctx.ellipse(hx, hy, tilePx * 0.24, tilePx * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#8a7332'; ctx.lineWidth = 1;
+        for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(hx - tilePx * 0.2 + k * tilePx * 0.2, hy + tilePx * 0.16); ctx.lineTo(hx - tilePx * 0.2 + k * tilePx * 0.2, hy + tilePx * 0.26); ctx.stroke(); }
+      }
+    } else if (spec === 'trade') {
+      // stánky s plachtou
+      for (let i = 0; i < 2; i++) {
+        const x = px + (i - 0.5) * tilePx * 1.4, y = py + tilePx * 0.42;
+        ctx.fillStyle = '#7a6a50';
+        ctx.fillRect(x - tilePx * 0.30, y - tilePx * 0.08, tilePx * 0.60, tilePx * 0.38);
+        ctx.fillStyle = i ? '#6d4a35' : '#7a3f32';
+        ctx.beginPath(); ctx.moveTo(x - tilePx * 0.38, y - tilePx * 0.08); ctx.lineTo(x, y - tilePx * 0.50); ctx.lineTo(x + tilePx * 0.38, y - tilePx * 0.08); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#3a3128'; ctx.lineWidth = 1; ctx.stroke();
+      }
+      // vůz
+      const wx = px + tilePx * 1.0, wy = py + tilePx * 0.45;
+      ctx.fillStyle = '#5d4a34';
+      ctx.fillRect(wx - tilePx * 0.28, wy - tilePx * 0.08, tilePx * 0.56, tilePx * 0.30);
+      ctx.fillStyle = '#2a2318';
+      ctx.beginPath(); ctx.arc(wx - tilePx * 0.22, wy + tilePx * 0.24, tilePx * 0.12, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(wx + tilePx * 0.22, wy + tilePx * 0.24, tilePx * 0.12, 0, Math.PI * 2); ctx.fill();
     }
   }
 
