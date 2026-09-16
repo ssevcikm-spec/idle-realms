@@ -23,7 +23,7 @@ Otevři `index.html` v prohlížeči. Nebo `python3 -m http.server 8000`.
 - Ťuknutí — výběr uzlu / sídla / základny
 - **☰ v horní liště** — menu (zpět do hry, nová hra, obtížnost, přepínač příběhových popupů, smazání savu), zavře i `Esc`
 - **Lišta surovin** pod HUD — co máš; na mobilu se posouvá prstem, šipkou ▸/▾ ji sbalíš
-- **Klávesa D** — debug
+- **Klávesa D** — debug (rychlost času, měřítko mapy: dlaždice 46–80 px, výška postav 60–115 %)
 
 Hra se při načtení stránky **rovnou rozjede z uložené pozice** (menu se neukazuje);
 úvodní obrazovka s volbou obtížnosti se objeví jen při prvním spuštění nebo po smazání savu.
@@ -63,7 +63,7 @@ obsluhu v `js/ui/ui.js` — odhalí mrtvá tlačítka):
 powershell.exe -ExecutionPolicy Bypass -File scripts/check-actions.ps1
 ```
 
-Headless smoke test (spustí hru bez prohlížeče přes Node — 37 kontrol, deterministicky):
+Headless smoke test (spustí hru bez prohlížeče přes Node — 38 kontrol, deterministicky):
 
 ```bash
 node test/headless-smoke.js

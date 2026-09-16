@@ -1,10 +1,28 @@
 (function () {
   const G = window.Game;
-  const BASE_TILE = 46;
-  const MIN_ZOOM = 0.55, MAX_ZOOM = 2.0;
+  /** Velikost dlaždice na obrazovce při zoomu 1 (px). Mění se v debug panelu. */
+  let tileBase = 64;
+  /** Výška postavy ve zlomcích dlaždice (1 = přesně jedna dlaždice). */
+  let figureHeight = 0.94;
+  const MIN_ZOOM = 0.7, MAX_ZOOM = 2.0;
   const UNIT_SPEED = 2.4;
   let canvas, ctx, dpr = 1, cw = 0, ch = 0, lastTs = 0;
   let dragging = false, dragged = false, lastX = 0, lastY = 0;
+
+  G.setTileBase = function (v) {
+    const n = parseFloat(v);
+    if (!isFinite(n)) return tileBase;
+    tileBase = G.clamp(n, 32, 96);
+    return tileBase;
+  };
+  G.getTileBase = function () { return tileBase; };
+  G.setFigureHeight = function (v) {
+    const n = parseFloat(v);
+    if (!isFinite(n)) return figureHeight;
+    figureHeight = G.clamp(n, 0.4, 1.6);
+    return figureHeight;
+  };
+  G.getFigureHeight = function () { return figureHeight; };
 
   G.initWorld = function (el) {
     if (G._worldInited) {          // nová hra ze hry: jen přesměruj na nový canvas
@@ -13,6 +31,11 @@
     }
     G._worldInited = true;
     canvas = el; ctx = canvas.getContext('2d');
+    // uložené zvětšení mapy
+    if (G.state && G.state.settings) {
+      if (G.state.settings.tileBase) G.setTileBase(G.state.settings.tileBase);
+      if (G.state.settings.figHeight) G.setFigureHeight(G.state.settings.figHeight);
+    }
     resize();
     window.addEventListener('resize', resize);
     window.addEventListener('orientationchange', () => setTimeout(resize, 200));
@@ -193,7 +216,9 @@
     }
     G.state.selected = null;
   }
-  function tileSize() { return BASE_TILE * (G.state.camera.zoom || 1); }
+  function tileSize() { return tileBase * (G.state.camera.zoom || 1); }
+  /** Měřítko pro G.drawFigure — figura má být vysoká `figureHeight` dlaždice (24,5 jednotek). */
+  function figScale(tilePx) { return (tilePx * figureHeight) / 24.5; }
 
   function loop(ts) {
     const dt = Math.min(0.1, (ts - lastTs) / 1000 || 0);
@@ -309,20 +334,21 @@
       if (u.pos.x < x0-1 || u.pos.x > x1+1 || u.pos.y < y0-1 || u.pos.y > y1+1) continue;
       const sx = ox + u.pos.x*tilePx, sy = oy + u.pos.y*tilePx;
       if (u.resting) ctx.globalAlpha = 0.55;
-      G.drawFigure(ctx, u, sx, sy, tilePx/44);
+      G.drawFigure(ctx, u, sx, sy, figScale(tilePx));
       ctx.globalAlpha = 1;
-      if (u.merchantState && u.merchantState.active) drawFloatIcon(ctx, '🐎', sx + tilePx*0.30, sy - tilePx*0.6, tilePx*0.4);
-      else if (u.resting) drawFloatIcon(ctx, '💤', sx + tilePx*0.28, sy - tilePx*0.6, tilePx*0.4);
+      const iconY = sy - tilePx*(0.62 + figureHeight);   // ikony nad hlavou
+      if (u.merchantState && u.merchantState.active) drawFloatIcon(ctx, '🐎', sx + tilePx*0.30, iconY, tilePx*0.4);
+      else if (u.resting) drawFloatIcon(ctx, '💤', sx + tilePx*0.28, iconY, tilePx*0.4);
       else if (u.injuries && u.injuries.length) {
         const worst = G.worstInjury(u);
         const wd = worst ? G.INJURIES[worst.id] : null;
-        if (wd) drawFloatIcon(ctx, wd.icon, sx + tilePx*0.28, sy - tilePx*0.6, tilePx*0.35);
+        if (wd) drawFloatIcon(ctx, wd.icon, sx + tilePx*0.28, iconY, tilePx*0.35);
       } else if (u.assignedTaskId) {
         const t = G.state.tasks.find(x => x.id === u.assignedTaskId);
-        if (t) drawUnitProgress(sx, sy - tilePx*0.72, tilePx*0.20, G.taskProgress(t));
+        if (t) drawUnitProgress(sx, sy - tilePx*(0.58 + figureHeight), tilePx*0.20, G.taskProgress(t));
       }
-      drawStaminaBar(sx, sy + tilePx*0.22, tilePx*0.55, u.stamina / u.maxStamina);
-      drawMoodBar(sx, sy + tilePx*0.30, tilePx*0.55, (u.mood || 70) / 100);
+      drawStaminaBar(sx, sy + tilePx*0.24, tilePx*0.55, u.stamina / u.maxStamina);
+      drawMoodBar(sx, sy + tilePx*0.32, tilePx*0.55, (u.mood || 70) / 100);
     }
     if (!vignetteCache || vigW !== cw || vigH !== ch) {
       const g = ctx.createRadialGradient(cw/2, ch/2, Math.min(cw,ch)*0.35, cw/2, ch/2, Math.max(cw,ch)*0.75);
@@ -422,15 +448,22 @@
     ctx.fillRect(x - w/2, y, w*frac, h);
   }
 
+  /** Jak široko se sídlo rozlézá (násobek půdorysu) a jak silné má hradby. */
+  const SETTLEMENT_SPREAD = { village: 1.0, town: 1.5, city: 2.1 };
+  const SETTLEMENT_WALL = { village: 0, town: 1.75, city: 2.45 };
+  G.settlementSpread = function (size) { return SETTLEMENT_SPREAD[size] || 1; };
+
   function drawSettlement(s, ox, oy, tilePx) {
     const list = buildingLayout(s);
     const cx = s.x + 0.5, cy = s.y + 0.5;
     const pal = G.PAL_BUILDING[s.size] || G.PAL_BUILDING.village;
+    const px = ox + cx*tilePx, py = oy + cy*tilePx;
     ctx.globalAlpha = 0.22; ctx.fillStyle = '#000';
     ctx.beginPath();
-    ctx.ellipse(ox + cx*tilePx, oy + (cy + 0.45)*tilePx, tilePx*1.6, tilePx*0.55, 0, 0, Math.PI*2);
+    ctx.ellipse(px, py + tilePx*0.45, tilePx*(1.6 * G.settlementSpread(s.size)), tilePx*0.55, 0, 0, Math.PI*2);
     ctx.fill();
     ctx.globalAlpha = 1;
+    drawSettlementWall(px, py, tilePx, s.size);
     const sorted = list.slice().sort((a, b) => a.dy - b.dy);
     for (const b of sorted) drawHouse(ox + (cx + b.dx)*tilePx, oy + (cy + b.dy)*tilePx, b.w*tilePx, b.h*tilePx, pal, b.seed);
     const facId = G.SETTLEMENT_FACTION && G.SETTLEMENT_FACTION[s.id];
@@ -453,6 +486,52 @@
       ctx.fillStyle = v > 0 ? '#8fbf7a' : '#c05a45';
       ctx.fillText(v > 0 ? '♥' : '✖', ox + (cx + 0.8)*tilePx, oy + (cy - 0.8)*tilePx);
     }
+  }
+
+  /** Hradby / palisáda kolem větších sídel + věže u metropole. */
+  function drawSettlementWall(px, py, tilePx, size) {
+    const r = SETTLEMENT_WALL[size] || 0;
+    if (!r) return;
+    const rr = r * tilePx, ry = rr * 0.72;
+    const stone = size === 'city';
+    ctx.save();
+    // základ hradby
+    ctx.strokeStyle = stone ? '#6f6659' : G.PAL_WOOD;
+    ctx.lineWidth = Math.max(2.5, tilePx*0.10);
+    ctx.globalAlpha = 0.95;
+    ctx.beginPath(); ctx.ellipse(px, py, rr, ry, 0, 0, Math.PI*2); ctx.stroke();
+    // kolíky / cimbuří
+    const posts = stone ? 22 : 16;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < posts; i++) {
+      const a = (i/posts)*Math.PI*2;
+      const qx = px + Math.cos(a)*rr, qy = py + Math.sin(a)*ry;
+      const s = tilePx*0.10;
+      ctx.fillStyle = stone ? '#8a8175' : '#6a523a';
+      ctx.fillRect(qx - s*0.35, qy - s*0.75, s*0.7, s*1.5);
+    }
+    // brána dole
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = stone ? '#4a443b' : '#3f3122';
+    ctx.lineWidth = Math.max(3, tilePx*0.14);
+    ctx.beginPath(); ctx.moveTo(px - tilePx*0.22, py + ry); ctx.lineTo(px + tilePx*0.22, py + ry); ctx.stroke();
+    // věže u metropole
+    if (stone) {
+      for (const a of [Math.PI*0.25, Math.PI*0.75, Math.PI*1.25, Math.PI*1.75]) {
+        const qx = px + Math.cos(a)*rr, qy = py + Math.sin(a)*ry;
+        ctx.fillStyle = '#7d7365';
+        ctx.beginPath(); ctx.arc(qx, qy, tilePx*0.20, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = palRoof(size);
+        ctx.beginPath();
+        ctx.moveTo(qx, qy - tilePx*0.42); ctx.lineTo(qx + tilePx*0.22, qy - tilePx*0.10);
+        ctx.lineTo(qx - tilePx*0.22, qy - tilePx*0.10); ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+  function palRoof(size) {
+    const pal = G.PAL_BUILDING[size] || G.PAL_BUILDING.town;
+    return pal.roofDark;
   }
 
   function drawHouse(x, y, w, h, pal, seed) {
@@ -514,13 +593,15 @@
     if (s._bld) return s._bld;
     const rnd = G.rngFrom(hashStr(s.id) + 991);
     const count = G.SETTLEMENT_SIZE[s.size].houses;
+    const spread = G.settlementSpread(s.size);
     const arr = [];
     for (let i = 0; i < count; i++) {
       const a = rnd()*Math.PI*2;
-      const r = 0.40 + rnd()*1.05;
+      const r = (0.40 + rnd()*1.05) * spread;
       arr.push({
         dx: Math.cos(a)*r, dy: Math.sin(a)*r*0.78,
-        w: 0.55 + rnd()*0.35, h: 0.55 + rnd()*0.35,
+        w: (0.55 + rnd()*0.35) * (1 + (spread - 1)*0.30),
+        h: (0.55 + rnd()*0.35) * (1 + (spread - 1)*0.30),
         seed: (rnd()*1000)|0
       });
     }

@@ -19,7 +19,10 @@
   };
   G.PAL_WOOD = '#4a3a28';
 
-  const SIZE = 96, VARIANTS = 4, cache = {};
+  // SIZE = logický kreslicí prostor dlaždice (v něm jsou napsané všechny painters),
+  // RES = skutečné rozlišení canvasu. Kreslíme 2× jemněji, kompozice zůstává stejná,
+  // takže dlaždice je ostrá i ve větším měřítku a na retina displeji.
+  const SIZE = 96, RES = 192, VARIANTS = 4, cache = {};
   function rndFrom(seed) {
     let s = (seed | 0) || 1;
     return function () { s ^= s << 13; s |= 0; s ^= s >>> 17; s ^= s << 5; s |= 0; return (s >>> 0) / 4294967296; };
@@ -197,8 +200,9 @@
   };
   function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h*31 + s.charCodeAt(i)) | 0; return Math.abs(h) || 1; }
   function buildTile(terrain, variant) {
-    const c = document.createElement('canvas'); c.width = SIZE; c.height = SIZE;
+    const c = document.createElement('canvas'); c.width = RES; c.height = RES;
     const ctx = c.getContext('2d');
+    ctx.scale(RES / SIZE, RES / SIZE);
     const rnd = rndFrom(hash(terrain) * 7919 + variant * 104729 + 13);
     const fn = painters[terrain] || painters.grass;
     fn(ctx, rnd); vignette(ctx);
@@ -233,6 +237,15 @@
     ctx.moveTo(x - 4.2*s, y - 12*s + bob); ctx.lineTo(x + 4.2*s, y - 12*s + bob);
     ctx.lineTo(x + 3.6*s, y - 20*s + bob); ctx.lineTo(x - 3.6*s, y - 20*s + bob);
     ctx.closePath(); ctx.fill();
+    // jemný obrys — figura se tím oddělí od terénu i ve větším měřítku
+    ctx.strokeStyle = 'rgba(18,15,11,0.85)';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 1.1*s;
+    ctx.beginPath();
+    ctx.moveTo(x - 4.2*s, y - 12*s + bob); ctx.lineTo(x + 4.2*s, y - 12*s + bob);
+    ctx.lineTo(x + 3.6*s, y - 20*s + bob); ctx.lineTo(x - 3.6*s, y - 20*s + bob);
+    ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y - 23.5*s + bob, 3.5*s, 0, Math.PI*2); ctx.stroke();
     ctx.fillStyle = '#3a2c1c';
     ctx.fillRect(x - 4.2*s, y - 13.2*s + bob, 8.4*s, 1.8*s);
     drawWeapon(ctx, u, x, y, s, face, bob);

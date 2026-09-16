@@ -97,7 +97,8 @@ body {
 .we-chip small { opacity: .7; font-weight: 400; }
 #world-wrap {
   position: relative; flex: 0 0 auto;
-  height: min(38vh, 280px);
+  /* výška mapy = kolik krajiny vidíš; na mobilu je to hlavní plocha hry */
+  height: min(48vh, 400px);
   background: #2a2a22; border-bottom: 1px solid #35322b;
   overflow: hidden;
 }
@@ -870,6 +871,7 @@ input:focus, select:focus, textarea:focus { border-color: #a8813a; }
 }
 .dbg-btn:hover { background: #2e2b25; }
 .dbg-btn.active { background: #6d5423; color: #f5eeda; border-color: #8b6c2e; }
+.dbg-note { font-size: 10.5px; color: #6d6656; margin-top: 5px; }
 .dbg-danger { background: linear-gradient(180deg, #8c3b2f, #6d2c23); color: #f5eeda; border-color: #8b6c2e; }
 
 /* === TUTORIÁL === */

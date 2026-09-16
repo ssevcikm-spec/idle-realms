@@ -467,6 +467,21 @@ check('pribeh: trvale efekty ovlivnuji hru', () => {
   assert(lostIndep < lostPlain, 'allegiance=independent nezmirnuje ztraty reputace');
   G.state.story.flags.allegiance = null;
 });
+check('skalovani mapy: dlazdice, postavy, pudorys sidel', () => {
+  const t0 = G.getTileBase();
+  assert(G.setTileBase(80) === 80, 'setTileBase nevratil hodnotu');
+  assert(G.setTileBase(999) === 96, 'setTileBase nemel zastropovat na 96');
+  assert(G.setTileBase(10) === 32, 'setTileBase nemel podlazit na 32');
+  G.setTileBase(t0);
+  const f0 = G.getFigureHeight();
+  assert(G.setFigureHeight(1.15) === 1.15, 'setFigureHeight nevratil hodnotu');
+  G.setFigureHeight(f0);
+  assert(G.settlementSpread('village') === 1, 'vesnice ma mit zakladni pudorys');
+  assert(G.settlementSpread('town') > G.settlementSpread('village'), 'mesto ma byt vetsi nez vesnice');
+  assert(G.settlementSpread('city') > G.settlementSpread('town'), 'metropole ma byt vetsi nez mesto');
+  const tile = G.getTileArt('forest', 0);
+  assert(tile && tile.width === 192, 'dlazdice se negeneruje v rozliseni 192 (' + (tile && tile.width) + ')');
+});
 check('auto-pokracovani: se savem se nezastavi na menu', () => {
   G.save();
   assert(!!localStorageStub.getItem(G.SAVE_KEY), 'save se neulozil');

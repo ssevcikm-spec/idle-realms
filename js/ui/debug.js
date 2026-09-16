@@ -46,6 +46,11 @@
             <button class="dbg-btn" data-dbg="set-winter">❄️</button>
           </div>
         </div>
+        <div class="dbg-section"><div class="dbg-label">Mapa — měřítko</div>
+          <div class="dbg-row" id="dbg-tiles"></div>
+          <div class="dbg-row" id="dbg-figs"></div>
+          <div class="dbg-note" id="dbg-scale-note"></div>
+        </div>
         <div class="dbg-section"><div class="dbg-label">Svět</div>
           <div class="dbg-row" id="dbg-events"></div>
           <div class="dbg-row"><button class="dbg-btn" data-dbg="spawn-caravan">🐎 Karavana</button></div>
@@ -85,7 +90,7 @@
       `;
       document.body.appendChild(el);
       el.addEventListener('click', onDebugClick);
-      buildSpeedButtons(); buildMatButtons(); buildEventButtons();
+      buildSpeedButtons(); buildMatButtons(); buildEventButtons(); buildScaleButtons();
       setInterval(updateStats, 500); updateStats();
     }
     if (el) el.classList.toggle('show', open);
@@ -107,10 +112,46 @@
     ).join('');
   }
 
+  /** Přepínače měřítka mapy — velikost dlaždice a výška postav. */
+  const TILE_STEPS = [46, 56, 64, 80];
+  const FIG_STEPS = [0.6, 0.8, 0.94, 1.15];
+  function buildScaleButtons() {
+    const tEl = document.getElementById('dbg-tiles');
+    const fEl = document.getElementById('dbg-figs');
+    const note = document.getElementById('dbg-scale-note');
+    if (tEl) {
+      const cur = G.getTileBase ? G.getTileBase() : 64;
+      tEl.innerHTML = TILE_STEPS.map(v =>
+        `<button class="dbg-btn ${v === cur ? 'active' : ''}" data-dbg="tilebase" data-v="${v}" title="Dlaždice ${v} px">${v}</button>`
+      ).join('');
+    }
+    if (fEl) {
+      const cur = G.getFigureHeight ? G.getFigureHeight() : 0.94;
+      fEl.innerHTML = FIG_STEPS.map(v =>
+        `<button class="dbg-btn ${Math.abs(v - cur) < 0.001 ? 'active' : ''}" data-dbg="figheight" data-v="${v}" title="Postava ${Math.round(v*100)} % dlaždice">${Math.round(v*100)}%</button>`
+      ).join('');
+    }
+    if (note) {
+      const t = G.getTileBase ? G.getTileBase() : 64;
+      const f = G.getFigureHeight ? G.getFigureHeight() : 0.94;
+      note.textContent = `dlaždice ${t} px • postava ${Math.round(t * f)} px`;
+    }
+  }
+
   function onDebugClick(e) {
     const el = e.target.closest('[data-dbg]'); if (!el) return;
     const a = el.dataset.dbg;
     if (a === 'close') { open = false; document.getElementById('debug-panel').classList.remove('show'); }
+    else if (a === 'tilebase') {
+      if (G.setTileBase) G.setTileBase(parseFloat(el.dataset.v));
+      if (G.state && G.state.settings) G.state.settings.tileBase = G.getTileBase();
+      buildScaleButtons();
+    }
+    else if (a === 'figheight') {
+      if (G.setFigureHeight) G.setFigureHeight(parseFloat(el.dataset.v));
+      if (G.state && G.state.settings) G.state.settings.figHeight = G.getFigureHeight();
+      buildScaleButtons();
+    }
     else if (a === 'speed') { speed = parseFloat(el.dataset.speed); buildSpeedButtons(); }
     else if (a === 'gold') G.state.resources.gold += 500;
     else if (a === 'renown') G.state.resources.renown += 10;
