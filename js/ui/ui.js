@@ -588,7 +588,7 @@
       case 'toggle-auto-abilities': return G.toggleAutoAbilities();
       case 'queue-ability': return doQueueAbility(ds);
       case 'combat-round':  return doCombatRound();
-      case 'combat-auto':   return doCombatAuto();
+      case 'toggle-combat-auto': return doToggleCombatAuto();
       case 'combat-close':  return doCombatClose();
       case 'export-save':   return openModal('export');
       case 'import-save':   return openModal('import');
@@ -1014,12 +1014,8 @@
     G.startCombat(node, party, { tactic:'balanced' });
   }
   function doQueueAbility(ds) { if (G.queueAbility) G.queueAbility(ds.ally, ds.ability); }
-  function doCombatRound() { G.combatRound(); }
-  function doCombatAuto() {
-    const cb = G.state.combat.active; if (!cb) return;
-    let guard = 0;
-    while (!cb.finished && guard++ < 20) G.combatRound();
-  }
+  function doCombatRound() { G.combatRound(); if (G.updateCombatModal) G.updateCombatModal(G.state.combat.active); }
+  function doToggleCombatAuto() { if (G.toggleCombatAuto) G.toggleCombatAuto(); }
   function doCombatClose() { G.closeCombat(); render(); }
 
   function doSupportCandidate(ds) {

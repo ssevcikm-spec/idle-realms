@@ -10,9 +10,12 @@
 Boj je **tahový** (`G.combatRound`): postavy i nepřátelé se řadí podle **rychlosti**
 a střídají tahy, dokud jedna strana nepadne.
 
+- **Běží sám** — souboj se odehrává automaticky (~0,7 s na kolo), takže se díváš
+  na živý log a stavy, ale nemusíš nic mačkat. Tlačítko **⏸ Pozastavit boj** ho
+  přepne do ručního režimu (pak „▶︎ Další kolo" odehraje kolo po kole).
 - **Taktika** (Agresivní / Vyvážená / Defenzivní) mění útok vs. obranu.
-- **Schopnosti** — tvoje postavy je můžou použít ručně (kolečka v bojovém okně)
-  nebo je nechat automaticky (přepínač „Automaticky používat schopnosti").
+- **Schopnosti** — ve výchozím stavu je postavy **používají samy**
+  („Automaticky používat schopnosti" je zapnuté); jde to vypnout a používat je ručně.
   Nepřátelé mají vlastní (jed, omráčení, přivolání posil, léčení…).
 - **Vítězství** = kořist (dropy), XP, nálada; poražený nepřítel se započítá do
   `killCounts` (zvěř / humanoidi / monstra). **Prohra** = zranění (nebo smrt podle
@@ -54,6 +57,9 @@ ještě neviděl.
 
 ## 5. Co se změnilo
 
+- **Automatický boj** — souboj běží sám (vidíš log i stavy), tlačítkem se dá
+  pozastavit do ručního režimu. Dřív se na každé kolo muselo klikat.
+- **Schopnosti se používají samy** ve výchozím stavu.
 - **Bojovat jde na každém uzlu s nepřáteli** (předtím jen na nebezpečí 2+, tedy
   dolech a jeskyních — zvěř v lese nešla lovit vůbec).
 - **Divočina (nebezpečí 1) umí vyvolat přepadení** při práci, ne jen zranit.

@@ -631,6 +631,25 @@ check('boj: uzel s divocinou ma tlacitko bojovat', () => {
   const html = G.panelPlace();
   assert(html.indexOf('data-action="attack-here"') !== -1, 'hluboky les nenabizi bojovat');
 });
+check('boj: automaticky rezim a dovednosti ve vychozim stavu', () => {
+  const u = G.state.units.find(x => !x.dead && !x.isChild && !x.onExpedition);
+  assert(!!u, 'zadna postava');
+  if (G.wakeUnit) G.wakeUnit(u);
+  u.resting = false; u._refuseUntil = null; u.mood = Math.max(u.mood || 70, 70);
+  const node = G.WORLD.nodes.find(n => (G.NODE_DANGER[n.kind] || 0) >= 1) || G.WORLD.nodes[0];
+  const cb = G.startCombat(node, [u], { tactic: 'balanced' });
+  assert(!!cb, 'souboj nezacal');
+  assert(cb.auto === true, 'souboj neni ve vychozim stavu automaticky');
+  assert(cb.autoAbilities === true, 'dovednosti nejsou ve vychozim stavu zapnute');
+  assert(G.combatAutoOn() === true, 'combatAutoOn nevraci true');
+  G.toggleCombatAuto();
+  assert(cb.auto === false, 'toggleCombatAuto nevypnul automatiku');
+  G.toggleCombatAuto();
+  let guard = 0;
+  while (!cb.finished && guard++ < 200) G.combatRound();
+  assert(cb.finished, 'souboj se po kolech nedohral');
+  G.closeCombat();
+});
 check('auto-pokracovani: se savem se nezastavi na menu', () => {
   G.save();
   assert(!!localStorageStub.getItem(G.SAVE_KEY), 'save se neulozil');

@@ -23,7 +23,8 @@
       id: 'cb_' + Date.now(),
       nodeId: node.id, nodeKind: node.kind,
       tactic: opts.tactic || 'balanced',
-      autoAbilities: false,
+      autoAbilities: true,          // výchozí: postavy samy používají dovednosti
+      auto: true,                   // výchozí: souboj běží sám, hráč se jen dívá
       round: 1, log: [],
       ally: party.map(u => {
         const s = G.unitCombatStats(u);
@@ -62,7 +63,35 @@
     G.state.combat.active = combat;
     G.pauseGame();
     if (G.showCombatModal) G.showCombatModal(combat);
+    startCombatAuto();
     return combat;
+  };
+
+  /* ---------- automatický boj: souboj běží sám, hráč se jen dívá ---------- */
+  let combatAutoTimer = null;
+  function startCombatAuto() {
+    stopCombatAuto();
+    combatAutoTimer = setInterval(() => {
+      const cb = G.state.combat.active;
+      if (!cb || cb.finished) { stopCombatAuto(); return; }
+      if (cb.auto) {
+        G.combatRound();
+        if (G.updateCombatModal) G.updateCombatModal(cb);
+      }
+    }, 700);
+  }
+  function stopCombatAuto() {
+    if (combatAutoTimer) { clearInterval(combatAutoTimer); combatAutoTimer = null; }
+  }
+  G.toggleCombatAuto = function () {
+    const cb = G.state.combat.active;
+    if (!cb) return;
+    cb.auto = !cb.auto;
+    if (G.updateCombatModal) G.updateCombatModal(cb);
+  };
+  G.combatAutoOn = function () {
+    const cb = G.state.combat.active;
+    return !!(cb && cb.auto);
   };
 
   function createEnemyInstance(template, index, count, forceElite) {
@@ -311,6 +340,7 @@
     if (!cb || cb.finished) return;
     cb.finished = true;
     cb.result = result;
+    stopCombatAuto();
     if (result === 'win') {
       G.state.stats.combatsWon = (G.state.stats.combatsWon || 0) + 1;
       G.log(`⚔️ Vítězství! Porazil jsi ${cb.enemyName}.`, 'combat');
@@ -396,6 +426,7 @@
   G.closeCombat = function () {
     const cb = G.state.combat.active;
     if (!cb) return;
+    stopCombatAuto();
     G.state.combat.active = null;
     if (G.hideCombatModal) G.hideCombatModal();
     G.resumeGame();

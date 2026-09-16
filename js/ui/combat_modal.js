@@ -124,8 +124,8 @@
 
     if (!cb.finished) {
       html += `<div class="combat-actions">
-        <button class="btn combat-next" data-action="combat-round">▶︎ Další kolo</button>
-        <button class="btn ghost" data-action="combat-auto">⚡ Automaticky (20 kol)</button>
+        <button class="btn ${cb.auto ? '' : 'ghost'}" data-action="toggle-combat-auto" title="Souboj běží sám; pozastavíš ho pro ruční krok">${cb.auto ? '⏸ Pozastavit boj' : '▶︎ Spustit automaticky'}</button>
+        <button class="btn ghost" data-action="combat-round" title="Odehraje jedno kolo ručně">▶︎ Další kolo</button>
       </div>`;
     } else {
       html += `<div class="combat-result ${cb.result}">
