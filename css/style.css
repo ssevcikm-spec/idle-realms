@@ -168,6 +168,7 @@ body {
 #app.panel-collapsed #world-wrap { flex: 1 1 auto; height: auto; min-height: 0; }
 /* Celoobrazovková mapa */
 #app.map-fullscreen #hud,
+#app.map-fullscreen #hud-mats,
 #app.map-fullscreen #we-bar,
 #app.map-fullscreen #panel,
 #app.map-fullscreen #tabs { display: none; }
@@ -178,19 +179,21 @@ body {
     max-width: 1280px;
     display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-    grid-template-rows: auto auto 1fr auto;
+    grid-template-rows: auto auto auto 1fr auto;
     grid-template-areas:
       "hud   hud"
+      "mats  mats"
       "webar webar"
       "world panel"
       "tabs  tabs";
   }
   #hud { grid-area: hud; }
+  #hud-mats { grid-area: mats; }
   #we-bar { grid-area: webar; }
   #world-wrap { grid-area: world; height: auto; min-height: 0; }
   #panel { grid-area: panel; min-height: 0; }
   #tabs { grid-area: tabs; }
-  #app.panel-collapsed { grid-template-areas: "hud hud" "webar webar" "world world" "tabs tabs"; }
+  #app.panel-collapsed { grid-template-areas: "hud hud" "mats mats" "webar webar" "world world" "tabs tabs"; }
   #app.map-fullscreen { grid-template-areas: "world"; grid-template-columns: 1fr; grid-template-rows: 1fr; }
 }
 .panel-title {

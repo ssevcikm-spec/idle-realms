@@ -342,8 +342,12 @@
         const active = expeds.filter(e => !e.outcome).length;
         if (active > 0) parts.push(`<span class="we-chip" style="border-color:#7aa8e0;color:#7aa8e0">⛵ ${active} expedice</span>`);
       }
-      if (!parts.length) weBar.style.display = 'none';
-      else { weBar.style.display = 'flex'; weBar.innerHTML = parts.join(''); }
+      const appEl = document.getElementById('app');
+      const fullscreen = !!(appEl && appEl.classList && appEl.classList.contains('map-fullscreen'));
+      if (fullscreen) weBar.style.display = '';          // ve fullscreenu o viditelnosti rozhoduje CSS (jinak by inline flex přebil display:none)
+      else if (!parts.length) weBar.style.display = 'none';
+      else weBar.style.display = 'flex';
+      weBar.innerHTML = parts.join('');
     }
   }
   function formatShort(s) {
