@@ -27,3 +27,6 @@ coverage/
 .patch-backup-*/
 .fixv2-backup-*/
 .fixv3-backup-*/
+
+# === AI náhledy stylů (dočasné, nejsou součástí hry) ===
+assets/preview/
