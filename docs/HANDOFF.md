@@ -97,8 +97,8 @@ node test/headless-smoke.js                                              # "VYSL
 ## 4. Stav kódu (co je hotové)
 
 ### Čísla
-- 57 JS souborů, 626 definovaných/used globálů `G.*` (check-globals čisté).
-- Smoke test: **57 kontrol**, deterministicky.
+- 57 JS souborů, 632 definovaných/used globálů `G.*` (check-globals čisté).
+- Smoke test: **62 kontrol**, deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
 
 ### Klíčové soubory
@@ -183,17 +183,13 @@ node test/headless-smoke.js                                              # "VYSL
 
 ## 6. Co je dál (plán)
 
-1. **Drobný backlog**: potvrzení u drahých staveb, požadavky/strop budov
-   základny, karavany na základně, řazení zakázek.
-2. **Zbytky z auditu menu** (`docs/AUDIT_MENU.md` §10): vizuální upozornění při
-   narazení na maximum v polích množství, filtr logu podle času, prázdné stavy
-   panelů s odkazem „kde to udělat". (Mrtvá kontrola `u.role === 'trader'`
-   v `G.startTask` už neplatí — roli přiděluje `G.setMerchant`.)
-3. **Styl grafiky** — viz `docs/STYL_GRAFIKY.md`; uživatel ještě nevybral.
+1. **Styl grafiky** — viz `docs/STYL_GRAFIKY.md`; uživatel ještě nevybral.
    Doporučeno: definovat styl projektu (`imagegen --set-style`) a pak generovat
    ilustrace (titul + 7 příběhových scén). Skills: `imagegen` (generování,
    styl na serveru `.style.txt`, `--size WxH --colors N` = pixel art) a `vision`
    (čtení screenshotů pro vizuální ladění).
+2. **Drobné budoucí rozšíření**: vlastní sklad a obrana základny (karavany na
+   základně už jezdí), dosah dílen jako kruh na mapě, posuvník výšky mapy.
 
 ---
 
@@ -220,6 +216,6 @@ node test/headless-smoke.js                                              # "VYSL
 ## 9. Okamžité „další kroky" pro nový chat
 
 1. Zkontroluj `git status` / `git log` a ujisti se, že navazuješ na poslední stav.
-2. LOD i větší svět (64×48) jsou hotové — dál jde **drobný backlog** a **zbytky
-   auditu menu** (viz §6), případně **styl grafiky** (čeká na rozhodnutí uživatele).
+2. Svět (64×48), LOD, backlog i audit menu jsou hotové — zbývá **styl grafiky**
+   (čeká na rozhodnutí uživatele) a drobná budoucí rozšíření (viz §6).
 3. Po každé fázi: tři kontroly + commit + push (viz §2).

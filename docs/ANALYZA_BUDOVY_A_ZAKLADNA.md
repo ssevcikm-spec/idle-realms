@@ -160,12 +160,15 @@ log „Vyber místo tlačítkem 🏕️ na mapě" + odznak v panelu místa.
 
 1. ~~Oživit mrtvé efekty budov~~ — **hotovo** (§2).
 2. ~~Stavba jako činnost (doba stavby + stavitel)~~ — **hotovo** (§5).
-3. **Potvrzení u drahých staveb** — dnes stavbu spustí jeden klik; u staveb nad
-   ~1000 zlata by se hodil souhrn ceny a délky.
-4. **Požadavky a strop základny** — odemykání budov podle úrovně jiných budov
-   (např. `gem_smithy` až po `iron_mine` 3) a limit počtu budov na základně.
-5. **Základna v ekonomice** — karavany/obchodníci na základně, vlastní sklad,
-   obrana základny při nebezpečných událostech.
+3. ~~Potvrzení u drahých staveb~~ — **hotovo**: stavba nad `G.EXPENSIVE_BUILD_GOLD`
+   (1000 zlata) se ptá a ukáže cenu + materiály + odhad práce (`G.buildConfirmText`).
+4. ~~Požadavky a strop základny~~ — **hotovo**: budovy mají `requires` (např.
+   `iron_mine` po `stone_quarry` 2, `gem_smithy`/`crystal_cave` po `iron_mine` 3,
+   `legendary_forge` po `gem_smithy` 3) a základna má strop počtu druhů budov
+   (`G.baseBuildingSlots` = 6 + renomé/20, max 12; `G.baseBuildingTypes`).
+5. ~~Základna v ekonomice~~ — **částečně hotovo**: karavany jezdí i na základnu
+   (`G.caravanSitePos`, náklad přistane hráči `matAdd`); vlastní sklad a obrana
+   základny zůstávají jako budoucí rozšíření.
 6. **Zviditelnění polohy** — v panelu ukázat dosah dílen (3 pole) jako kruh na mapě
    při výběru místa.
 

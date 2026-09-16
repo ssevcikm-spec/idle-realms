@@ -311,13 +311,14 @@ Realizováno v fázích M-A … M-E, po každé fázi proběhly
 | **M-I** | `feat: M-I …` | **horní lišta a menu**: přehled surovin pod HUD (jen to, co hráč má, s rozpisem kvalit v tooltipu), na mobilu posuvná lišta prstem se sbalovacím tlačítkem, odkaz „🎒 vše" do batohu; tlačítko **☰** otevře menu (zpět do hry, nová hra, smazání savu, `Esc` zavírá) a hra po načtení stránky **rovnou pokračuje** z uložené pozice místo zastavení na úvodní obrazovce |
 | **M-J** | `feat: M-J …` | **příběhové popupy**: viditelná zpětná vazba (toast + náhled efektů u každé volby), trvalé následky voleb konečně čitelné (`G.storyFlag` — základna při renomé 20, +8 % prodej, +10 % boj, reputační bonusy/neutralita, +1 bylina, +1 krystal, bezpečnější jeskyně), přehled „jak jsem se rozhodl" v Cílech, přepínač popupů v menu a obnova modalu po zavření menu — viz `docs/PRIBEHOVE_POPUPY.md` |
 
-**Zbývá (neděláno, mimo rozsah oprav):** vizuální upozornění, když hodnota v poli
-narazí na maximum (dnes se jen tiše ořízne), filtr logu podle času (fulltext už je),
-prázdné stavy některých panelů bez odkazu „kde to udělat" a mrtvá kontrola
-`u.role === 'trader'` v `G.startTask` (role se v `autoAssignRoles` nikdy nepřidělí,
-ale starší savy ji mohou mít).
+**Původně zbývalo, nyní doděláno:**
+- ✅ vizuální upozornění, když hodnota v poli narazí na maximum (`.qty-warn` — blikne červeně),
+- ✅ filtr logu podle času (celá historie / 5 min / 1 h / den / týden, `state.logTime`),
+- ✅ prázdné stavy panelů s odkazem „kde to udělat" (`G.emptyState` + `data-action="select-tab"`).
+- Mrtvá kontrola `u.role === 'trader'` v `G.startTask` **už neplatí** — roli přiděluje
+  `G.setMerchant` (`js/systems/merchant.js`), takže je živá a zůstává.
 
-**Nové testy** (`test/headless-smoke.js`, celkem 26 kontrol): `targetQty` ve frontě,
+**Nové testy** (`test/headless-smoke.js`, celkem 62 kontrol): `targetQty` ve frontě,
 nákup gemu, vykreslení všech panelů a modalů, paměť množství + dávková výroba,
 obsah `qtyControl`, doporučená družina a volby v modalu přiřazení, řazení příkazů
 podle priority, hromadné buzení, cílová hodnota směrnice, hledání v logu a trend ceny.
