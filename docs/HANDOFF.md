@@ -157,8 +157,13 @@ node test/headless-smoke.js                                              # "VYSL
   bitmapy)** — `G.tileArt` v `js/render/tiles_ai.js`, `settings.tileStyle`,
   přepínač „🎨 Vzhled mapy" v menu ☰. AI dlaždice se **barevně srovnávají podle
   terénu** (voda modrá, sníh světlý) a mají 8 variant, aby se mapa neopakovala.
-  Známý otevřený problém: dlaždice na sebe **nenavazují** (švy) — řešení viz
-  `docs/STYL_GRAFIKY.md` §8.
+  Švy vyřešeny **seamless generováním** (metrika 1.59, baseline kódu 5.51) —
+  viz `docs/STYL_GRAFIKY.md` §8–9.
+- **Malované postavy (AI sprity)**: stejný přepínač zapíná i bitmapové postavy
+  (`js/render/units_ai.js` + `drawAiFigure` v `world.js`). 6 archetypů
+  (`assets/units/*.png`, průhledné, výška 96 px), generované lokálně
+  (`scripts/gen_units_local.py`) a ořezané prahováním jasu
+  (`scripts/process_units.py`). Viz `docs/STYL_GRAFIKY.md` §10.
 - Dlaždice **64 px** při zoomu 1, laditelné v debug panelu (**D** → „Mapa — měřítko":
   46/56/64/80 px, postavy 60–115 %), ukládá se do `settings`.
 - Art dlaždic se kreslí do **192 px** canvasu (`ctx.scale(RES/SIZE)`), kompozice
@@ -204,12 +209,24 @@ node test/headless-smoke.js                                              # "VYSL
 
 ## 6. Co je dál (plán)
 
-1. **Styl grafiky** — viz `docs/STYL_GRAFIKY.md`; uživatel ještě nevybral.
+1. **Sjednocení postav (nový koncept od uživatele — ČEKÁ NA REALIZACI).**
+   Uživatel chce: **všichni na jednom základním modelu** + **ikona role (erb)**
+   + **na modelu jen zbroj/oblečení, žádná zbraň**. Proveditelné, doporučený
+   přístup níže:
+   - **Jeden základní sprite** (fixní póza, bez zbraně) — vygenerovat lokálně
+     s pevným seedem pro konzistenci.
+   - **Erb/ikona role** kreslit **v kódu** (vektorová heraldika: štít, dělení,
+     barvy frakce/role z `G.FACTIONS`/`G.ROLES`) — dokonalá konzistence, ladí
+     s procedurální estetikou hry. Nebo malá AI ikona přeložená přes postavu.
+   - **Výbava** = barevný tint základu (materiál zbroje) + malé přeložené odznaky
+     (helm/truhla) — ne plné výměny spritů (AI neumí spolehlivě zarovnat vrstvy).
+   - Současný stav: 6 odlišných archetypů, každý s vlastní zbraní/postavou.
+2. **Styl grafiky** — viz `docs/STYL_GRAFIKY.md`; uživatel ještě nevybral.
    Doporučeno: definovat styl projektu (`imagegen --set-style`) a pak generovat
    ilustrace (titul + 7 příběhových scén). Skills: `imagegen` (generování,
    styl na serveru `.style.txt`, `--size WxH --colors N` = pixel art) a `vision`
    (čtení screenshotů pro vizuální ladění).
-2. **Drobné budoucí rozšíření**: vlastní sklad a obrana základny (karavany na
+3. **Drobné budoucí rozšíření**: vlastní sklad a obrana základny (karavany na
    základně už jezdí), dosah dílen jako kruh na mapě, posuvník výšky mapy.
 
 ---
@@ -228,15 +245,16 @@ node test/headless-smoke.js                                              # "VYSL
 
 ## 8. Git — jak je to teď
 
-- Vše je commitnuté a pushnuté, `HEAD == origin/main`; pracovní strom čistý
-  (poslední změny: LOD — přehled mapy, tlačítko 🔭).
-- Při push nezapomeň na `-c http.sslBackend=openssl` (viz §2).
+- Poslední commit `a6b8fd4` (malované postavy + barevně sladěné dlaždice) —
+  viz `git log`. Pracovní strom čistý. Při push nezapomeň na
+  `-c http.sslBackend=openssl` (viz §2).
 
 ---
 
 ## 9. Okamžité „další kroky" pro nový chat
 
 1. Zkontroluj `git status` / `git log` a ujisti se, že navazuješ na poslední stav.
-2. Svět (64×48), LOD, backlog i audit menu jsou hotové — zbývá **styl grafiky**
-   (čeká na rozhodnutí uživatele) a drobná budoucí rozšíření (viz §6).
+2. Svět (64×48), LOD, backlog, audit menu, **AI dlaždice i AI postavy** jsou
+   hotové — zbývá **sjednocení postav (nový koncept, §6 bod 1)**, styl grafiky
+   (čeká na rozhodnutí uživatele) a drobná budoucí rozšíření.
 3. Po každé fázi: tři kontroly + commit + push (viz §2).

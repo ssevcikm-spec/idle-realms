@@ -277,3 +277,38 @@ Start-Process 'D:\ComfyUI\venv-comfy\Scripts\python.exe' -ArgumentList 'main.py'
   -WorkingDirectory 'D:\ComfyUI\ComfyUI' -WindowStyle Hidden
 # GUI: http://127.0.0.1:8188   (PID se ukládá do D:\ComfyUI\_download\comfy.pid)
 ```
+
+---
+
+## 10. Malované postavy (AI sprity) — *implementováno*
+
+Stejný přepínač „🎨 Vzhled" zapíná i bitmapové postavy na mapě (kromě dlaždic),
+takže mapa i postavy drží jeden malovaný styl.
+
+- **Generování:** `scripts/gen_units_local.py` — ComfyUI + SDXL, 6 archetypů
+  (`mercenary`, `villager`, `blacksmith`, `hunter`, `scout`, `merchant`),
+  768×768, tmavá postava na světlém krémovém pozadí `#f0e8d8`.
+- **Odstranění pozadí:** `scripts/process_units.py` — **prahování jasu** (porovná
+  střed vs. okraj → zjistí, jestli je postava tmavší nebo světlejší než pozadí,
+  pak prahuje a nechá největší souvislou oblast uprostřed). Výstup = průhledné
+  PNG, výška 96 px.
+- **Vykreslení:** `js/render/units_ai.js` (mapuje profesi → archetyp) + `drawAiFigure`
+  v `world.js` (flip podle směru, bob). Fallback = kódové `drawFigure`.
+
+### Pasti (ověřeno)
+
+- **Model ignoruje „plain cream background".** Juggernaut XL u „hunter" vygeneroval
+  tmavou lesní scénu místo krémového podkladu. Řešení: negativní prompt
+  `forest, trees, landscape, vignette, scenery, dark background` + výběr kandidáta
+  podle jasu okraje (okraj > 140 = světlé pozadí).
+- **Flood-fill od okraje nefunguje** na gradientu pozadí (krém jde 148→217 jasu
+  shora dolů) ani když postava sahá k okraji. Proto se používá prahování jasu,
+  ne barevná vzdálenost k okraji.
+- **GrabCut je nestabilní** (stejný obrázek dá 17 % vs. 48 % popředí podle posunu
+  obdélníku o 1 %), proto se nepoužívá.
+
+### Otevřené: jednotný vzhled postav
+
+Postavy jsou zatím každá jiná (postava, vybavení, zbraň). Plán na sjednocení
+viz `docs/HANDOFF.md` — všichni na jednom základním modelu + ikona role (erb)
++ jen zbroj/oblečení, žádná zbraň.
