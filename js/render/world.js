@@ -372,20 +372,17 @@
     if (!r) return false;
     return r.has(x + ',' + y) || G.WORLD.terrainAt(x, y) === 'road';
   }
-  /** Do kterých stran z dlaždice cesta pokračuje (pro spojité kreslení). */
+  /** Do kterých stran z dlaždice cesta pokračuje (jen ortogonálně — bez úhlopříček). */
   G.roadLinks = function (x, y) {
     const out = [];
     if (roadAt(x + 1, y)) out.push([1, 0]);
     if (roadAt(x - 1, y)) out.push([-1, 0]);
     if (roadAt(x, y + 1)) out.push([0, 1]);
     if (roadAt(x, y - 1)) out.push([0, -1]);
-    if (roadAt(x + 1, y + 1) && (roadAt(x + 1, y) || roadAt(x, y + 1))) out.push([0.75, 0.75]);
-    if (roadAt(x - 1, y + 1) && (roadAt(x - 1, y) || roadAt(x, y + 1))) out.push([-0.75, 0.75]);
-    if (roadAt(x + 1, y - 1) && (roadAt(x + 1, y) || roadAt(x, y - 1))) out.push([0.75, -0.75]);
-    if (roadAt(x - 1, y - 1) && (roadAt(x - 1, y) || roadAt(x, y - 1))) out.push([-0.75, -0.75]);
     return out;
   };
 
+  /** Cesta = spojité pruhy od středu k hranám; bez šumu, jen dvě vrstvy barvy. */
   function drawRoads(ox, oy, tilePx, x0, x1, y0, y1) {
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
@@ -393,29 +390,19 @@
         if (!roadAt(x, y)) continue;
         const links = G.roadLinks(x, y);
         const cx = ox + (x + 0.5)*tilePx, cy = oy + (y + 0.5)*tilePx;
-        const st = Math.max(1, tilePx*0.10);          // kamínky
-        ctx.save();
-        ctx.lineCap = 'round';
         if (!links.length) {
+          // osamocená dlaždice (např. okraj štětce) — jen zem
           ctx.fillStyle = G.PAL.road.base;
-          ctx.beginPath(); ctx.arc(cx, cy, tilePx*0.22, 0, Math.PI*2); ctx.fill();
-        } else {
-          const path = () => {
-            ctx.beginPath(); ctx.moveTo(cx, cy);
-            for (const [dx, dy] of links) ctx.lineTo(cx + dx*tilePx*0.62, cy + dy*tilePx*0.62);
-          };
-          ctx.strokeStyle = '#4a4335'; ctx.lineWidth = tilePx*0.44; path(); ctx.stroke();
-          ctx.strokeStyle = G.PAL.road.base; ctx.lineWidth = tilePx*0.34; path(); ctx.stroke();
-          ctx.strokeStyle = 'rgba(190,175,140,.30)'; ctx.lineWidth = tilePx*0.10; path(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(cx, cy, tilePx*0.28, 0, Math.PI*2); ctx.fill();
+          continue;
         }
-        ctx.fillStyle = 'rgba(90,80,62,.55)';
-        for (let i = 0; i < 3; i++) {
-          const h = hashStr(x + ':' + y + ':' + i);
-          const px = cx + (((h >>> 3) % 100) / 100 - 0.5) * tilePx * 0.5;
-          const py = cy + (((h >>> 9) % 100) / 100 - 0.5) * tilePx * 0.5;
-          ctx.beginPath(); ctx.arc(px, py, st*0.30, 0, Math.PI*2); ctx.fill();
-        }
-        ctx.restore();
+        const seg = () => {
+          ctx.beginPath(); ctx.moveTo(cx, cy);
+          for (const [dx, dy] of links) ctx.lineTo(cx + dx*tilePx*0.5, cy + dy*tilePx*0.5);
+        };
+        ctx.lineCap = 'butt';
+        ctx.strokeStyle = '#51483a'; ctx.lineWidth = tilePx*0.46; seg(); ctx.stroke();
+        ctx.strokeStyle = '#776a51'; ctx.lineWidth = tilePx*0.34; seg(); ctx.stroke();
       }
     }
   }
@@ -621,26 +608,31 @@
 
   function drawSelection(ox, oy, tilePx) {
     const sel = G.state.selected; if (!sel) return;
-    let tx, ty;
+    let tx, ty, rx = tilePx*0.60, ry = tilePx*0.60;
     if (sel.type === 'node') {
       const n = G.WORLD.nodes.find(x => x.id === sel.id); if (!n) return;
       tx = n.x + 0.5; ty = n.y + 0.5;
+      rx = tilePx*0.70; ry = tilePx*0.52;                 // prvek je širší než dlaždice
     } else if (sel.type === 'settlement') {
       const s = G.WORLD.settlementById[sel.id]; if (!s) return;
       tx = s.x + 0.5; ty = s.y + 0.5;
+      const sp = G.settlementSpread ? G.settlementSpread(s.size) : 1;   // kroužek kopíruje velikost sídla
+      rx = tilePx*(0.55 + (sp - 1)*0.55);
+      ry = tilePx*(0.50 + (sp - 1)*0.38);
     } else if (sel.type === 'base') {
       const bp = G.basePos ? G.basePos() : G.BASE_POS;
       tx = bp.x + 0.5; ty = bp.y + 0.5;
+      rx = tilePx*0.72; ry = tilePx*0.50;
     }
     else return;
     const x = ox + tx*tilePx, y = oy + ty*tilePx;
     const pulse = 0.5 + 0.5 * Math.sin(performance.now()/350);
     ctx.strokeStyle = 'rgba(216,180,90,' + (0.45 + pulse*0.45) + ')';
     ctx.lineWidth = 2.2;
-    ctx.beginPath(); ctx.arc(x, y, tilePx*0.60 + pulse*2, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x, y, rx + pulse*2, ry + pulse*2, 0, 0, Math.PI*2); ctx.stroke();
     ctx.strokeStyle = 'rgba(216,180,90,0.35)';
     ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(x, y, tilePx*0.74 + pulse*3, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x, y, rx*1.22 + pulse*3, ry*1.22 + pulse*3, 0, 0, Math.PI*2); ctx.stroke();
   }
   function drawUnitProgress(x, y, r, p) {
     ctx.strokeStyle = 'rgba(0,0,0,0.55)';

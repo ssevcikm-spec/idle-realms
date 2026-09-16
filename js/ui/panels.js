@@ -708,7 +708,7 @@
       const ch = G.groupChemistry(g);
       const avgSafety = G.partySafety(members);
       html += `<div class="group-card">
-        <div class="group-head"><div class="group-name">👥 ${esc(g.name)}</div><div class="group-count">${members.length}</div></div>
+        <div class="group-head"><div class="group-name">👥 ${esc(g.name)}</div><div class="group-count">${members.length}</div><button class="btn-sm ghost group-rename" data-action="rename-group" data-group="${g.id}" title="Přejmenovat skupinu">✎</button></div>
         <div class="group-stats"><span>Chemie: <b style="color:${ch.color}">${ch.label}</b></span><span>Síla: <b>${Math.round(avgSafety)}</b></span></div>
         <div class="hint" style="text-align:left">Chemie = průměr vztahů mezi členy. Kladná zvyšuje produktivitu i boj, záporná je sráží.</div>
         <div class="group-roles">`;
@@ -721,7 +721,10 @@
       html += `</div><div class="group-focus"><label class="v-label">Zaměření</label><select data-change="group-focus" data-group="${g.id}"><option value="">— volná vůle —</option>${acts.map(a => `<option value="${a.id}" ${g.focus === a.id ? 'selected' : ''}>${a.icon} ${esc(a.name)}</option>`).join('')}</select></div>
       <div class="hint" style="text-align:left">Zaměření = trvalý úkol skupiny: jakmile jsou členové volní, sami se na něj vydají.</div>
       <div class="group-members">${members.map(u => `<span class="member-chip" style="border-color:${u.color}">${esc(u.name.split(' ')[0])}${u.resting ? ' 💤' : ''}${(u.injuries && u.injuries.length) ? ' 🩹' : ''}${u.mentorId ? ' 🎓' : ''}${u.merchantState && u.merchantState.active ? ' 🐎' : ''}${u.onExpedition ? ' ⛵' : ''}<button class="chip-x" data-action="kick" data-unit="${u.id}">×</button></span>`).join('') || '<span class="hint">Žádní členové</span>'}</div>
-      <div class="group-add"><select data-change="add-to-group" data-group="${g.id}"><option value="">+ přidat člena…</option>${s.units.filter(u => !u.dead && u.groupId !== g.id).map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select></div>
+      <div class="group-add"><select data-change="add-to-group" data-group="${g.id}"><option value="">+ přidat člena…</option>${s.units.filter(u => !u.dead && u.groupId !== g.id).sort((a, b) => (a.groupId ? 1 : 0) - (b.groupId ? 1 : 0) || a.name.localeCompare(b.name)).map(u => {
+        const og = u.groupId ? G.getGroup(u.groupId) : null;
+        return `<option value="${u.id}">${esc(u.name)} — ${og ? `z „${esc(og.name)}"` : 'volný'}</option>`;
+      }).join('')}</select></div>
     </div>`;
     }
     return html;

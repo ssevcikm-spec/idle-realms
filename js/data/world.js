@@ -307,6 +307,15 @@
       nodes.push(n); occ[y*W+x] = 1; return n;
     }
     function tileAt(x, y) { return TERR[tiles[y*W+x]]; }
+    /** Má dlaždice vedle sebe suchou zem? (rybaření nesmí být uprostřed vody) */
+    function hasLandNeighbor(x, y) {
+      for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        if (TERR[tiles[ny*W+nx]] !== 'water') return true;
+      }
+      return false;
+    }
     function nearSettlement(x, y, d) { return settlements.some(s => Math.hypot(s.x-x, s.y-y) < d); }
     function nearNode(x, y, d) {
       for (let dy = -d; dy <= d; dy++) for (let dx = -d; dx <= d; dx++) {
@@ -325,7 +334,10 @@
           for (let i = 0; i < G.NODE_KINDS[k].weight; i++) candidates.push(k);
       }
       if (!candidates.length || rnd() > 0.30) continue;
-      placeNode(x, y, candidates[(rnd()*candidates.length)|0]);
+      const kind = candidates[(rnd()*candidates.length)|0];
+      // rybářská místa (voda) musejí být u břehu — ne uprostřed jezera
+      if (G.NODE_KINDS[kind].terrain.indexOf('water') >= 0 && !hasLandNeighbor(x, y)) continue;
+      placeNode(x, y, kind);
     }
     const start = byId.svitavy;
     function ensureNear(kindId, maxDist) {

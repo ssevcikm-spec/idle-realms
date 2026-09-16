@@ -542,6 +542,7 @@
       case 'recruit':       return doRecruit();
       case 'create-group':  return doCreateGroup();
       case 'kick':          return doKick(ds.unit);
+      case 'rename-group':  return doRenameGroup(ds.group);
       case 'craft':         return doCraft(ds.recipe);
       case 'trade-buy':     return doTrade('buy', ds);
       case 'trade-sell':    return doTrade('sell', ds);
@@ -819,6 +820,15 @@
     if (!u) return;
     if (!confirm(`Opravdu vyhodit ${u.name} ze skupiny?`)) return;
     G.removeUnitFromGroup(unitId);
+    render();
+  }
+  function doRenameGroup(groupId) {
+    const g = G.getGroup(groupId);
+    if (!g) return;
+    const name = prompt('Nový název skupiny:', g.name);
+    if (name == null) return;   // zrušeno
+    const res = G.renameGroup ? G.renameGroup(groupId, name) : { ok:false, reason:'renameGroup není k dispozici.' };
+    if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
     render();
   }
   function doCraft(recipeId) {

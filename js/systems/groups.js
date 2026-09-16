@@ -20,6 +20,16 @@
     G.state.groups.push(g);
     return g;
   };
+  /** Přejmenuje skupinu. Vrací { ok, reason }. */
+  G.renameGroup = function (groupId, name) {
+    const g = G.getGroup(groupId);
+    if (!g) return { ok:false, reason:'Skupina neexistuje.' };
+    const n = String(name || '').trim();
+    if (!n) return { ok:false, reason:'Název nesmí být prázdný.' };
+    if (n.length > 24) return { ok:false, reason:'Název je moc dlouhý (max 24 znaků).' };
+    g.name = n;
+    return { ok:true };
+  };
   G.getGroup = function (id) { return G.state.groups.find(g => g.id === id) || null; };
   G.getUnit = function (id) { return G.state.units.find(u => u.id === id) || null; };
   G.groupMembers = function (g) { if (!g) return []; return g.memberIds.map(id => G.getUnit(id)).filter(Boolean); };

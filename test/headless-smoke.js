@@ -516,6 +516,26 @@ check('cesty: spojitost mezi dlazdicemi', () => {
   }
   assert(tested >= 5, 've svete nejsou zadne cesty (' + tested + ')');
 });
+check('jezera: rybarska mista jen u brehu', () => {
+  const lakes = G.WORLD.nodes.filter(n => n.kind === 'lake');
+  assert(lakes.length > 0, 've svete neni zadne jezero');
+  for (const n of lakes) {
+    let shore = false;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = n.x + dx, ny = n.y + dy;
+      if (nx < 0 || ny < 0 || nx >= G.WORLD.w || ny >= G.WORLD.h) continue;
+      if (G.WORLD.terrainAt(nx, ny) !== 'water') { shore = true; break; }
+    }
+    assert(shore, 'jezero je uprostred vody, ne u brehu: ' + n.x + ',' + n.y);
+  }
+});
+check('skupiny: prejmenovani', () => {
+  const g = G.state.groups[0] || G.createGroup();
+  assert(G.renameGroup(g.id, 'Hraniční hlídka').ok, 'renameGroup selhalo');
+  assert(g.name === 'Hraniční hlídka', 'nazev se nezmenil');
+  assert(!G.renameGroup(g.id, '   ').ok, 'prazdny nazev mel byt zamitnut');
+  assert(!G.renameGroup('neexistuje', 'x').ok, 'neznamou skupinu mel zamitnout');
+});
 check('auto-pokracovani: se savem se nezastavi na menu', () => {
   G.save();
   assert(!!localStorageStub.getItem(G.SAVE_KEY), 'save se neulozil');
