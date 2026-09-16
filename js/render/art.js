@@ -37,13 +37,12 @@
     }
     ctx.globalAlpha = 1;
   }
-  function vignette(ctx) {
-    const g = ctx.createLinearGradient(0, 0, SIZE, SIZE);
-    g.addColorStop(0, 'rgba(255,255,255,0.07)');
-    g.addColorStop(0.5, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(0,0,0,0.16)');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, SIZE, SIZE);
-  }
+  // POZOR: dlaždicová "vignette" (diagonální gradient světla přes dlaždici) tu
+  // bývala a byla to hlavní příčina viditelných švů: světlo se počítalo
+  // v souřadnicích DLAŽDICE, takže na každé hranici skočilo o ~11 úrovní jasu
+  // a mapa dostala šachovnici. Světlo musí být funkce SVĚTA, ne dlaždice —
+  // proto je pryč a velkoplošné odchylky řeší až světová vrstva (viz
+  // docs/STYL_GRAFIKY.md). Naměřený dopad: seam/zrno 1,9 -> 1,4.
   function ground(ctx, rnd, pal) {
     ctx.fillStyle = pal.base; ctx.fillRect(0, 0, SIZE, SIZE);
     daubs(ctx, rnd, pal.daubs, 140, 3, 11, 0.10, 0.30);
@@ -156,7 +155,6 @@
       ctx.fillStyle = G.PAL.water.base; ctx.fillRect(0, 0, SIZE, SIZE);
       daubs(ctx, rnd, G.PAL.water.daubs, 90, 4, 13, 0.08, 0.22);
       for (let i = 0; i < 7; i++) ripple(ctx, rnd, 12+rnd()*76, G.PAL.water.light);
-      vignette(ctx);
     },
     swamp(ctx, rnd) {
       ground(ctx, rnd, G.PAL.swamp);
@@ -198,7 +196,7 @@
     ctx.scale(RES / SIZE, RES / SIZE);
     const rnd = rndFrom(hash(terrain) * 7919 + variant * 104729 + 13);
     const fn = painters[terrain] || painters.grass;
-    fn(ctx, rnd); vignette(ctx);
+    fn(ctx, rnd);
     return c;
   }
   G.getTileArt = function (terrain, variant) {

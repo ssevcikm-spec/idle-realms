@@ -179,44 +179,130 @@ Styl se nastaví příkazem `--set-style` a **platí i pro bota v telefonu**.
 
 ## 7. Další krok
 
-1. Vybrat balíček (doporučuji **1 — Žoldnéřská kronika**).
-2. Uložit styl k projektu (`--set-style`).
+**Stav 2026-09-16: rozhodnuto.** Uživatel zvolil **cestu C (hybrid)** — podklad
+a přechody mapy z kódu, AI jen na alfa sprity a ilustrace (§8). Stage 0 (bezešvá
+mapa + měření) je hotový; tím se i rozhodování o *stylu* zlevnilo, protože
+varianta se teď vygeneruje za sekundu a změří čísly.
+
+Zbývá:
+
+1. **Vybrat balíček vzhledu** — doporučení pořád platí (**1 — Žoldnéřská
+   kronika**: pergamenová mapa + Battle Brothers postavy). Volba se ale nově
+   projeví hlavně **paletou a štětci jednoho souboru**, ne přepisem pipeline.
+2. Uložit styl k projektu (`--set-style`) pro generátor ilustrací.
 3. Vygenerovat **testovací trojici** (1 dlaždice lesa, 1 postava, 1 příběhová
-   ilustrace) a porovnat, jak to vypadá vedle sebe.
-4. Teprve pak sáhnout do kódu — a to postupně: paleta → obrysy → auto-tiling → sídla.
+   ilustrace) a porovnat vedle sebe.
+4. **Stage 1 — „foundry"** (§8.5): světová pole, toroidní razítkování, dekorace,
+   přechody terénů; teprve pak sídla a postavy.
 
 ---
 
-## 8. Co je implementováno: AI dlaždice a přepínač *(doplněno)*
+## 8. Dlaždice: měřitelně bezešvá mapa *(přepsáno 2026-09-16)*
+
+**Rozhodnutí uživatele:** jde se **cestou C — hybrid**: podklad, přechody a
+dekorace mapy z kódu (Stage 1 = „foundry"), AI jen na alfa sprity/propsy a
+vrstvu 3 (titul, příběhové scény, portréty). Důvody jsou v §8.2.
 
 **Hotovo:** `js/render/tiles_ai.js` + přepínač `settings.tileStyle = 'code' | 'ai'`
-v menu ☰ („🎨 Vzhled mapy"). Hra má jediné místo, kde bere vzhled dlaždice
-(`G.tileArt(terén, varianta)`) — když jsou AI dlaždice zapnuté a načtené, vrátí
-bitmapu; jinak se kreslí proceduralně. **Fallback je vždy funkční**, takže chybějící
-obrázky hru nerozbijí.
+v menu ☰ („🎨 Vzhled mapy"). Vzhled dlaždice má hra na dvou místech: malovanou
+kreslí `G.tileDraw` (potřebuje světové souřadnice, protože je to výřez z torusu)
+a kreslenou `G.tileArt` (záložní cesta). **Fallback je vždy funkční**, takže
+chybějící obrázky hru nerozbijí.
 
-Sada: `assets/tiles/<terén>-<1|2>.jpg` (10 terénů × 2 textury, FLUX přes
-Pollinations — zdarma, bez klíče), v kódu se z nich dělá **8 variant**
-(2 textury × zrcadlení × jas), aby se mapa neopakovala.
+Sada assetů: `assets/tiles/<terén>-<1|2>.jpg` (10 terénů × 2 textury, FLUX přes
+Pollinations — zdarma, bez klíče). Textury se **nasadí jen po průchodu
+`scripts/seamless_tiles.py`** (udělá z nich torusy) — viz §8.3.
 
-### Dvě věci, které AI dlaždice nutně potřebují
+### 8.1 Dvě věci, které dlaždice z generátoru nutně potřebují
 
 1. **Barevná korekce podle terénu.** Model vrátil „vodu" olivově zelenou
    (`#474918`) a „sníh" tmavý (jas 97) — terén se pak nedá poznat. Řešení:
    průměr dlaždice se posune na cílovou barvu terénu (`TARGET` v `tiles_ai.js`).
    Ověřeno čísly — všech 10 terénů přesně na cíli (voda `53,92,122`, sníh
    `194,201,207`, hora `108,108,106`).
-2. **Varianty.** Jedna textura opakovaná po mapě bije do očí; 8 variant to zjemní.
+2. **Torus, ne jen „pěkná textura".** Bezešvost je matematická vlastnost, kterou
+   generátor nedodá (viz §8.2) — dopočítá ji `scripts/seamless_tiles.py`.
+   Aby se textura po mapě neopakovala, posouvá se okno výřezu po světě; volitelně
+   se prolínají **dvě textury téhož terénu** váhou měnící se ve světovém prostoru.
 
-### Co ještě AI dlaždice potřebují (známý otevřený problém)
+### 8.2 Proč to předtím nešlo (změřeno, ne dohad)
 
-Dlaždice **na sebe nenavazují** — každá je samostatná malba s vlastním motivem
-a světlem, takže jsou vidět švy a opakující se „kruhové" vzory. Řešení (od
-nejlevnějšího): generovat **seamless tileable texture** (prompt bez ústředního
-motivu a vinětace), **blend okrajů** v kódu (přechodové pásy mezi dlaždicemi),
-nebo **hybrid**: plochý základ z kódu + AI jen na prvky (stromy, skály, domky).
+Původní zápis tady tvrdil „švy vyřešeny seamless generováním (metrika 1,59,
+baseline kódu 5,51)". To číslo nebylo v repu k dohledání a realita byla jiná:
 
-### Pasti při generování (ověřeno)
+| Co se měřilo | Naměřeno |
+|---|---|
+| `wrap` AI dlaždic (levý sloupec vs. pravý; 255 = plný rozdíl) | **27,9** |
+| šev v mozaice (staré schéma: 8 variant se zrcadlením a jasem) | **23,1** |
+| `vignette()` v `art.js` — per-dlaždicové světlo samo o sobě | krok **11,5** jasu na hranici |
+
+Příčiny byly čtyři a všechny konstrukční, ne „kvalita generátoru":
+
+1. **Dlaždice nebyla torus.** Model „bezešvý" obrázek nevygeneruje — vlastnost
+   (levý sloupec = pravý) buď platí, nebo ne. Musí se dopočítat.
+2. **Světlo se počítalo v souřadnicích dlaždice** (`vignette`), takže na každé
+   hranici skočilo o 11 úrovní jasu a mapa dostala šachovnici. Světlo musí být
+   funkcí **světa**.
+3. **Prvky se kreslily v lokálních souřadnicích** a na hranici se uřízly.
+4. **Ověřování bylo verbalní** (Gemini vision): na dlaždici 46 px nic nevidí a
+   hlavní artefakt — opakování přes 64×48 dlaždic — v jednom obrázku není vidět.
+   V repu nebyl jediný opakovatelný metrický test.
+
+### 8.3 Co je implementováno
+
+**Dlaždice už není obrázek, ale okno do torusu, vzorkované ve světových
+souřadnicích.** Tři kroky:
+
+1. **Assety jsou skutečné torusy** — `scripts/seamless_tiles.py` je dopočítá
+   deterministicky: posun o polovinu (nespojitost se přestěhuje doprostřed),
+   zacelení středního kříže proložením rozmazanou kopií v pásu ±28 px, a
+   srovnání protilehlých okrajů v pásu 16 px (tím je wrap **přesně** 0).
+   Naměřeno: wrap **27,91 → 0,00**, ztráta ostrosti jen **12–18 %**
+   (pro srovnání: prosté zrcadlové prolnutí ztratí 45 %).
+2. **Kreslení je výřez** (`G.tileDraw`): okno 128 px (= 1/6 textury 768 px) se
+   posouvá o jedno okno na dlaždici světa. Sousední dlaždice jsou tedy sousední
+   výřezy téhož spojitého obrazu — šev nemůže vzniknout. Naměřeno: seam/zrno
+   **0,74**, wrap **1,88**, perioda 6 dlaždic.
+3. **Per-dlaždicová vignette je pryč** z `art.js` (krok 11,5 jasu na hranici).
+
+**Volitelné prolnutí dvou textur** (`G.setTileBlend`, periody 29/43 dlaždic):
+perioda opakování zmizí úplně (**period None** — v mozaice 16×16 se nezopakuje),
+cena je ~13 % kontrastu tam, kde je prolnutí půl na půl (zrno 1,86 → 1,62).
+Výchozí hodnota je 0; kterou použít, se má rozhodnout **okem** v náhledu.
+
+### 8.4 Jak se to teď ověřuje (místo vision)
+
+| Nástroj | Co dělá |
+|---|---|
+| `scripts/check-tiles.py` | metriky: `wrap`, `seam/zrno`, `perioda`, barva vs. cíl terénu, kontrast v 46 px, odlišnost terénů. Umí nasimulovat schéma skládání (`random`/`parity`/`sliding`/`sliding2`) a uložit mozaiku jako PNG. |
+| `tools/tiles/preview.html` | náhled v prohlížeči z **reálného kódu hry**: kontaktní list terénů (46/64/192 px), mozaiky 12×12, detaily švů 2× zvětšené, slider prolnutí, diagnostika s čísly. Otevři přes lokální server, nebo Chrome s `--allow-file-access-from-files` (jinak canvas taintuje a měření se přeskočí). |
+| `node test/tile-window.js` | geometrie kreslení: okna navazují, obtáčejí se na torusu, nepřetékají, fallback na kreslenou cestu, váhy prolnutí sčítají na 1. |
+| `node test/tiles-preview.js` | náhledová stránka se spustí bez chyby a spočítá diagnostiku. |
+| `scripts/seamless_tiles.py --check` | jen změří `wrap` a ztrátu ostrosti, nic nemění. |
+
+**Dvě klíčové lekce k metrice** (jinak se měří nesmysly):
+
+- Absolutní skok na hranici dlaždice nic neříká: když dlaždice navazují spojitě,
+  je skok stejně velký jako **zrno** textury. Měří se proto poměr `seam / zrno`
+  (limit 1,6).
+- Šev se musí měřit na **nativním** rozlišení assetu — po zmenšení se zamaskuje.
+
+### 8.5 Otevřené (do Stage 1)
+
+- **Perioda 6 dlaždic** v malované cestě (okno je 1/6 textury). Správné řešení
+  není další obrázek, ale **světová dekorace z kódu** (trsy, kameny, rákosí) —
+  ta opakování rozbije, protože je funkce světa.
+- **Kreslená cesta** (`art.js`, výchozí vzhled) pořád kreslí prvky uříznuté na
+  hranici. Náhled porovnává dvě varianty: dnešní (varianty náhodně) vs.
+  **zrcadlení podle parity** (šev 0 i pro dlaždice, které netileují, ale perioda
+  2 = kaleidoskop). Volba je na očích uživatele, čísla jsou v náhledu.
+- **Paleta má blízké terény**: grass vs. hills i grass vs. road jsou od sebe jen
+  **22,1** (L2 v RGB). Na 46 px se pletou. Ve Stage 1 je potřeba rozestupy
+  zvětšit (posunout odstín/hodnotu), ne je jen „nějak vybarvit".
+- **Headless Chrome v tomhle sandboxu nespustíš** (blokuje mojo jmenné roury),
+  takže ověřování je postavené na Node + Python, ne na renderu stránky.
+
+### 8.5 Pasti při generování (ověřeno, obsah beze změny)
 
 - **Pollinations odřezává dlouhé prompty** — u promptu ~800 znaků zůstal jen
   stylový blok a vyšly 4× „dvě postavy s mečem". Drž prompt **do ~350 znaků**

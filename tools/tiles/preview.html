@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Idle Realm — dlaždice: náhled a měření</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; padding:16px 18px 60px; background:#14130f; color:#ded6c4;
+         font:14px/1.5 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size:19px; margin:0 0 4px; }
+  h2 { font-size:15px; margin:26px 0 8px; color:#c9b98d; border-bottom:1px solid #3a352a; padding-bottom:5px; }
+  .note { color:#9b917c; max-width:900px; }
+  code { background:#252217; padding:1px 5px; border-radius:3px; color:#d9c894; }
+  #controls { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin:14px 0 6px;
+              background:#1d1a13; border:1px solid #332e22; border-radius:6px; padding:10px 12px; }
+  label { display:flex; gap:6px; align-items:center; }
+  select, input[type=range] { background:#252217; color:#ded6c4; border:1px solid #443d2c;
+              border-radius:4px; padding:4px 6px; }
+  .grid { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-start; }
+  figure { margin:0; }
+  figcaption { font-size:12px; color:#9b917c; margin-top:6px; }
+  figcaption b { color:#ded6c4; }
+  canvas { display:block; border:1px solid #3a352a; border-radius:3px; background:#1b1a17; }
+  .list { display:flex; flex-wrap:wrap; gap:12px; }
+  .cell { text-align:center; font-size:11px; color:#9b917c; }
+  pre { background:#0f0e0b; border:1px solid #332e22; border-radius:5px; padding:10px 12px;
+        overflow:auto; font:12px/1.45 Consolas, monospace; color:#cfe3c8; max-height:420px; }
+  .bad { color:#e08a7a; } .good { color:#9fd08a; }
+  .warn { background:#2a2119; border-left:3px solid #a8763c; padding:8px 10px; margin:10px 0;
+          color:#e0cba8; border-radius:0 4px 4px 0; }
+</style>
+</head>
+<body>
+
+<h1>Dlaždice mapy — náhled a měření</h1>
+<p class="note">
+  Stránka používá <b>reálný kód hry</b> (<code>js/render/art.js</code> a
+  <code>js/render/tiles_ai.js</code>), takže co vidíš, je to, co uvidíš na mapě.
+  Čísla dole počítá stejná matematika jako <code>scripts/check-tiles.py</code>.
+</p>
+<div class="warn">
+  Měření potřebuje přístup k pixelům canvasu. Při otevření z <code>file://</code> je
+  canvas „taintovaný“ a čtení pixelů skončí chybou — pak otevři stránku buď přes
+  lokální server, nebo spusť Chrome s <code>--allow-file-access-from-files</code>.
+  Vzhled (obrázky) funguje i bez toho.
+</div>
+
+<div id="controls">
+  <label>Terén
+    <select id="terrain"></select>
+  </label>
+  <label>Dlaždice
+    <select id="tile">
+      <option value="46">46 px (nejmenší ve hře)</option>
+      <option value="64" selected>64 px (výchozí)</option>
+      <option value="80">80 px (největší základ)</option>
+      <option value="192">192 px (1:1 s assetem)</option>
+    </select>
+  </label>
+  <label>Mozaika
+    <select id="grid">
+      <option value="6">6×6</option>
+      <option value="12" selected>12×12</option>
+      <option value="16">16×16</option>
+    </select>
+  </label>
+  <label>Prolnutí textur
+    <input id="blend" type="range" min="0" max="100" value="0" step="5" style="width:150px">
+    <span id="blendVal">0 %</span>
+  </label>
+</div>
+
+<h2>Přechod mezi dlaždicemi (4× zvětšeno)</h2>
+<p class="note">Tohle je místo, kde vzniká šev. Nahoru patří stav před opravou, dolů po opravě.</p>
+<div class="grid" id="seams"></div>
+
+<h2>Mozaika — jak to vypadá na mapě</h2>
+<div class="grid" id="mosaics"></div>
+
+<h2>Kontaktní list terénů</h2>
+<div class="list" id="sheet"></div>
+
+<h2>Měření</h2>
+<pre id="diag">počítám…</pre>
+
+<script>window.Game = { AI_TILE_DIR: '../../assets/tiles/' };</script>
+<script src="../../js/render/art.js"></script>
+<script src="../../js/render/tiles_ai.js"></script>
+<script>
+(function () {
+  const G = window.Game;
+  const TERRAINS = ['grass','forest','deep_forest','hills','mountain','water','swamp','snow','road','dirt'];
+  const TILE_NAMES = { grass:'louka', forest:'les', deep_forest:'hluboký les',
+    hills:'kopce', mountain:'hory', water:'voda', swamp:'močál', snow:'sníh',
+    road:'cesta', dirt:'hlína' };
+  const MODES = [
+    { id:'ai-old',      label:'AI — STARÉ (8 variant s jasem)',  cls:'bad'  },
+    { id:'ai',          label:'AI — světové okno (nové)',        cls:'good' },
+    { id:'ai-blend',    label:'AI — okno + prolnutí textur',     cls:''     },
+    { id:'code',        label:'KÓD — varianty náhodně (dnes)',   cls:''     },
+    { id:'code-parity', label:'KÓD — zrcadlení podle parity',    cls:''     }
+  ];
+
+  // hra se ptá na G.state.settings.tileStyle
+  G.state = { settings: { tileStyle: 'ai' } };
+  const cv = {};   // pomocné canvasy pro staré varianty
+  let variants = {};   // terén -> [8 canvasů] (starý přístup)
+  let ready = false;
+
+  G.loadAiTiles(function (A) {
+    ready = true;
+    buildOldVariants();
+    render();
+    measure();
+  });
+
+  function buildOldVariants() {
+    const cfgs = [[1.00,''],[1.00,'h'],[0.93,'v'],[1.06,'h'],
+                  [1.00,'h'],[0.95,''],[1.05,'hv'],[0.98,'v']];
+    for (const t of TERRAINS) {
+      const rec = G.AI_TILES.tiles[t];
+      if (!rec || !rec.a) continue;
+      variants[t] = cfgs.map(function (cfg) {
+        const mul = cfg[0], flip = cfg[1];
+        const c = document.createElement('canvas');
+        c.width = 192; c.height = 192;
+        const x = c.getContext('2d');
+        x.save();
+        x.translate(flip.indexOf('h') >= 0 ? 192 : 0, flip.indexOf('v') >= 0 ? 192 : 0);
+        x.scale(flip.indexOf('h') >= 0 ? -1 : 1, flip.indexOf('v') >= 0 ? -1 : 1);
+        x.drawImage(rec.a, 0, 0, 192, 192);
+        x.restore();
+        if (mul !== 1) {
+          x.globalCompositeOperation = 'source-atop';
+          x.fillStyle = mul < 1 ? 'rgba(0,0,0,' + (1 - mul).toFixed(2) + ')'
+                                : 'rgba(255,255,255,' + (mul - 1).toFixed(2) + ')';
+          x.fillRect(0, 0, 192, 192);
+        }
+        return c;
+      });
+    }
+  }
+
+  /** Vykreslí mozaiku `grid`×`grid` daným režimem. */
+  function drawMosaic(canvas, mode, terrain, tilePx, grid) {
+    canvas.width = grid * tilePx;
+    canvas.height = grid * tilePx;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#1b1a17';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let y = 0; y < grid; y++) for (let x = 0; x < grid; x++) {
+      const dx = x * tilePx, dy = y * tilePx;
+      if (mode === 'ai' || mode === 'ai-blend') {
+        G.AI_TILES.blend = (mode === 'ai-blend') ? blendAmount() : 0;
+        if (!G.tileDraw(ctx, terrain, dx, dy, tilePx, x, y)) {
+          ctx.drawImage(G.getTileArt(terrain, 0), dx, dy, tilePx, tilePx);
+        }
+      } else if (mode === 'ai-old') {
+        const list = variants[terrain];
+        const art = list ? list[((x * 7 + y * 13) % 8 + 8) % 8] : G.getTileArt(terrain, 0);
+        ctx.drawImage(art, dx, dy, tilePx + 0.5, tilePx + 0.5);
+      } else if (mode === 'code') {
+        const art = G.getTileArt(terrain, ((x * 7 + y * 13) % 8 + 8) % 8);
+        ctx.drawImage(art, dx, dy, tilePx + 0.5, tilePx + 0.5);
+      } else if (mode === 'code-parity') {
+        // zrcadlení podle parity: co je na hranici, se potká samo se sebou
+        const art = G.getTileArt(terrain, 0);
+        ctx.save();
+        ctx.translate(dx + (x % 2 ? tilePx : 0), dy + (y % 2 ? tilePx : 0));
+        ctx.scale(x % 2 ? -1 : 1, y % 2 ? -1 : 1);
+        ctx.drawImage(art, 0, 0, tilePx, tilePx);
+        ctx.restore();
+      }
+    }
+    G.AI_TILES.blend = 0;
+  }
+
+  function blendAmount() {
+    return (parseInt(document.getElementById('blend').value, 10) || 0) / 100;
+  }
+
+  function render() {
+    const terrain = document.getElementById('terrain').value;
+    const tilePx = parseInt(document.getElementById('tile').value, 10);
+    const grid = parseInt(document.getElementById('grid').value, 10);
+
+    // 1) detail švu: 2 dlaždice vedle sebe, 4× zvětšeno
+    const seams = document.getElementById('seams');
+    seams.innerHTML = '';
+    for (const m of MODES) {
+      const wrap = document.createElement('figure');
+      const c = document.createElement('canvas');
+      const small = Math.max(24, tilePx);
+      drawMosaic(c, m.id, terrain, small, 4);
+      // zvětšení na 4× bez vyhlazení, ať je vidět pixel
+      const big = document.createElement('canvas');
+      big.width = c.width * 2; big.height = c.height * 2;
+      const bx = big.getContext('2d');
+      bx.imageSmoothingEnabled = false;
+      bx.drawImage(c, 0, 0, big.width, big.height);
+      wrap.appendChild(big);
+      const cap = document.createElement('figcaption');
+      cap.innerHTML = '<b class="' + m.cls + '">' + m.label + '</b><br>' +
+        small + ' px/dlaždice, zvětšeno 2×';
+      wrap.appendChild(cap);
+      seams.appendChild(wrap);
+    }
+
+    // 2) mozaiky v reálné velikosti
+    const mosaics = document.getElementById('mosaics');
+    mosaics.innerHTML = '';
+    for (const m of MODES) {
+      if (m.id === 'ai-blend' && blendAmount() <= 0) continue;
+      const fig = document.createElement('figure');
+      const c = document.createElement('canvas');
+      drawMosaic(c, m.id, terrain, tilePx, grid);
+      fig.appendChild(c);
+      const cap = document.createElement('figcaption');
+      cap.innerHTML = '<b class="' + m.cls + '">' + m.label + '</b><br>' +
+        grid + '×' + grid + ' dlaždic po ' + tilePx + ' px';
+      fig.appendChild(cap);
+      mosaics.appendChild(fig);
+    }
+
+    // 3) kontaktní list: každý terén ve třech velikostech
+    const sheet = document.getElementById('sheet');
+    sheet.innerHTML = '';
+    for (const t of TERRAINS) {
+      for (const px of [46, 64, 192]) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        const c = document.createElement('canvas');
+        drawMosaic(c, 'ai', t, px, 2);
+        cell.appendChild(c);
+        const lab = document.createElement('div');
+        lab.textContent = (TILE_NAMES[t] || t) + ' · ' + px + 'px';
+        cell.appendChild(lab);
+        sheet.appendChild(cell);
+      }
+    }
+  }
+
+  // ---------- měření (stejná matematika jako scripts/check-tiles.py) ----------
+  function pixels(canvas) {
+    return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+  }
+
+  /** Průměrný skok přes vnitřní hranice dlaždic vs. zrno uvnitř dlaždic. */
+  function seamGrain(canvas, tilePx, grid) {
+    const img = pixels(canvas);
+    const W = img.width, d = img.data;
+    const at = (x, y) => (y * W + x) * 4;
+    const colDiff = (x1, x2, y) => {
+      let s = 0;
+      for (let c = 0; c < 3; c++) s += Math.abs(d[at(x1, y) + c] - d[at(x2, y) + c]);
+      return s / 3;
+    };
+    const rowDiff = (y1, y2, x) => {
+      let s = 0;
+      for (let c = 0; c < 3; c++) s += Math.abs(d[at(x, y1) + c] - d[at(x, y2) + c]);
+      return s / 3;
+    };
+    let seam = 0, seamN = 0, grain = 0, grainN = 0;
+    for (let ty = 0; ty < grid; ty++) {
+      for (let tx = 0; tx < grid; tx++) {
+        const x0 = tx * tilePx, y0 = ty * tilePx;
+        for (let y = 0; y < tilePx; y++) {
+          if (tx < grid - 1) { seam += colDiff(x0 + tilePx - 1, x0 + tilePx, y0 + y); seamN++; }
+          for (let x = 0; x < tilePx - 1; x++) { grain += colDiff(x0 + x, x0 + x + 1, y0 + y); grainN++; }
+        }
+        for (let x = 0; x < tilePx; x++) {
+          if (ty < grid - 1) { seam += rowDiff(y0 + tilePx - 1, y0 + tilePx, x0 + x); seamN++; }
+          for (let y = 0; y < tilePx - 1; y++) { grain += rowDiff(y0 + y, y0 + y + 1, x0 + x); grainN++; }
+        }
+      }
+    }
+    const s = seam / Math.max(1, seamN), g = grain / Math.max(1, grainN);
+    return { seam: s, grain: g, ratio: s / Math.max(0.01, g) };
+  }
+
+  /** Perioda opakování: nejmenší posun dlaždic, při kterém je mozaika stejná. */
+  function periodOf(canvas, tilePx, grid, lim) {
+    const img = pixels(canvas), W = img.width, d = img.data;
+    const block = (bx, by) => {
+      const out = [];
+      for (let y = 0; y < tilePx; y += 2) for (let x = 0; x < tilePx; x += 2) {
+        const i = ((by * tilePx + y) * W + (bx * tilePx + x)) * 4;
+        out.push((d[i] + d[i + 1] + d[i + 2]) / 3);
+      }
+      return out;
+    };
+    const corr = (a, b) => {
+      const ma = a.reduce((s, v) => s + v, 0) / a.length;
+      const mb = b.reduce((s, v) => s + v, 0) / b.length;
+      let num = 0, da = 0, db = 0;
+      for (let i = 0; i < a.length; i++) {
+        num += (a[i] - ma) * (b[i] - mb); da += (a[i] - ma) ** 2; db += (b[i] - mb) ** 2;
+      }
+      return num / Math.max(1e-9, Math.sqrt(da * db));
+    };
+    for (let k = 1; k <= Math.floor(grid / 2); k++) {
+      let worst = 1;
+      for (let ty = 0; ty < grid; ty++) for (let tx = 0; tx + k < grid; tx++) {
+        worst = Math.min(worst, corr(block(tx, ty), block(tx + k, ty)));
+      }
+      for (let tx = 0; tx < grid; tx++) for (let ty = 0; ty + k < grid; ty++) {
+        worst = Math.min(worst, corr(block(tx, ty), block(tx, ty + k)));
+      }
+      if (worst >= lim) return k;
+    }
+    return null;
+  }
+
+  function measure() {
+    const out = [];
+    const log = (s) => out.push(s);
+    log('AI dlaždice: ready=' + G.AI_TILES.ready + '  terénů=' + G.AI_TILES.loaded +
+        '  chybělo=' + G.AI_TILES.failed + '  okno=' +
+        (G.AI_TILES.tiles.grass ? G.AI_TILES.tiles.grass.win + ' px z ' +
+         G.AI_TILES.tiles.grass.a.width + ' px' : '—'));
+    log('');
+
+    // 1) jsou assety skutečné torusy? (měřeno na tom, co načetl prohlížeč)
+    log('navazování assetu (wrap; 0 = torus):');
+    try {
+      for (const t of ['grass', 'forest', 'water', 'snow']) {
+        const rec = G.AI_TILES.tiles[t];
+        if (!rec) continue;
+        const c = document.createElement('canvas');
+        c.width = rec.a.width; c.height = rec.a.height;
+        const x = c.getContext('2d');
+        x.drawImage(rec.a, 0, 0);
+        const img = x.getImageData(0, 0, c.width, c.height), d = img.data, W = img.width;
+        const at = (px, py) => (py * W + px) * 4;
+        let hs = 0, vs = 0;
+        for (let y = 0; y < c.height; y++) for (let ch = 0; ch < 3; ch++) hs += Math.abs(d[at(0, y) + ch] - d[at(W - 1, y) + ch]);
+        for (let px = 0; px < W; px++) for (let ch = 0; ch < 3; ch++) vs += Math.abs(d[at(px, 0) + ch] - d[at(px, c.height - 1) + ch]);
+        log('  ' + t.padEnd(12) + ' H ' + (hs / (c.height * 3)).toFixed(2).padStart(6) +
+            '   V ' + (vs / (W * 3)).toFixed(2).padStart(6));
+      }
+    } catch (e) {
+      log('  CHYBA: ' + e.message);
+      log('  -> canvas je taintovaný; otevři přes server nebo s --allow-file-access-from-files');
+    }
+    log('');
+
+    // 2) mozaiky: šev / zrno a perioda
+    const tilePx = 64, grid = 12;
+    log('mozaika ' + grid + '×' + grid + ', ' + tilePx + ' px/dlaždice, terén "grass":');
+    log('  ' + 'režim'.padEnd(30) + 'seam   zrno   seam/zrno   perioda');
+    for (const m of MODES) {
+      if (m.id === 'ai-blend') continue;   // prolnutí se měří zvlášť (viz slider)
+      try {
+        const c = document.createElement('canvas');
+        drawMosaic(c, m.id, 'grass', tilePx, grid);
+        const sg = seamGrain(c, tilePx, grid);
+        const per = periodOf(c, tilePx, grid, 0.985);
+        const ok = sg.ratio <= 1.6;
+        log('  ' + m.label.padEnd(30) +
+            sg.seam.toFixed(2).padStart(5) + '  ' + sg.grain.toFixed(2).padStart(5) + '   ' +
+            sg.ratio.toFixed(2).padStart(6) + (ok ? '  ok  ' : '  SV  ') + '     ' +
+            (per === null ? 'neopakuje se' : per + ' dlaždic'));
+      } catch (e) {
+        log('  ' + m.label.padEnd(30) + 'CHYBA: ' + e.message);
+      }
+    }
+    log('');
+
+    // 3) kontrast při skutečné velikosti dlaždice
+    log('kontrast (směrodatná odchylka jasu) při 46 px — terén musí být čitelný:');
+    for (const t of TERRAINS) {
+      try {
+        const c = document.createElement('canvas');
+        drawMosaic(c, 'ai', t, 46, 2);
+        const img = pixels(c), d = img.data;
+        let sum = 0, sum2 = 0, n = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const v = (d[i] + d[i + 1] + d[i + 2]) / 3;
+          sum += v; sum2 += v * v; n++;
+        }
+        const mean = sum / n;
+        const sd = Math.sqrt(Math.max(0, sum2 / n - mean * mean));
+        log('  ' + t.padEnd(12) + ' jas ' + mean.toFixed(0).padStart(3) +
+            '   kontrast ' + sd.toFixed(1).padStart(5));
+      } catch (e) { log('  ' + t + ' CHYBA: ' + e.message); }
+    }
+    document.getElementById('diag').textContent = out.join('\n');
+  }
+
+  // ---------- ovládání ----------
+  const selT = document.getElementById('terrain');
+  for (const t of TERRAINS) {
+    const o = document.createElement('option');
+    o.value = t;
+    o.textContent = (TILE_NAMES[t] || t) + ' (' + t + ')';
+    selT.appendChild(o);
+  }
+  selT.value = 'grass';
+  for (const id of ['terrain', 'tile', 'grid']) {
+    document.getElementById(id).addEventListener('change', render);
+  }
+  document.getElementById('blend').addEventListener('input', function () {
+    document.getElementById('blendVal').textContent = this.value + ' %';
+    if (ready) { render(); }
+  });
+  document.getElementById('blend').addEventListener('change', function () {
+    if (ready) measure();
+  });
+})();
+</script>
+</body>
+</html>

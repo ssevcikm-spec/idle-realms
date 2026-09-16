@@ -356,9 +356,13 @@
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       if (x < 0 || y < 0 || x >= w.w || y >= w.h) continue;
       const name = w.terrainAt(x, y);
+      const tx = ox + x*tilePx, ty = oy + y*tilePx;
+      // Malovaný vzhled se kreslí jako okno do torusu na SVĚTOVÝCH souřadnicích
+      // (x, y) — proto dostává souřadnice dlaždice, ne jen index varianty.
+      if (G.tileDraw && G.tileDraw(ctx, name, tx, ty, tilePx + 0.5, x, y)) continue;
       const v = ((x*7 + y*13) % 8 + 8) % 8;
       const art = (G.tileArt || G.getTileArt)(name, v);
-      ctx.drawImage(art, ox + x*tilePx, oy + y*tilePx, tilePx + 0.5, tilePx + 0.5);
+      ctx.drawImage(art, tx, ty, tilePx + 0.5, tilePx + 0.5);
     }
     // Cesty se kreslí zvlášť a spojitě — dlaždice sama neví, kterým směrem cesta vede.
     drawRoads(ox, oy, tilePx, x0, x1, y0, y1);

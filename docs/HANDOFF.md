@@ -1,6 +1,6 @@
 # Handoff — Idle Realm (předání novému chatu)
 
-> **Datum:** 2026-09-15
+> **Datum:** 2026-09-16
 > **Účel:** kompletní kontext pro nový chat/agenta, aby mohl pokračovat bez čtení
 > celé historie. Tohle je živý dokument — při každém větším kroku ho aktualizuj.
 
@@ -31,7 +31,11 @@ bez závislostí, bez serveru. Hra běží otevřením `index.html` v prohlíže
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File scripts/check-globals.ps1   # musí být "0 problems"
 powershell.exe -ExecutionPolicy Bypass -File scripts/check-actions.ps1   # 0 mrtvých data-action/data-change
-node test/headless-smoke.js                                              # "VYSLEDEK: OK" (nyní 49 kontrol)
+node test/headless-smoke.js                                              # "VYSLEDEK: OK" (63 kontrol)
+node test/tile-window.js                                                 # dlaždice: okno je spojité
+node test/tiles-preview.js                                               # náhled dlaždic se spustí
+# dlaždice (potřebuje python s pillow+numpy — viz past č. 13):
+python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSLEDEK: OK"
 ```
 
 - **Commit + push po každé fázi**, Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`).
@@ -69,15 +73,15 @@ node test/headless-smoke.js                                              # "VYSL
 7. `G.MATERIALS` je map; suroviny mají kvality (`crude..masterwork`); `matCount`
    sčítá přes kvality. `matRemove` **nic neodebere**, když máš méně, než žádáš
    (vrací false) — pro „smaž vše" mazat `state.materials[mat]` přímo.
-8. **Vizuál se dá ověřit i bez očí** (a je to potřeba — Gemini vision umí vrátit
-   `HTTP 429 prepayment credits are depleted`): postav dočasnou harness stránku
-   **v rootu repa** (musí být v rootu, jinak relativní `js/...` cesty 404),
-   spusť `chrome.exe --headless=new --dump-dom` a výsledek nech vypsat do
-   `<pre>`; přečti ho ze souboru přes `Start-Process -RedirectStandardOutput`
-   (roury v PowerShellu na Chrome nefungují — používá jmenné roury a sandbox je
-   blokuje). Pixely se čtou z reálného canvasu (`ctx.getImageData`), takže se dá
-   čísly ověřit barva prstence sídla, přítomnost textu nebo tečky postavy.
-   Dočasné soubory pak smaž.
+8. **Headless Chrome v tomhle sandboxu NEBĚŽÍ** (od 2026-09-16): `chrome.exe
+   --headless=new --dump-dom` spadne na `mojo platform_channel ... Access is
+   denied` — sandbox blokuje jmenné roury, které Chrome používá pro IPC. Dřívější
+   postup (dočasná harness stránka v rootu + `Start-Process
+   -RedirectStandardOutput`) tím pádem nefunguje. **Místo toho ověřuj v Node a
+   Pythonu**: stub DOM/canvas (jako `test/headless-smoke.js`), geometrii kreslení
+   testuj na záznamu volání (`test/tile-window.js`) a pixely měř v Pythonu
+   (`scripts/check-tiles.py`). Náhledovou stránku pro oči otevře uživatel sám.
+   (Kdyby Chrome potřeba byl, jde o sandboxovou politiku — ne obcházet, ale řešit.)
 9. **V generování světa používej jen seedovaný `rnd`**, nikdy `G.rand`/`G.randInt`:
    `G.rngFrom(seed)` drží mapu stabilní, kdežto globální RNG je jiný při každém
    spuštění (a rozladí i zbytek testů). Přesně tohle byla chyba ve velikosti
@@ -104,15 +108,39 @@ node test/headless-smoke.js                                              # "VYSL
 12. **PowerShell `[int]` zaokrouhluje, netruncuje** (`[int]3.98` = 4) — při
     indexování palet/čtverců přes `[int]($v/16)` to přeteče rozsah; používej
     `[math]::Floor()`.
+13. **Python s pillow/numpy není na PATH** (Windows Store alias hlásí „Python was
+    not found"). Používej venv ComfyUI:
+    `D:\ComfyUI\venv-comfy\Scripts\python.exe` (Python 3.12, PIL 12, numpy 2.5).
+14. **Bezešvost dlaždice je matematická vlastnost, ne dojem.** Buď platí
+    „levý sloupec = pravý" (`wrap` ≈ 0), nebo dlaždice netileuje — a generátor
+    obrázků to nikdy nedodá, musí se to dopočítat (`scripts/seamless_tiles.py`:
+    posun o polovinu + zacelení středního kříže + srovnání okrajů).
+    Naměřeno: wrap 27,9 → 0,0 při ztrátě ostrosti 12–18 % (zrcadlové prolnutí
+    ztratí 45 %, proto se nepoužívá).
+15. **Světlo ani dekorace nesmí být v souřadnicích dlaždice.** Per-dlaždicová
+    `vignette` v `art.js` dělala krok 11,5 jasu na každé hranici (šachovnice).
+    Vše, co má přesahovat dlaždici, musí být funkce **světa**: buď výřez z torusu
+    (jako `G.tileDraw`), nebo spojitá vrstva (jako `drawRoads`).
+16. **Šev se nesmí měřit jako absolutní skok** — když dlaždice navazují spojitě,
+    je skok na hranici stejně velký jako zrno textury. Měř poměr `seam / zrno`
+    (limit 1,6) a `wrap` na **nativním** rozlišení assetu (po zmenšení se šev
+    zamaskuje). Vše v `scripts/check-tiles.py`.
+17. **V workspace může běžet paralelní práce** (jiná session/agent ve stejném
+    repu). Před commitem si projdi `git status` a stage **jen svoje soubory** —
+    jinak si přivlastníš cizí rozdělanou práci. Sdílené soubory (`docs/HANDOFF.md`,
+    `README.md`) před editací znovu načti, jinak `edit` ohlásí „file changed".
 
 ---
 
 ## 4. Stav kódu (co je hotové)
 
 ### Čísla
-- 58 JS souborů, 637 definovaných/used globálů `G.*` (check-globals čisté).
-- Smoke test: **63 kontrol**, deterministicky.
+- 59 JS souborů, 651 definovaných/used globálů `G.*` (check-globals čisté).
+- Testy: **63 kontrol** (headless-smoke) + 10 (tile-window) + 4 (tiles-preview),
+  deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
+- Dlaždice: assety jsou **torusy** (`wrap` 1,88), kreslí se jako **okno do
+  textury** ve světových souřadnicích — `seam/zrno` 0,74, perioda 6 dlaždic.
 - Grafika: dlaždice lze přepnout mezi **kreslenou (kód)** a **malovanou (AI
   bitmapy v `assets/tiles`) — `settings.tileStyle`, přepínač v menu ☰.
 
@@ -122,7 +150,7 @@ node test/headless-smoke.js                                              # "VYSL
 | Data (aktivity, budovy, boj, world, questy) | `js/data/*.js` (hlavně `world.js`, `character.js`, `progress.js`, `combat.js`) |
 | Jádro | `js/core/{state,loop,rng}.js` |
 | Systémy | `js/systems/*.js` (work, combat, events, autonomy, economy, crafting, construction, psychology, …) |
-| Render | `js/render/{art,world}.js` |
+| Render | `js/render/{art,world,tiles_ai,units_ai}.js` |
 | UI | `js/ui/{ui,panels,trade,title_screen,debug,combat_modal,…}.js` |
 | Boot | `js/main.js` |
 
@@ -143,6 +171,13 @@ node test/headless-smoke.js                                              # "VYSL
   (`settings.autoQuests` off/deliver/all + auto-odevzdání), `G.canTurnInQuest`
   jednotné místo, postup kill/explore vidět v UI.
 - **Výroba**: „Udržovat zásobu" (`state.productionOrders` → `tickProduction`).
+- **Výbava postav**: nákup v sídle na mapě (záložka **Vybavení**) nebo drop z bossů
+  → nasazení **přímo na kartě postavy** (`data-change="unit-equip"`,
+  ⚡ *Nasadit nejlepší* = `G.equipBest`) a hromadně v **Řemeslo → Batoh**
+  (⚡ *Nasadit vše nejlepší* = `G.autoEquipAll`). Sdílený seznam
+  `G.gearStockHtml` (Batoh i sídlo), skóre kusu `G.equipScore` (kvalita,
+  životnost, mody, úspora výdrže) — rozbité kusy se nenasadí, výměna vrací
+  starý kus do skladu.
 - **Boj**: tahový, **automatický** (běží sám ~0,7 s/kolo, pozastavitelné), schopnosti
   defaultně automatické, **boj na každém uzlu s nepřáteli**, přepadení v divočině.
   **Svět běží dál i během souboje** (boj nepauzuje hru, jen překryje mapu;
@@ -154,11 +189,16 @@ node test/headless-smoke.js                                              # "VYSL
 
 ### Mapa a grafika (poslední velký blok)
 - **Vzhled dlaždic lze přepnout**: kreslený (kód, výchozí) ↔ **malovaný (AI
-  bitmapy)** — `G.tileArt` v `js/render/tiles_ai.js`, `settings.tileStyle`,
-  přepínač „🎨 Vzhled mapy" v menu ☰. AI dlaždice se **barevně srovnávají podle
-  terénu** (voda modrá, sníh světlý) a mají 8 variant, aby se mapa neopakovala.
-  Švy vyřešeny **seamless generováním** (metrika 1.59, baseline kódu 5.51) —
-  viz `docs/STYL_GRAFIKY.md` §8–9.
+  bitmapy)** — `settings.tileStyle`, přepínač „🎨 Vzhled mapy" v menu ☰.
+  Malované dlaždice kreslí **`G.tileDraw`** (`js/render/tiles_ai.js`) jako
+  **výřez z torusu** na světových souřadnicích (okno 128 px = 1/6 textury);
+  kreslenou dlaždici vrací **`G.tileArt`** (záložní cesta, vždy funkční).
+  Assety prošly `scripts/seamless_tiles.py` (jsou to torusy), barevně je
+  srovnává `scripts/grade_tiles.py` na `TARGET` terénu. Volitelné prolnutí dvou
+  textur: `G.setTileBlend(0–1)`.
+  **Švy jsou vyřešené měřitelně** (seam/zrno 0,74, wrap 1,88) — měření
+  `scripts/check-tiles.py`, náhled pro oči `tools/tiles/preview.html`.
+  Detail a naměřené hodnoty: `docs/STYL_GRAFIKY.md` §8.
 - **Malované postavy (AI sprity)**: stejný přepínač zapíná i bitmapové postavy
   (`js/render/units_ai.js` + `drawAiFigure` v `world.js`). 6 archetypů
   (`assets/units/*.png`, průhledné, výška 96 px), generované lokálně
@@ -203,30 +243,45 @@ node test/headless-smoke.js                                              # "VYSL
 | `docs/PRIBEHOVE_POPUPY.md` | příběhové popupy (efekty, trvalé vlajky, přepínač) | aktuální |
 | `docs/UKOLY_A_VYROBA.md` | zakázky, escort, automatika, výroba, dílny na základně | aktuální |
 | `docs/BOJ.md` | boj (automatický, kill questy, explore) | aktuální |
-| `docs/STYL_GRAFIKY.md` | **kandidáti stylu + balíčky** (doporučen „Žoldnéřská kronika" = Battle Brothers + pergamen) | **čeká na rozhodnutí uživatele** |
+| `docs/STYL_GRAFIKY.md` | **rozhodnutí cesty C (hybrid)**, §8 = dlaždice: bezešvá mapa, měření, náhled; §9 = lokální ComfyUI; §10 = malované postavy | aktuální (2026-09-16) |
 
 ---
 
 ## 6. Co je dál (plán)
 
-1. **Sjednocení postav (nový koncept od uživatele — ČEKÁ NA REALIZACI).**
+> **Směr je rozhodnutý (2026-09-16): cesta C — hybrid.** Podklad, přechody
+> a dekorace mapy z kódu (Stage 1 = „foundry"), AI jen na alfa sprity/propsy
+> a vrstvu 3 (titul, scény, portréty). Zdůvodnění a čísla: `docs/STYL_GRAFIKY.md` §7–8.
+
+1. **Stage 1 — „foundry" (procedurální dlaždice a krajina).** Nyní hotová
+   Stage 0 (bezešvé dlaždice + měření + náhled). Stage 1 znamená:
+   - **Světová pole místo per-dlaždicové malby**: fBm value-noise počítaný
+     v souřadnicích světa → šev je nemožný a **perioda opakování zmizí**
+     (dnešní malovaná cesta se opakuje po 6 dlaždicích).
+   - **Toroidní razítkování** diskrétních prvků (strom, skála, rákosí): kreslit
+     i s posunem ±SIZE, pozice z hashe světových souřadnic → nic není uříznuté.
+   - **Přechody terénů jako spojitá světová vrstva** (břeh vody, okraj lesa,
+     hranice sněhu) — stejný princip, jakým už funguje `drawRoads`.
+   - **Rozestupy v paletě**: grass vs. hills i grass vs. road jsou od sebe jen
+     **22,1** (L2) — na 46 px se pletou. Posunout odstín/hodnotu.
+   - Nástroj: `node tools/foundry.js --terrain grass --seed 7 --wrap --out …`
+     (vygeneruje dlaždice i celou mapu 64×48), ověřovat `scripts/check-tiles.py`.
+2. **Volba vzhledu** — doporučení platí (**1 — Žoldnéřská kronika**: pergamenová
+   mapa + Battle Brothers postavy). Projeví se hlavně paletou a štětci, ne
+   přepisem pipeline. Volitelně i volba „kód: varianty náhodně vs. zrcadlení
+   podle parity" — čísla i vzhled jsou v `tools/tiles/preview.html`.
+3. **Sjednocení postav (koncept od uživatele — ČEKÁ NA REALIZACI).**
    Uživatel chce: **všichni na jednom základním modelu** + **ikona role (erb)**
-   + **na modelu jen zbroj/oblečení, žádná zbraň**. Proveditelné, doporučený
-   přístup níže:
+   + **na modelu jen zbroj/oblečení, žádná zbraň**. Doporučený přístup:
    - **Jeden základní sprite** (fixní póza, bez zbraně) — vygenerovat lokálně
-     s pevným seedem pro konzistenci.
+     s pevným seedem pro konzistenci, ořezat jako dosud (`process_units.py`).
    - **Erb/ikona role** kreslit **v kódu** (vektorová heraldika: štít, dělení,
      barvy frakce/role z `G.FACTIONS`/`G.ROLES`) — dokonalá konzistence, ladí
-     s procedurální estetikou hry. Nebo malá AI ikona přeložená přes postavu.
+     s procedurální estetikou hry.
    - **Výbava** = barevný tint základu (materiál zbroje) + malé přeložené odznaky
      (helm/truhla) — ne plné výměny spritů (AI neumí spolehlivě zarovnat vrstvy).
-   - Současný stav: 6 odlišných archetypů, každý s vlastní zbraní/postavou.
-2. **Styl grafiky** — viz `docs/STYL_GRAFIKY.md`; uživatel ještě nevybral.
-   Doporučeno: definovat styl projektu (`imagegen --set-style`) a pak generovat
-   ilustrace (titul + 7 příběhových scén). Skills: `imagegen` (generování,
-   styl na serveru `.style.txt`, `--size WxH --colors N` = pixel art) a `vision`
-   (čtení screenshotů pro vizuální ladění).
-3. **Drobné budoucí rozšíření**: vlastní sklad a obrana základny (karavany na
+   - Současný stav: 6 odlišných archetypů, každý s vlastní zbraní.
+4. **Drobné budoucí rozšíření**: vlastní sklad a obrana základny (karavany na
    základně už jezdí), dosah dílen jako kruh na mapě, posuvník výšky mapy.
 
 ---
@@ -245,16 +300,26 @@ node test/headless-smoke.js                                              # "VYSL
 
 ## 8. Git — jak je to teď
 
-- Poslední commit `a6b8fd4` (malované postavy + barevně sladěné dlaždice) —
-  viz `git log`. Pracovní strom čistý. Při push nezapomeň na
-  `-c http.sslBackend=openssl` (viz §2).
+- Poslední commit: **Stage 0 dlaždic** — bezešvá mapa (torusy + okno do textury),
+  měřicí a náhledové nástroje, odstraněná per-dlaždicová vignette. Viz `git log`.
+- **Pracovní strom NENÍ čistý** — běží v něm paralelní práce na **výbavě postav**
+  (`js/systems/misc.js`, `js/ui/{panels,trade,ui}.js`, `css/style.css`,
+  `README.md`, část `docs/HANDOFF.md`). Ta není moje; při commitu stage **jen
+  svoje soubory** (viz past č. 17).
+- Při push nezapomeň na `-c http.sslBackend=openssl` (viz §2).
 
 ---
 
 ## 9. Okamžité „další kroky" pro nový chat
 
-1. Zkontroluj `git status` / `git log` a ujisti se, že navazuješ na poslední stav.
-2. Svět (64×48), LOD, backlog, audit menu, **AI dlaždice i AI postavy** jsou
-   hotové — zbývá **sjednocení postav (nový koncept, §6 bod 1)**, styl grafiky
-   (čeká na rozhodnutí uživatele) a drobná budoucí rozšíření.
-3. Po každé fázi: tři kontroly + commit + push (viz §2).
+1. Zkontroluj `git status` / `git log` a ujisti se, že navazuješ na poslední stav
+   (a co je cizí rozdělaná práce — viz §8).
+2. **Hotové:** svět (64×48), LOD, backlog, audit menu, AI dlaždice (nyní
+   bezešvé a měřené), AI postavy.
+   **Další v řadě:** **Stage 1 „foundry"** (§6 bod 1) — světová pole, toroidní
+   razítkování, přechody terénů, rozestupy v paletě.
+   Pak **sjednocení postav** (§6 bod 3) a volba vzhledu (§6 bod 2).
+3. Než začneš měnit vzhled mapy, otevři `tools/tiles/preview.html` (náhled
+   z reálného kódu) a spusť `python scripts/check-tiles.py` — čísla jsou
+   v `docs/STYL_GRAFIKY.md` §8.
+4. Po každé fázi: pět kontrol + commit + push (viz §2).
