@@ -45,7 +45,10 @@
     if (!G.state) return 'code';
     if (!G.state.settings) G.state.settings = {};
     G.state.settings.tileStyle = (style === 'ai') ? 'ai' : 'code';
-    if (G.state.settings.tileStyle === 'ai' && G.loadAiTiles) G.loadAiTiles();
+    if (G.state.settings.tileStyle === 'ai') {
+      if (G.loadAiTiles) G.loadAiTiles();
+      if (G.loadAiUnits) G.loadAiUnits();
+    }
     return G.state.settings.tileStyle;
   };
 

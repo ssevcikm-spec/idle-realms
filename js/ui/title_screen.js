@@ -144,7 +144,7 @@
           <option value="deliver" ${G.autoQuestMode() === 'deliver' ? 'selected' : ''}>jen doručovací</option>
           <option value="all" ${G.autoQuestMode() === 'all' ? 'selected' : ''}>všechny</option>
         </select></label>` : ''}
-        ${opts.fromGame ? `<label class="title-toggle">🎨 Vzhled mapy: <select id="tile-toggle">
+        ${opts.fromGame ? `<label class="title-toggle">🎨 Vzhled (mapa a postavy): <select id="tile-toggle">
           <option value="code" ${(G.tileStyle && G.tileStyle() === 'code') ? 'selected' : ''}>kreslený (kód)</option>
           <option value="ai" ${(G.tileStyle && G.tileStyle() === 'ai') ? 'selected' : ''}>malovaný (AI dlaždice)</option>
         </select></label>` : ''}

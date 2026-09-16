@@ -416,7 +416,9 @@
       const sx = ox + u.pos.x*tilePx, sy = oy + u.pos.y*tilePx;
       if (mode !== 'detail') { drawUnitDot(u, sx, sy, tilePx, mode); continue; }
       if (u.resting) ctx.globalAlpha = 0.55;
-      G.drawFigure(ctx, u, sx, sy, figScale(tilePx));
+      const spr = (G.tileStyle && G.tileStyle() === 'ai' && G.aiUnitSprite) ? G.aiUnitSprite(u) : null;
+      if (spr) drawAiFigure(ctx, spr, u, sx, sy, tilePx);
+      else G.drawFigure(ctx, u, sx, sy, figScale(tilePx));
       ctx.globalAlpha = 1;
       const iconY = sy - tilePx*(0.62 + figureHeight);   // ikony nad hlavou
       if (u.merchantState && u.merchantState.active) drawFloatIcon(ctx, '🐎', sx + tilePx*0.30, iconY, tilePx*0.4);
@@ -543,6 +545,23 @@
     if (mode === 'overview' && role) {
       drawFloatIcon(ctx, role.icon, sx, sy - r - Math.max(6, tilePx*0.22), Math.max(10, tilePx*0.34));
     }
+  }
+
+  /** Postava v detailu jako AI sprite (průhledné PNG, ve stejném stylu jako dlaždice). */
+  function drawAiFigure(ctx, spr, u, sx, sy, tilePx) {
+    const h = tilePx * figureHeight * 1.25;   // sprite zabere o trochu víc než dlaždici
+    const w = h * (spr.width / spr.height);
+    const bob = u._bob || 0;
+    const face = u.facing || 1;
+    ctx.save();
+    if (face < 0) {
+      ctx.translate(sx, sy);
+      ctx.scale(-1, 1);
+      ctx.drawImage(spr, -w / 2, -h + bob, w, h);
+    } else {
+      ctx.drawImage(spr, sx - w / 2, sy - h + bob, w, h);
+    }
+    ctx.restore();
   }
 
   /* ---------- cesty ---------- */

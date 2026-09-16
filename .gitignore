@@ -30,3 +30,7 @@ coverage/
 
 # === AI náhledy stylů (dočasné, nejsou součástí hry) ===
 assets/preview/
+
+# === Surové AI výstupy (768px rendry, mezistupeň generování) ===
+assets/tiles_local/
+assets/units_gen/
