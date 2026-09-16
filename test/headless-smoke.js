@@ -299,6 +299,59 @@ check('zakladna: nestavi se sama, ale po volbe hrace', () => {
   assert(G.baseLocationText().length > 0, 'popis polohy je prazdny');
   assert(G.panelBase().indexOf('data-action="center-base"') !== -1, 'panel neumi zobrazit zakladnu na mape');
 });
+check('zakladna: pozadavky a strop druhu budov', () => {
+  G.state.base = G.state.base || {};
+  G.state.base.unlocked = true;
+  G.state.base.buildings = {};
+  // požadavky na jiné budovy
+  const gs = G.canBuildBase('gem_smithy');
+  assert(!gs.ok && gs.reason.indexOf('Vyžaduje') !== -1, 'gem_smithy nemel mit pozadavek: ' + gs.reason);
+  const im = G.canBuildBase('iron_mine');
+  assert(!im.ok && im.reason.indexOf('Vyžaduje') !== -1, 'iron_mine nemel mit pozadavek: ' + im.reason);
+  const sq = G.canBuildBase('stone_quarry');
+  assert(sq.reason.indexOf('Vyžaduje') === -1, 'stone_quarry nemel byt bez pozadavku: ' + sq.reason);
+  // strop počtu druhů roste s renomé
+  G.state.resources.renown = 0;
+  assert(G.baseBuildingSlots() === 6, 'slots pri 0 renome: ' + G.baseBuildingSlots());
+  G.state.resources.renown = 40;
+  assert(G.baseBuildingSlots() === 8, 'slots pri 40 renome: ' + G.baseBuildingSlots());
+  G.state.resources.renown = 500;
+  assert(G.baseBuildingSlots() === 12, 'slots pri 500 renome: ' + G.baseBuildingSlots());
+  // naplněná základna blokuje nový druh, ale ne upgrade stávajícího
+  G.state.resources.renown = 0;   // 6 míst
+  G.state.base.buildings = {};
+  const free = Object.keys(G.BASE_BUILDINGS).filter(bid => !G.BASE_BUILDINGS[bid].requires);
+  for (const bid of free.slice(0, 6)) G.state.base.buildings[bid] = 1;
+  const newType = free.find(bid => !G.state.base.buildings[bid]);
+  assert(!!newType, 'chybi nepostaveny druh pro test stropu');
+  const blocked = G.canBuildBase(newType);
+  assert(!blocked.ok && blocked.reason.indexOf('plná') !== -1, 'novy druh mel byt blokovany stroppem: ' + blocked.reason);
+  const up = G.canBuildBase(free[0]);
+  assert(up.reason.indexOf('plná') === -1, 'upgrade stavajiciho druhu nemel byt blokovany: ' + up.reason);
+  G.state.resources.renown = 30;
+});
+check('potvrzeni drahe stavby', () => {
+  assert(G.EXPENSIVE_BUILD_GOLD === 1000, 'prah drahe stavby neni 1000');
+  const txt = G.buildConfirmText('base', 'legendary_forge', 1, { gold:1200, materials:[{material:'crystal', qty:15}] });
+  assert(txt.indexOf('1200') !== -1, 'text potvrzeni neobsahuje cenu');
+  assert(txt.indexOf('Legendární výheň') !== -1, 'text potvrzeni neobsahuje nazev');
+  assert(txt.indexOf('Krystal') !== -1, 'text potvrzeni neobsahuje material');
+  assert(txt.indexOf('45') !== -1, 'text potvrzeni neobsahuje odhad prace');
+});
+check('karavany: základna jako cíl', () => {
+  G.state.base = G.state.base || {};
+  G.state.base.unlocked = true;
+  assert(!!G.caravanSitePos('base'), 'caravanSitePos nezna základnu');
+  G.state.caravans = [];
+  const c = G.spawnCaravanNow('svitavy', 'base', 'trade');
+  assert(!!c, 'karavana do základny se nespawnuje');
+  c.cargo = [{ material:'wood', qty:5 }];
+  c.progress = 0.999;
+  const before = G.matCount('wood');
+  G.tickCaravans(0.1);
+  assert(!G.state.caravans.some(x => x.id === c.id), 'karavana na základně nedorazila');
+  assert(G.matCount('wood') === before + 5, 'náklad nepřistál hráči (' + before + ' -> ' + G.matCount('wood') + ')');
+});
 check('efekty budov se projevuji', () => {
   const sid = G.WORLD.settlements[0].id;
   const s = G.WORLD.settlementById[sid];

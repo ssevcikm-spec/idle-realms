@@ -68,6 +68,9 @@
       html += `</div>`;
     }
     html += `<div class="panel-title">Budovy</div>`;
+    if (G.baseBuildingSlots && G.baseBuildingTypes) {
+      html += `<div class="hint" style="text-align:left">Druhy budov: <b>${G.baseBuildingTypes()}/${G.baseBuildingSlots()}</b> — víc místa získáte za renomé.</div>`;
+    }
     const st = G.constructionStatus ? G.constructionStatus('base') : null;
     if (st) {
       html += `<div class="warn-box">🏗️ Staví se <b>${G.esc(G.buildingLabel(st.job))}</b>`;

@@ -105,11 +105,23 @@
   G.setCaravanSeq = function (v) { carSeq = v; };
   let spawnTimer = 0;
 
+  /** Poloha koncového bodu karavany: sídlo, nebo základna ('base'). */
+  G.caravanSitePos = function (id) {
+    if (id === 'base') {
+      if (!G.state.base || !G.state.base.unlocked) return null;
+      const p = G.basePos ? G.basePos() : G.BASE_POS;
+      return { x: p.x + 0.5, y: p.y + 0.5, isBase: true };
+    }
+    const s = G.WORLD.settlementById[id];
+    if (!s) return null;
+    return { x: s.x + 0.5, y: s.y + 0.5, isBase: false, settlement: s };
+  };
+
   G.tickCaravans = function (dt) {
     if (!G.state.caravans) G.state.caravans = [];
     for (const c of G.state.caravans.slice()) {
-      const from = G.WORLD.settlementById[c.fromId];
-      const to = G.WORLD.settlementById[c.toId];
+      const from = G.caravanSitePos(c.fromId);
+      const to = G.caravanSitePos(c.toId);
       if (!from || !to) { removeCaravan(c.id); continue; }
       const dist = Math.hypot(to.x - from.x, to.y - from.y) || 1;
       const type = G.CARAVAN_TYPES[c.type];
@@ -127,12 +139,21 @@
   };
 
   function trySpawnCaravan() {
-    if (!G.ROADS || !G.ROADS.length) return;
-    const [aId, bId] = G.ROADS[G.randInt(0, G.ROADS.length - 1)];
-    const a = G.WORLD.settlementById[aId], b = G.WORLD.settlementById[bId];
+    // cesty mezi sídly + (když stojí základna) cesta k nejbližšímu sídlu
+    const routes = [];
+    if (G.ROADS) for (const r of G.ROADS) routes.push(r.slice());
+    if (G.state.base && G.state.base.unlocked && G.baseNearestSettlement) {
+      const near = G.baseNearestSettlement();
+      if (near && near.dist < 30) { routes.push(['base', near.settlement.id]); routes.push([near.settlement.id, 'base']); }
+    }
+    if (!routes.length) return;
+    const [aId, bId] = routes[G.randInt(0, routes.length - 1)];
+    const a = G.caravanSitePos(aId), b = G.caravanSitePos(bId);
     if (!a || !b) return;
     let typeId = 'trade';
-    if (a.size === 'city' || b.size === 'city') typeId = 'royal';
+    const aS = aId !== 'base' ? G.WORLD.settlementById[aId] : null;
+    const bS = bId !== 'base' ? G.WORLD.settlementById[bId] : null;
+    if ((aS && aS.size === 'city') || (bS && bS.size === 'city')) typeId = 'royal';
     else if (G.rand() < 0.3) typeId = 'supply';
     const type = G.CARAVAN_TYPES[typeId];
     const cargo = [];
@@ -148,6 +169,17 @@
   }
 
   function arriveCaravan(c) {
+    // základna: náklad putuje hráči
+    if (c.toId === 'base') {
+      let txt = '';
+      for (const item of c.cargo) {
+        G.matAdd(item.material, item.qty, 'common');
+        txt += `${G.MATERIALS[item.material].icon} ${item.qty}× ${G.MATERIALS[item.material].name}, `;
+      }
+      G.log(`🚚 Karavana dorazila na základnu: ${txt.replace(/, $/, '')}.`, 'economy');
+      removeCaravan(c.id);
+      return;
+    }
     const st = G.state.economy[c.toId];
     if (st) for (const item of c.cargo) st.stock[item.material] = (st.stock[item.material] || 0) + item.qty;
     if (G.chance(0.35)) {
@@ -166,7 +198,7 @@
   G.removeCaravan = removeCaravan;
   G.spawnCaravanNow = function (fromId, toId, typeId) {
     if (!fromId || !toId) return null;
-    const a = G.WORLD.settlementById[fromId], b = G.WORLD.settlementById[toId];
+    const a = G.caravanSitePos(fromId), b = G.caravanSitePos(toId);
     if (!a || !b) return null;
     const type = G.CARAVAN_TYPES[typeId || 'trade'];
     const cargo = [];

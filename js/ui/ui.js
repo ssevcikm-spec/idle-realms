@@ -855,11 +855,25 @@
   }
   function doTradeTab(tab) { if (G.setTradeTab) G.setTradeTab(tab); render(); }
   function doBuild(settlementId, buildingId) {
+    const check = G.canBuild(settlementId, buildingId);
+    if (!check.ok) { G.log('⚠️ ' + check.reason, 'info'); render(); return; }
+    const lvl = G.buildingLevel(settlementId, buildingId) + 1;
+    if (check.cost.gold >= (G.EXPENSIVE_BUILD_GOLD || 1000)) {
+      const txt = G.buildConfirmText ? G.buildConfirmText('settlement', buildingId, lvl, check.cost) : `Postavit ${buildingId} za ${check.cost.gold} zlata?`;
+      if (!confirm(txt)) return;
+    }
     const res = G.build(settlementId, buildingId);
     if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
     render();
   }
   function doBuildBase(buildingId) {
+    const check = G.canBuildBase(buildingId);
+    if (!check.ok) { G.log('⚠️ ' + check.reason, 'info'); render(); return; }
+    const lvl = G.baseBuildingLevel(buildingId) + 1;
+    if (check.cost.gold >= (G.EXPENSIVE_BUILD_GOLD || 1000)) {
+      const txt = G.buildConfirmText ? G.buildConfirmText('base', buildingId, lvl, check.cost) : `Postavit ${buildingId} za ${check.cost.gold} zlata?`;
+      if (!confirm(txt)) return;
+    }
     const res = G.buildBase(buildingId);
     if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
     render();

@@ -31,6 +31,19 @@
     return Math.round(base * level * level);
   };
 
+  /** Od jaké ceny (zlato) se u stavby ptáme na potvrzení. */
+  G.EXPENSIVE_BUILD_GOLD = 1000;
+
+  /** Text potvrzení drahé stavby: cena + materiály + odhad práce. */
+  G.buildConfirmText = function (kind, buildingId, level, cost) {
+    const def = kind === 'base' ? G.BASE_BUILDINGS[buildingId] : G.BUILDINGS[buildingId];
+    const name = def ? `${def.icon} ${def.name}` : buildingId;
+    const mats = (cost.materials || []).map(m => `${m.qty}× ${G.MATERIALS[m.material].name}`).join(', ');
+    const work = G.constructionWorkRequired(level, kind);
+    const eta = work > 0 && G.formatSec ? ` (≈ ${G.formatSec(work)} s jedním stavitelem)` : '';
+    return `${name} — úroveň ${level}\n\nCena: ${cost.gold} 🪙${mats ? ' + ' + mats : ''}\nStavba: ${work} práce${eta}\n\nPostavit?`;
+  };
+
   G.constructionList = function () { return G.state.construction || []; };
 
   /** Rozestavěná stavba na daném místě (sídlo id, nebo 'base'). */

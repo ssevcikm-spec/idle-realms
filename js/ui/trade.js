@@ -240,8 +240,11 @@
   function renderQuests(settlementId) {
     G.ensureQuests(settlementId);
     const list = (G.state.quests[settlementId] || []);
-    const available = list.filter(q => q.status === 'available');
-    const active = list.filter(q => q.status === 'active');
+    // Vypsané: nejlíp placené napřed. Přijaté: nejnaléhavější (nejkratší čas) napřed.
+    const available = list.filter(q => q.status === 'available')
+      .sort((a, b) => (b.reward.gold - a.reward.gold) || ((b.reward.renown || 0) - (a.reward.renown || 0)));
+    const active = list.filter(q => q.status === 'active')
+      .sort((a, b) => G.questTimeLeft(a) - G.questTimeLeft(b));
     let html = `<div class="hint" style="text-align:left">
       Aktivní: <b style="color:#d8b45a">${G.activeQuestCount()}/${G.MAX_ACTIVE_QUESTS}</b>
     </div>`;

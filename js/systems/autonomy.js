@@ -203,6 +203,18 @@
     if (!G.state.base || !G.state.base.buildings) return 0;
     return G.state.base.buildings[buildingId] || 0;
   };
+  /** Kolik druhů budov už na základně stojí (úroveň ≥ 1). */
+  G.baseBuildingTypes = function () {
+    if (!G.state.base || !G.state.base.buildings) return 0;
+    let n = 0;
+    for (const bid in G.state.base.buildings) if (G.state.base.buildings[bid] > 0) n++;
+    return n;
+  };
+  /** Kolik druhů budov základna unese (roste s renomé, strop 12). */
+  G.baseBuildingSlots = function () {
+    const renown = (G.state && G.state.resources && G.state.resources.renown) || 0;
+    return Math.min(12, 6 + Math.floor(renown / 20));
+  };
   G.canBuildBase = function (buildingId) {
     const def = G.BASE_BUILDINGS[buildingId];
     if (!def) return { ok:false, reason:'Neznámá budova.' };
@@ -210,6 +222,19 @@
     if (busy) return { ok:false, reason:`Nejdřív dokonči stavbu: ${G.buildingLabel(busy)}.` };
     const lvl = G.baseBuildingLevel(buildingId);
     if (lvl >= def.maxLevel) return { ok:false, reason:'Maximální úroveň.' };
+    // požadavek na jinou budovu (odemykání)
+    if (def.requires) {
+      const have = G.baseBuildingLevel(def.requires.buildingId);
+      if (have < def.requires.level) {
+        const reqDef = G.BASE_BUILDINGS[def.requires.buildingId];
+        return { ok:false, reason:`Vyžaduje ${reqDef ? reqDef.name : def.requires.buildingId} na úrovni ${def.requires.level} (máš ${have}).` };
+      }
+    }
+    // strop počtu druhů budov (jen při stavbě nového druhu)
+    if (lvl === 0) {
+      const slots = G.baseBuildingSlots(), types = G.baseBuildingTypes();
+      if (types >= slots) return { ok:false, reason:`Základna je plná — máš ${types}/${slots} druhů budov (zvyš renomé pro víc místa, nebo zlepši stávající).` };
+    }
     const cost = def.cost(lvl + 1);
     if (G.state.resources.gold < cost.gold) return { ok:false, reason:`Potřebuješ ${cost.gold} zlata.` };
     for (const m of cost.materials) {
