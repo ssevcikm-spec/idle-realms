@@ -34,3 +34,7 @@ assets/preview/
 # === Surové AI výstupy (768px rendry, mezistupeň generování) ===
 assets/tiles_local/
 assets/units_gen/
+
+# === Python cache (skripty v scripts/ si dělají __pycache__) ===
+__pycache__/
+*.pyc
