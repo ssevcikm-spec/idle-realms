@@ -212,9 +212,146 @@
     return cache[key];
   };
 
+  /* ================= sjednocený model postavy =================
+     Koncept od uživatele: **všichni na jednom základním modelu** (stejná
+     silueta, žádná zbraň), roli nese **erb kreslený v kódu** a výbavu jen
+     **tón zbroje + odznak**. Důvod je čitelnost: postava je na mapě vysoká
+     ~26 px, takže šest různých archetypů se zbraněmi se stejně nerozezná —
+     zato barva erbu a materiál zbroje ano. Zároveň tím končí stav, kdy měl
+     každý „svůj“ obrázek a styl se rozpadal.
+
+     Plán kresby (`G.figurePlan`) je čistá funkce bez canvasu, takže se dá
+     ověřit v Node (`test/figures.js`). */
+
+  /** Vzhled figurek: 'unified' (výchozí, nový koncept) nebo 'classic' (zbraně). */
+  G.figureStyle = function () {
+    const s = (G.state && G.state.settings) || {};
+    return s.figureStyle === 'classic' ? 'classic' : 'unified';
+  };
+  G.setFigureStyle = function (v) {
+    if (!G.state) return 'unified';
+    if (!G.state.settings) G.state.settings = {};
+    G.state.settings.figureStyle = (v === 'classic') ? 'classic' : 'unified';
+    if (G.drawWorldFrame) G.drawWorldFrame();
+    return G.state.settings.figureStyle;
+  };
+
+  /** Materiál zbroje podle profese (a přilby) — dává tón trupu. */
+  const ARMOR_TIER = {
+    woodcutter:'leather', miner:'leather', herbalist:'cloth', hunter:'leather',
+    smith:'leather', alchemist:'cloth', cook:'cloth', scout:'leather',
+    merchant:'cloth', adventurer:'mail'
+  };
+  const ARMOR_COLOR = { cloth:null, leather:'#6b4a2f', mail:'#7c8288', plate:'#9aa0a6' };
+  const ARMOR_ORDER = ['cloth', 'leather', 'mail', 'plate'];
+
+  function armorOf(u) {
+    const prof = (G.professionOf && G.professionOf(u)) || null;
+    let tier = ARMOR_TIER[(prof && prof.id) || ''] || 'cloth';
+    if (u.gear && u.gear.helm) {
+      const i = ARMOR_ORDER.indexOf(tier);
+      if (i >= 0 && i < ARMOR_ORDER.length - 1) tier = ARMOR_ORDER[i + 1];
+    }
+    return tier;
+  }
+
+  /** Heraldika role: dělení štítu + znamení. Malé číslo drží konzistenci. */
+  const ROLE_HERALDRY = {
+    leader:  { division:1, charge:2 },   // svisle dělený + břevno
+    quarter: { division:2, charge:1 },   // vodorovně + koule
+    medic:   { division:0, charge:3 },   // plný + kříž
+    scout:   { division:3, charge:1 },   // krokev + koule
+    fighter: { division:1, charge:3 },   // svisle + kříž
+    trader:  { division:2, charge:2 },   // vodorovně + břevno
+    none:    { division:0, charge:0 }    // bez role: prostý štít (nebo žádný)
+  };
+
+  /**
+   * Čistý plán kresby postavy. Vrací jen data (žádný canvas, žádné řetězce
+   * navíc), takže se dá testovat a je vidět, že silueta je pro všechny stejná.
+   */
+  G.figurePlan = function (u) {
+    const role = (u.role && G.ROLES) ? G.ROLES[u.role] : null;
+    const prof = (G.professionOf && G.professionOf(u)) || null;
+    const armor = armorOf(u);
+    const her = ROLE_HERALDRY[(role && role.id) || 'none'] || ROLE_HERALDRY.none;
+    const herColor = (role && role.color) || (prof && prof.color) || null;
+    return {
+      height: 24.5,                       // jeden základní model pro všechny
+      cloth: u.color || '#7a5f3a',
+      armor: armor,
+      armorColor: armor === 'cloth' ? null : ARMOR_COLOR[armor],
+      heraldry: {
+        show: !!herColor,
+        color: herColor || '#cfc3a8',
+        division: her.division,
+        charge: her.charge
+      },
+      helm: !!(u.gear && u.gear.helm),
+      // zbraně jen v klasickém vzhledu — nový koncept je „na modelu jen zbroj"
+      weapon: G.figureStyle() === 'classic' ? ((u.gear && u.gear.weapon) || 'axe') : null
+    };
+  };
+
+  /** Erb: štítek s dělením a znamením, kreslený vektorově (žádný obrázek). */
+  function drawHeraldry(ctx, cx, cy, r, her) {
+    if (!her.show) return;
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy - r);
+    ctx.lineTo(cx + r, cy - r);
+    ctx.lineTo(cx + r, cy + r*0.25);
+    ctx.quadraticCurveTo(cx, cy + r*1.35, cx - r, cy + r*0.25);
+    ctx.closePath();
+    ctx.fillStyle = her.color;
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    const light = shade(her.color, 0.35);
+    const dark = '#241f18';
+    if (her.division === 1) { ctx.fillStyle = light; ctx.fillRect(cx, cy - r, r*1.2, r*2.6); }
+    else if (her.division === 2) { ctx.fillStyle = light; ctx.fillRect(cx - r, cy - r, r*2.4, r*0.9); }
+    else if (her.division === 3) {
+      ctx.fillStyle = light;
+      ctx.beginPath();
+      ctx.moveTo(cx - r, cy + r*0.1); ctx.lineTo(cx, cy - r*0.55);
+      ctx.lineTo(cx + r, cy + r*0.1); ctx.lineTo(cx + r, cy + r*0.6);
+      ctx.lineTo(cx, cy - r*0.05); ctx.lineTo(cx - r, cy + r*0.6);
+      ctx.closePath(); ctx.fill();
+    }
+    if (her.charge === 1) {
+      ctx.fillStyle = dark;
+      ctx.beginPath(); ctx.arc(cx, cy - r*0.05, r*0.30, 0, Math.PI*2); ctx.fill();
+    } else if (her.charge === 2) {
+      ctx.fillStyle = dark;
+      ctx.fillRect(cx - r*0.8, cy - r*0.15, r*1.6, r*0.32);
+    } else if (her.charge === 3) {
+      ctx.fillStyle = dark;
+      ctx.fillRect(cx - r*0.14, cy - r*0.72, r*0.28, r*1.5);
+      ctx.fillRect(cx - r*0.62, cy - r*0.24, r*1.24, r*0.28);
+    }
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(18,15,11,0.85)';
+    ctx.lineWidth = Math.max(0.7, r*0.26);
+    ctx.stroke();
+  }
+
+  /**
+   * Erb role pro postavu na dané místo. Kreslí se i **přes malované (AI)
+   * sprity** — role tak zůstává čitelná v obou vzhledech, protože sprite sám
+   * o sobě roli neříká. `scale` je stejné měřítko jako u `G.drawFigure`.
+   */
+  G.drawFigureHeraldry = function (ctx, u, x, y, scale, face) {
+    const plan = G.figurePlan(u);
+    const s = scale, f = face || u.facing || 1;
+    const bob = u._bob || 0;
+    drawHeraldry(ctx, x - f*5.4*s, y - 15*s + bob, 4.1*s, plan.heraldry);
+    return plan;
+  };
+
   G.drawFigure = function (ctx, u, x, y, scale) {
     const s = scale;
     const bob = u._bob || 0, walk = u._walk || 0, face = u.facing || 1;
+    const plan = G.figurePlan(u);
     ctx.globalAlpha = 0.32; ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.ellipse(x, y + 1.5*s, 6.5*s, 2.4*s, 0, 0, Math.PI*2); ctx.fill();
     ctx.globalAlpha = 1;
@@ -224,16 +361,25 @@
     ctx.moveTo(x - 1.6*s, y - 6*s); ctx.lineTo(x - 1.6*s + legSwing, y);
     ctx.moveTo(x + 1.6*s, y - 6*s); ctx.lineTo(x + 1.6*s - legSwing, y);
     ctx.stroke();
-    ctx.fillStyle = shade(u.color, -0.35);
+    // trup: oblečení + tón materiálu zbroje (kůže/kroužky/plát)
+    const cloth = plan.cloth;
+    ctx.fillStyle = shade(cloth, -0.35);
     ctx.beginPath();
     ctx.moveTo(x - 4.4*s, y - 6*s + bob); ctx.lineTo(x + 4.4*s, y - 6*s + bob);
     ctx.lineTo(x + 3.4*s, y - 13*s + bob); ctx.lineTo(x - 3.4*s, y - 13*s + bob);
     ctx.closePath(); ctx.fill();
-    ctx.fillStyle = u.color;
+    ctx.fillStyle = plan.armorColor ? mixHex(cloth, plan.armorColor, 0.45) : cloth;
     ctx.beginPath();
     ctx.moveTo(x - 4.2*s, y - 12*s + bob); ctx.lineTo(x + 4.2*s, y - 12*s + bob);
     ctx.lineTo(x + 3.6*s, y - 20*s + bob); ctx.lineTo(x - 3.6*s, y - 20*s + bob);
     ctx.closePath(); ctx.fill();
+    // odznak zbroje: kovový pás přes hruď (jen když není jen látka)
+    if (plan.armorColor) {
+      ctx.fillStyle = plan.armorColor;
+      ctx.globalAlpha = 0.75;
+      ctx.fillRect(x - 3.6*s, y - 17.4*s + bob, 7.2*s, 1.5*s);
+      ctx.globalAlpha = 1;
+    }
     // jemný obrys — figura se tím oddělí od terénu i ve větším měřítku
     ctx.strokeStyle = 'rgba(18,15,11,0.85)';
     ctx.lineJoin = 'round';
@@ -245,15 +391,13 @@
     ctx.beginPath(); ctx.arc(x, y - 23.5*s + bob, 3.5*s, 0, Math.PI*2); ctx.stroke();
     ctx.fillStyle = '#3a2c1c';
     ctx.fillRect(x - 4.2*s, y - 13.2*s + bob, 8.4*s, 1.8*s);
-    drawWeapon(ctx, u, x, y, s, face, bob);
-    if (u.gear && u.gear.shield) {
-      ctx.fillStyle = '#5d4a34';
-      ctx.beginPath(); ctx.ellipse(x - face*5.6*s, y - 15*s + bob, 4*s, 5*s, 0, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#8a7550'; ctx.lineWidth = 1*s; ctx.stroke();
-    }
+    // ERB role (vždy na levé paži) — nese roli místo zbraně. Jen ve
+    // sjednoceném vzhledu; klasický je původní figura se zbraní.
+    if (plan.weapon === null) G.drawFigureHeraldry(ctx, u, x, y, s, face);
+    if (plan.weapon) drawWeapon(ctx, u, x, y, s, face, bob, plan.weapon);
     ctx.fillStyle = '#c9a077';
     ctx.beginPath(); ctx.arc(x, y - 23.5*s + bob, 3.5*s, 0, Math.PI*2); ctx.fill();
-    if (u.gear && u.gear.helm) {
+    if (plan.helm) {
       ctx.fillStyle = '#6e6a62';
       ctx.beginPath(); ctx.arc(x, y - 24*s + bob, 3.8*s, Math.PI, Math.PI*2); ctx.fill();
       ctx.fillRect(x - 3.8*s, y - 24.3*s + bob, 7.6*s, 1.6*s);
@@ -262,8 +406,8 @@
       ctx.beginPath(); ctx.arc(x, y - 24.5*s + bob, 3.5*s, Math.PI, Math.PI*2); ctx.fill();
     }
   };
-  function drawWeapon(ctx, u, x, y, s, face, bob) {
-    const w = (u.gear && u.gear.weapon) || 'axe';
+  function drawWeapon(ctx, u, x, y, s, face, bob, weapon) {
+    const w = weapon || (u.gear && u.gear.weapon) || 'axe';
     const hx = x + face*4.6*s, hy = y - 15*s + bob;
     ctx.strokeStyle = '#8a7550'; ctx.lineWidth = 1.4*s; ctx.lineCap = 'round';
     if (w === 'axe') {

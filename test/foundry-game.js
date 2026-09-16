@@ -210,6 +210,39 @@ check('sprite se pouzije jen kdyz je zapnuty malovany vzhled', () => {
   G.setUnitStyle('ai');
 });
 
+check('erb role se kresli i na malovane postave', () => {
+  const u = G.state.units[0];
+  // předchozí test odjel kamerou pryč — vrať ji na postavu, ať se vůbec kreslí
+  G.state.camera.x = u.pos.x;
+  G.state.camera.y = u.pos.y;
+  G.state.camera.zoom = 1;
+  u.role = 'fighter';
+  u.gear = u.gear || {};
+  const arch = G.aiUnitArchetype(u);
+  G.AI_UNITS.sprites[arch] = { width: 96, height: 96 };  // falešný sprite
+  G.setUnitStyle('ai');
+  G.setFigureStyle('unified');
+  resetCounts();
+  G.drawWorldFrame();
+  // `clip` používá v celém kódu jen heraldika (drawHeraldry) — je to tedy
+  // jednoznačný důkaz, že se erb opravdu kreslí (barvy se bohužel kryjí
+  // s barvami frakcí a reputace).
+  const unifiedClips = counts.clip || 0;
+  assert(unifiedClips >= 1, 'na malované postavě chybí erb role (žádná heraldika)');
+
+  // v klasickém vzhledu se erb nekreslí (původní figura se zbraní)
+  G.setFigureStyle('classic');
+  resetCounts();
+  G.drawWorldFrame();
+  assert((counts.clip || 0) === 0,
+    'klasický vzhled nemá kreslit erb role (clip: ' + (counts.clip || 0) + ')');
+
+  delete G.AI_UNITS.sprites[arch];
+  delete u.role;
+  G.setFigureStyle('unified');
+  G.setUnitStyle('code');
+});
+
 check('vsechny ctyri kombinace vzhledu se vykresli', () => {
   for (const tile of ['code', 'ai', 'foundry']) {
     for (const unit of ['code', 'ai']) {

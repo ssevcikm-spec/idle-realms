@@ -322,6 +322,10 @@
         }
       }
       if (!target) {
+        // Nečinný člen skupiny se zdržuje u své družiny (nemá smysl být rozesetí po mapě)
+        target = (G.groupCohesionTarget ? G.groupCohesionTarget(u) : null);
+      }
+      if (!target) {
         u._working = false;
         u._walk = (u._walk || 0) + dt * 1.4;
         u._bob = Math.sin(u._walk) * 0.25;
@@ -589,6 +593,12 @@
       ctx.drawImage(spr, sx - w / 2, sy - h + bob, w, h);
     }
     ctx.restore();
+    // Role se čte z erbu i na malovaném spritu — jeden jazyk pro oba vzhledy
+    // (sprite sám roli neříká a v klasickém vzhledu se erb nekreslí).
+    if (G.drawFigureHeraldry && G.figureStyle() === 'unified') {
+      const s = figScale(tilePx) * 1.15;      // trochu větší, ať sedí na sprite
+      G.drawFigureHeraldry(ctx, u, sx, sy + h * 0.12, s, face);
+    }
   }
 
   /* ---------- cesty ---------- */

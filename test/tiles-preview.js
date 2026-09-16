@@ -89,6 +89,9 @@ process.on('uncaughtException', (e) => { runtimeErrors.push(e && e.message || St
 // stránka načítá v tomto pořadí: window.Game, art.js, tiles_ai.js, inline skript
 try {
   vm.runInThisContext(blocks[0], { filename: 'preview-inline-1.js' });
+  for (const f of ['js/data/character.js', 'js/systems/groups.js']) {
+    vm.runInThisContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), { filename: f });
+  }
   vm.runInThisContext(fs.readFileSync(path.join(ROOT, 'js/render/art.js'), 'utf8'),
     { filename: 'art.js' });
   vm.runInThisContext(fs.readFileSync(path.join(ROOT, 'js/render/tiles_ai.js'), 'utf8'),
@@ -116,11 +119,16 @@ check('postavily se vsechny panely', () => {
   const sheet = byId['sheet'] ? byId['sheet'].children.length : 0;
   const foundry = byId['foundry'] ? byId['foundry'].children.length : 0;
   const palette = byId['palette'] ? byId['palette'].children.length : 0;
+  const figures = byId['figures'] ? byId['figures'].children.length : 0;
   assert(seams === 5, 'panelu svy: ' + seams + ' (ceka se 5)');
   assert(mosaics === 4, 'panelu mozaiky: ' + mosaics + ' (ceka se 4 bez prolnuti)');
   assert(sheet === 30, 'kontaktni list: ' + sheet + ' (ceka se 30 = 10 terenu x 3 velikosti)');
   assert(foundry === 3, 'panelu foundry: ' + foundry + ' (ceka se 3)');
   assert(palette === 10, 'swatchu palety: ' + palette + ' (ceka se 10 terenu)');
+  // počet panelů postav se odvozuje z tabulky rolí (ta se může rozrůst)
+  const roleCount = Object.keys(global.window.Game.ROLES || {}).length;
+  assert(figures === 12 + roleCount,
+    'panelu postav: ' + figures + ' (ceka se ' + (12 + roleCount) + ' = 6 pripadu x 2 vzhledy + ' + roleCount + ' roli)');
 });
 
 check('spocitala se diagnostika', () => {

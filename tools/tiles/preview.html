@@ -87,6 +87,17 @@
 </p>
 <div class="grid" id="foundry"></div>
 
+<h2>Postavy — sjednocený model</h2>
+<p class="note">
+  Koncept: <b>všichni na jednom základním modelu</b> (stejná silueta), roli nese
+  <b>erb kreslený v kódu</b> a na modelu je jen zbroj/oblečení — <b>žádná
+  zbraň</b>. Důvod je čitelnost: postava je na mapě vysoká ~26 px, kde se šest
+  archetypů se zbraněmi stejně nerozezná, zato barva erbu a materiál zbroje ano.
+  Nahoře sjednocené (nové), dole klasické (původní). Přepínač ve hře: debug
+  panel <b>D</b> → „figurky".
+</p>
+<div class="grid" id="figures"></div>
+
 <h2>Kontaktní list terénů</h2>
 <div class="list" id="sheet"></div>
 
@@ -104,6 +115,8 @@
 <pre id="diag">počítám…</pre>
 
 <script>window.Game = { AI_TILE_DIR: '../../assets/tiles/' };</script>
+<script src="../../js/data/character.js"></script>
+<script src="../../js/systems/groups.js"></script>
 <script src="../../js/render/art.js"></script>
 <script src="../../js/render/tiles_ai.js"></script>
 <script>
@@ -262,6 +275,53 @@
     }
   }
 
+  /**
+   * Postavy: pro každý případ jedna řada — sjednocený a klasický model vedle
+   * sebe, ve velikosti, ve které je vidíš ve hře (a zvětšené, ať je vidět erb).
+   */
+  function drawFigurePanel(box, u, title, scale) {
+    const fig = document.createElement('figure');
+    const c = document.createElement('canvas');
+    c.width = Math.round(22 * scale);
+    c.height = Math.round(28 * scale);
+    const ctx = c.getContext('2d');
+    const unit = Object.assign({ facing:1, _bob:0, _walk:0, color:'#7a5f3a' }, u);
+    G.drawFigure(ctx, unit, c.width / 2, c.height - 2, scale);
+    fig.appendChild(c);
+    const cap = document.createElement('figcaption');
+    cap.innerHTML = '<b>' + title + '</b><br>' + (G.figureStyle() === 'unified' ? 'sjednocené' : 'klasické') +
+      ' · ' + Math.round(24.5 * scale) + ' px';
+    fig.appendChild(cap);
+    box.appendChild(fig);
+    return fig;
+  }
+
+  function renderFigures() {
+    const box = document.getElementById('figures');
+    if (!box) return;
+    box.innerHTML = '';
+    const cases = [
+      { title:'dřevorubec', u:{ profession:'woodcutter', color:'#8c4a3a' } },
+      { title:'kovář', u:{ profession:'smith', color:'#8fbf7a' } },
+      { title:'kupec', u:{ profession:'merchant', color:'#4a5f8c' } },
+      { title:'dobrodruh + přilba', u:{ profession:'adventurer', color:'#6b4a7a', gear:{ helm:true, weapon:'axe' } } },
+      { title:'vůdce (role)', u:{ profession:'smith', role:'leader', color:'#7a5f3a', gear:{ weapon:'sword' } } },
+      { title:'ranhojič (role)', u:{ profession:'herbalist', role:'medic', color:'#3f6b6b' } }
+    ];
+    // nahoře sjednocené (nové), dole klasické (původní)
+    for (const style of ['unified', 'classic']) {
+      G.setFigureStyle(style);
+      for (const c of cases) drawFigurePanel(box, c.u, c.title, 2.6);
+    }
+    // heraldika všech rolí zvětšená (ať je vidět dělení a znamení)
+    G.setFigureStyle('unified');
+    for (const id of Object.keys(G.ROLES || {})) {
+      const role = G.ROLES[id];
+      drawFigurePanel(box, { profession:'smith', role:id, color:'#5a4a8c' },
+        (role.icon || '') + ' ' + role.name, 4.2);
+    }
+  }
+
   /** Vykreslí paletu: základní barva + tmavá/světlá/daubs (vše z G.PAL). */
   function renderPalette() {
     const box = document.getElementById('palette');
@@ -366,6 +426,7 @@
 
     renderFoundry();
     renderPalette();
+    renderFigures();
   }
 
   // ---------- měření (stejná matematika jako scripts/check-tiles.py) ----------

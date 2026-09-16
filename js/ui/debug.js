@@ -56,6 +56,8 @@
           <div class="dbg-note">foundry = krajina kreslená ve světových souřadnicích (bezešvá, neopakuje se)</div>
           <div class="dbg-row" id="dbg-unitstyles"></div>
           <div class="dbg-note">vzhled postav je nezávislý na mapě (foundry + malované postavy jde kombinovat)</div>
+          <div class="dbg-row" id="dbg-figstyles"></div>
+          <div class="dbg-note">sjednocené = jeden model + erb role, bez zbraně (koncept); klasické = původní figurky se zbraněmi</div>
         </div>
         <div class="dbg-section"><div class="dbg-label">Svět</div>
           <div class="dbg-row" id="dbg-events"></div>
@@ -134,11 +136,19 @@
       `<button class="dbg-btn ${v === cur ? 'active' : ''}" data-dbg="tilestyle" data-v="${v}">${name}</button>`
     ).join('');
     const uEl = document.getElementById('dbg-unitstyles');
-    if (!uEl) return;
-    const uCur = G.unitStyle ? G.unitStyle() : 'code';
-    uEl.innerHTML = [['code', 'postavy kreslené'], ['ai', 'postavy malované']].map(([v, name]) =>
-      `<button class="dbg-btn ${v === uCur ? 'active' : ''}" data-dbg="unitstyle" data-v="${v}">${name}</button>`
-    ).join('');
+    if (uEl) {
+      const uCur = G.unitStyle ? G.unitStyle() : 'code';
+      uEl.innerHTML = [['code', 'postavy kreslené'], ['ai', 'postavy malované']].map(([v, name]) =>
+        `<button class="dbg-btn ${v === uCur ? 'active' : ''}" data-dbg="unitstyle" data-v="${v}">${name}</button>`
+      ).join('');
+    }
+    const fEl = document.getElementById('dbg-figstyles');
+    if (fEl) {
+      const fCur = G.figureStyle ? G.figureStyle() : 'unified';
+      fEl.innerHTML = [['unified', 'sjednocené'], ['classic', 'klasické']].map(([v, name]) =>
+        `<button class="dbg-btn ${v === fCur ? 'active' : ''}" data-dbg="figstyle" data-v="${v}">${name}</button>`
+      ).join('');
+    }
   }
   function buildScaleButtons() {
     const tEl = document.getElementById('dbg-tiles');
@@ -186,6 +196,10 @@
     }
     else if (a === 'unitstyle') {
       if (G.setUnitStyle) G.setUnitStyle(el.dataset.v);
+      buildStyleButtons();
+    }
+    else if (a === 'figstyle') {
+      if (G.setFigureStyle) G.setFigureStyle(el.dataset.v);
       buildStyleButtons();
     }
     else if (a === 'speed') { speed = parseFloat(el.dataset.speed); buildSpeedButtons(); }

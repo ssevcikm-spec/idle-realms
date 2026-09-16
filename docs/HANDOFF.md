@@ -36,6 +36,7 @@ node test/tile-window.js                                                 # dlaž
 node test/tiles-preview.js                                               # náhled dlaždic se spustí
 node test/foundry.js                                                     # světová vrstva: plán a kreslení
 node test/foundry-game.js                                                # foundry v běžící hře
+node test/figures.js                                                     # postavy: jeden model + erb role
 # dlaždice (potřebuje python s pillow+numpy — viz past č. 13):
 python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSLEDEK: OK"
 ```
@@ -165,16 +166,26 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
     zkombinovat foundry mapu s malovanými postavami (cíl cesty C). Načtení
     sprite řeší `G.ensureAiUnits()` z kreslení mapy (kvůli savu s `units:'ai'`
     a kreslenou mapou) a příznak `tried` brání opakovaným pokusům každý snímek.
+23. **Barvy rolí se kryjí s barvami frakcí a reputace** (`#c05a45` = role
+    *bojovník* i reputace „nepřátelský“, `#d8b45a` = *vůdce* i Koruna,
+    `#7aa8e0` = *průzkumník*, *kupec* i Kupecký svaz). Testy proto **nesmí
+    ověřovat „je v kresbě tahle barva"** — používej strukturální signál
+    (např. `ctx.clip()` volá v celém kódu jen heraldika). Vzor:
+    `test/foundry-game.js` → „erb role se kresli i na malovane postave".
+24. **Postavy mají nově plán kresby** `G.figurePlan(u)` (čistá funkce) a přepínač
+    `settings.figureStyle` = `unified` (jeden model + erb role, bez zbraně) |
+    `classic` (původní). Když měníš vzhled postav, sáhni na plán a otestuj
+    `test/figures.js` — nehádej z kreslení.
 
 ---
 
 ## 4. Stav kódu (co je hotové)
 
 ### Čísla
-- 59 JS souborů, **682** definovaných/used globálů `G.*` (check-globals čisté;
+- 59 JS souborů, **695** definovaných/used globálů `G.*` (check-globals čisté;
   část přírůstku je z paralelní práce na výbavě postav).
-- Testy: headless-smoke **73** + tile-window **10** + tiles-preview **4** +
-  foundry **13** + foundry-game **12** kontrol, deterministicky.
+- Testy: headless-smoke **77** + tile-window **10** + tiles-preview **4** +
+  foundry **13** + foundry-game **13** + figures **12** kontrol, deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
 - Dlaždice: assety jsou **torusy** (`wrap` 1,87), kreslí se jako **okno do
   textury** ve světových souřadnicích — `seam/zrno` 0,78, perioda 6 dlaždic.
@@ -192,6 +203,11 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 - **Vzhled postav je nezávislý na mapě** (`settings.units`, `G.unitStyle`),
   takže jde kombinovat foundry mapu s malovanými postavami; přepínač
   v debug panelu **D**. Bez volby se odvozuje od mapy (jako dřív).
+- **Sjednocený model postavy** (`settings.figureStyle` = `unified` | `classic`,
+  plán `G.figurePlan`): jeden základní model pro všechny, **erb role kreslený
+  v kódu** (6 rolí = 6 heraldik) a zbroj jako tón + odznak, **bez zbraně**.
+  Erb se kreslí i přes malované sprity, aby role zůstala čitelná v obou
+  vzhledech. Detail a naměřené hodnoty: `docs/STYL_GRAFIKY.md` §13.
 
 ### Klíčové soubory
 | Oblast | Soubor |
@@ -247,6 +263,18 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
   `nikdy (tiše)` (`settings.combatWindow`, `G.combatWindowMode`,
   `G.combatWindowWanted`); v tichém režimu jde výsledek do logu a plovoucí
   hláškou (`G.toast`).
+- **Skupina = družina**: `G.partyOf(unitId)` (postava bez skupiny = družina o jednom),
+  boj výchozně s družinou nejbližší postavy u uzlu (`G.partyNearNode`,
+  `G.unitCanFight`), členové do 4 polí **přispěchají na pomoc** (`G.helpersNear`
+  přes `opts.helpers`), bojující se odpojí od úkolů (`G.detachUnit`), nečinní
+  členové se **drží pohromadě** (`G.groupCohesionTarget`, volá `render/world.js`).
+  **Nepřátelé se škálují podle síly, ne počtu hlav** — `G.enemyCountFor(enemy, size, power)`
+  s referencí `G.COMBAT_POWER_REF`, takže přibrat slabšího člena je vždy výhoda.
+  **Pozor, dřív mrtvý kód**: `G.groupCombatMult` (Bojovník +30 %) a
+  `G.groupFoodCostMult` (Zásobovač −30 % jídla) se nikde nevolaly, i když je UI
+  ukazovalo — teď je aplikuje `G.groupCombatMultFor` (v `unitCombatPower`
+  i `unitCombatStats`) a `G.groupFoodMultFor` (jídlo expedice). U malých čísel
+  slevu sežralo `Math.ceil` — zaokrouhluj `Math.round`.
 - **Příběhové popupy**: viditelné efekty voleb, **trvalé následky** (`G.storyFlag`
   — renomé/základna, ceny, boj, reputace, výtěžnost), přepínač v menu.
 
@@ -314,7 +342,7 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 | `docs/PRIBEHOVE_POPUPY.md` | příběhové popupy (efekty, trvalé vlajky, přepínač) | aktuální |
 | `docs/UKOLY_A_VYROBA.md` | zakázky, escort, automatika, výroba, dílny na základně | aktuální |
 | `docs/BOJ.md` | boj (automatický, kill questy, explore) | aktuální |
-| `docs/STYL_GRAFIKY.md` | **rozhodnutí cesty C (hybrid)**, §8 = dlaždice: bezešvá mapa, měření, náhled; §9 = lokální ComfyUI; §10 = malované postavy | aktuální (2026-09-16) |
+| `docs/STYL_GRAFIKY.md` | **rozhodnutí cesty C (hybrid)**; §8 dlaždice (bezešvá mapa), §9 lokální ComfyUI, §10 malované postavy, §11 foundry, §12 jedna paleta, §13 sjednocený model postavy | aktuální (2026-09-16) |
 
 ---
 
@@ -337,17 +365,16 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
    mapa + Battle Brothers postavy). Projeví se hlavně paletou a štětci, ne
    přepisem pipeline. Volitelně i volba „kód: varianty náhodně vs. zrcadlení
    podle parity" — čísla i vzhled jsou v `tools/tiles/preview.html`.
-4. **Sjednocení postav (koncept od uživatele — ČEKÁ NA REALIZACI).**
-   Uživatel chce: **všichni na jednom základním modelu** + **ikona role (erb)**
-   + **na modelu jen zbroj/oblečení, žádná zbraň**. Doporučený přístup:
-   - **Jeden základní sprite** (fixní póza, bez zbraně) — vygenerovat lokálně
-     s pevným seedem pro konzistenci, ořezat jako dosud (`process_units.py`).
-   - **Erb/ikona role** kreslit **v kódu** (vektorová heraldika: štít, dělení,
-     barvy frakce/role z `G.FACTIONS`/`G.ROLES`) — dokonalá konzistence, ladí
-     s procedurální estetikou hry.
-   - **Výbava** = barevný tint základu (materiál zbroje) + malé přeložené odznaky
-     (helm/truhla) — ne plné výměny spritů (AI neumí spolehlivě zarovnat vrstvy).
-   - Současný stav: 6 odlišných archetypů, každý s vlastní zbraní.
+4. **Sjednocení postav (koncept od uživatele).**
+   - **Kreslený vzhled — ✅ hotové** (§13): `G.figurePlan`, jeden základní model,
+     erb role kreslený v kódu, zbroj jako tón + odznak, bez zbraně; erb se kreslí
+     i přes malované sprity; přepínač `settings.figureStyle`, testy
+     `test/figures.js`.
+   - **Zbývá: regenerovat sadu malovaných spritů** — dnes 6 archetypů, každý
+     **se zbraní**. Nový koncept chce **jeden základní sprite bez zbraně**
+     (`scripts/gen_units_local.py` + `process_units.py`), pak se přes něj kreslí
+     erb (už hotové) a zbroj řeší tón. Potřebuje volbu vzhledu (§6 bod 3)
+     a běžící ComfyUI.
 5. **Drobné budoucí rozšíření**: vlastní sklad a obrana základny (karavany na
    základně už jezdí), dosah dílen jako kruh na mapě, posuvník výšky mapy.
 
@@ -388,12 +415,12 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
    (a co je cizí rozdělaná práce — viz §8).
 2. **Hotové:** svět (64×48), LOD, backlog, audit menu, AI dlaždice (bezešvé
    a měřené), AI postavy, **foundry (světová vrstva mapy)**, **jedna paleta**,
-   **nezávislý vzhled postav**.
+   **nezávislý vzhled postav**, **sjednocený model postavy s erbem role**.
    **Další v řadě:** doladit foundry a paletu **okem** (§6 body 1–2),
-   **sjednocení postav** (jeden model + erb + výbava tintem, §6 bod 4),
-   **volba vzhledu** a AI ilustrace pro vrstvu 3 (§6 bod 3).
-3. Než začneš měnit vzhled mapy, otevři `tools/tiles/preview.html` (náhled
-   z reálného kódu: dlaždice, švy, foundry, paleta) a spusť
+   **regenerovat malované sprity** v novém konceptu (jeden model bez zbraně,
+   §6 bod 4), **volba vzhledu** a AI ilustrace pro vrstvu 3 (§6 bod 3).
+3. Než začneš měnit vzhled mapy nebo postav, otevři `tools/tiles/preview.html`
+   (náhled z reálného kódu: dlaždice, švy, foundry, paleta, postavy) a spusť
    `python scripts/check-tiles.py` — čísla jsou v `docs/STYL_GRAFIKY.md` §8,
-   §11 a §12.
+   §11, §12 a §13.
 4. Po každé fázi: sedm kontrol + commit + push (viz §2).

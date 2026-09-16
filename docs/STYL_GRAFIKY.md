@@ -398,9 +398,9 @@ takže mapa i postavy drží jeden malovaný styl.
 
 ### Otevřené: jednotný vzhled postav
 
-Postavy jsou zatím každá jiná (postava, vybavení, zbraň). Plán na sjednocení
-viz `docs/HANDOFF.md` — všichni na jednom základním modelu + ikona role (erb)
-+ jen zbroj/oblečení, žádná zbraň.
+Postavy jsou zatím každá jiná (postava, vybavení, zbraň). Koncept sjednocení je
+**hotový pro kreslený vzhled** — viz §13 (jeden model + erb role + zbroj, bez
+zbraně); zbývá **regenerovat sadu malovaných spritů** v tomtéž konceptu.
 
 ---
 
@@ -526,3 +526,59 @@ stav. Nově (`js/render/units_ai.js`):
 
 Testy (`test/foundry-game.js`): nezávislost obou přepínačů, použití sprite jen
 při malovaném vzhledu, a že se **všech šest kombinací** mapy a postav vykreslí.
+
+---
+
+## 13. Sjednocený model postavy *(2026-09-16)*
+
+**Koncept od uživatele:** všichni na **jednom základním modelu** (stejná
+silueta), roli nese **erb kreslený v kódu** a na modelu je jen
+zbroj/oblečení — **žádná zbraň**.
+
+**Proč to takhle:** postava je na mapě vysoká ~26 px. Šest různých archetypů se
+zbraněmi se v tom měřítku stejně nerozezná (zbraně jsou 2–3 px), zato **barva
+a tvar erbu** a **materiál zbroje** ano. A hlavně: dokud měl každý „svůj"
+obrázek, styl se rozpadal — teď je jazyk jeden.
+
+### 13.1 Jak je to postavené
+
+| Prvek | Jak se určuje |
+|---|---|
+| **Jeden model** | konstanta `height: 24.5` v plánu — silueta je pro všechny role i profese stejná |
+| **Erb role** | `G.ROLES[u.role]` → barva role; dělení štítu a znamení z tabulky `ROLE_HERALDRY` (6 rolí = 6 různých kombinací) |
+| **Bez role** | erb v barvě profese (`G.PROFESSIONS[prof].color`) |
+| **Zbroj** | materiál z profese (`cloth/leather/mail/plate`), přilba posune o stupeň výš; tón trupu = mix oblečení a materiálu + kovový pás přes hruď |
+| **Zbraň** | jen v klasickém vzhledu (`G.figureStyle() === 'classic'`) |
+
+**Plán je čistá funkce** `G.figurePlan(u)` (žádný canvas) — proto se dá ověřit
+v Node: `test/figures.js` (12 kontrol) hlídá, že silueta je opravdu jedna, že
+erb má barvu role/profese, že se role v heraldice neopakují, že ve sjednoceném
+vzhledu **není zbraň** (a v klasickém je), že materiál zbroje mění tón, a že
+kreslení projde pro všechny kombinace rolí, profesí a vzhledů.
+
+**Erb se kreslí i přes malované (AI) sprity** (`drawAiFigure` ve `world.js`):
+sprite sám roli neříká, takže role by se v malovaném vzhledu ztratila. Ověřeno
+počtem volání `ctx.clip()` — to používá v celém kódu jen heraldika, takže je to
+jednoznačný důkaz, že se erb kreslí (barvy se nedají použít: `#c05a45` je
+zároveň barva role *bojovník* i reputace „nepřátelský").
+
+### 13.2 Přepínač
+
+`settings.figureStyle` = `unified` (výchozí) | `classic`; v debug panelu **D**
+→ „Mapa — vzhled" → *figurky: sjednocené / klasické*. Klasický vzhled je
+původní figura se zbraní a štítem z výbavy — ponechaný proto, aby se dalo
+porovnat a vrátit.
+
+Náhled pro oči: `tools/tiles/preview.html` → sekce **Postavy** (6 případů ve
+dvou vzhledech + heraldika všech rolí zvětšená).
+
+### 13.3 Otevřené
+
+- **Sada malovaných spritů je pořád stará** — 6 archetypů, každý **se zbraní**
+  (`assets/units/*.png`, `scripts/gen_units_local.py`). Nový koncept chce
+  **jeden základní sprite bez zbraně**; regenerace potřebuje volbu vzhledu
+  (§7) a běžící ComfyUI. Do té doby platí: kreslené figurky = nový koncept,
+  malované sprity = starý (erb se přes ně kreslí, zbraň zůstává zapečená).
+- **Frakce se v erbu neprojevují** — erb nese roli (nebo profesi), ne frakci.
+  Až bude jasné, čí jsou to postavy (měšťan vs. družina), může přibýt lem
+  v barvě frakce.
