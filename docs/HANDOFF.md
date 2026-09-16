@@ -154,19 +154,34 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
     `test/foundry-game.js` si obalí canvas proxy a počítá `fillRect`/`ellipse`/
     `stroke`; tím se pozná, že se vrstva opravdu vykreslila (a že se nevykresluje
     dvakrát).
+21. **Paleta terénů má jediný zdroj**: `G.PAL` v `js/render/art.js`. Python si ji
+    parsuje přes `scripts/tile_palette.py` — **nezakládej druhou tabulku barev**
+    (dřív byla v `grade_tiles.py` a `check-tiles.py` a rozešla se: stejný terén
+    se v kreslené a malované mapě lišil o 15–38). Po každé změně `G.PAL`
+    přegraduj assety a znovu je zaceli — pořadí je **grade → heal** (gradování
+    je posun po kanálech, takže bezešvost nerozbije).
+22. **Vzhled postav nevaž na vzhled mapy.** Malované (AI) figurky mají vlastní
+    přepínač `settings.units` (`G.unitStyle`/`G.setUnitStyle`) — jinak nejde
+    zkombinovat foundry mapu s malovanými postavami (cíl cesty C). Načtení
+    sprite řeší `G.ensureAiUnits()` z kreslení mapy (kvůli savu s `units:'ai'`
+    a kreslenou mapou) a příznak `tried` brání opakovaným pokusům každý snímek.
 
 ---
 
 ## 4. Stav kódu (co je hotové)
 
 ### Čísla
-- 59 JS souborů, **679** definovaných/used globálů `G.*` (check-globals čisté;
+- 59 JS souborů, **682** definovaných/used globálů `G.*` (check-globals čisté;
   část přírůstku je z paralelní práce na výbavě postav).
 - Testy: headless-smoke **73** + tile-window **10** + tiles-preview **4** +
-  foundry **13** + foundry-game **9** kontrol, deterministicky.
+  foundry **13** + foundry-game **12** kontrol, deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
-- Dlaždice: assety jsou **torusy** (`wrap` 1,88), kreslí se jako **okno do
-  textury** ve světových souřadnicích — `seam/zrno` 0,74, perioda 6 dlaždic.
+- Dlaždice: assety jsou **torusy** (`wrap` 1,87), kreslí se jako **okno do
+  textury** ve světových souřadnicích — `seam/zrno` 0,78, perioda 6 dlaždic.
+- **Paleta je jedna**: `G.PAL` v `js/render/art.js` je jediný zdroj — bere ji
+  kresba, foundry i barevné srovnání malovaných dlaždic (`scripts/tile_palette.py`).
+  Nejbližší dvojice terénů **33,1** (dřív 8,3 — hills vs dirt se slévaly).
+  Detail: `docs/STYL_GRAFIKY.md` §12.
 - **Foundry** (nový vzhled mapy, Stage 1): krajina jako funkce světa — plochý
   podklad + světové štětce + přechody terénů + dekorace. Plán **0,15 ms/snímek**,
   na obrazovku ~224 štětců / 176 přechodů / 36 dekorací, **žádné opakování**
@@ -174,6 +189,9 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 - Grafika: dlaždice lze přepnout mezi **kreslenou (kód)**, **malovanou (AI
   bitmapy v `assets/tiles`)** a **foundry** — `settings.tileStyle`, přepínač
   v menu ☰ (kód/malovaný) a v debug panelu **D** (i foundry).
+- **Vzhled postav je nezávislý na mapě** (`settings.units`, `G.unitStyle`),
+  takže jde kombinovat foundry mapu s malovanými postavami; přepínač
+  v debug panelu **D**. Bez volby se odvozuje od mapy (jako dřív).
 
 ### Klíčové soubory
 | Oblast | Soubor |
@@ -308,17 +326,13 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 
 1. **Foundry** — ✅ **hotové** (`tileStyle = 'foundry'`, debug panel **D**,
    `docs/STYL_GRAFIKY.md` §11, testy `test/foundry.js` + `test/foundry-game.js`).
-   Zbývá k němu:
-   - **Doladit vzhled okem** — hustota a velikost štětců (`G.FOUNDRY.daub`,
-     `deco`), síla přechodů, barvy. Náhled: `tools/tiles/preview.html`.
-   - **Oddělit přepínač jednotek od mapy** — malované (AI) figurky se dnes
-     zapínají jen s `tileStyle === 'ai'`, takže ve foundry se kreslí kódové.
-     Pro cestu C patří do `settings.units`, aby šel foundry + malované postavy.
-   - Volitelně přesunout kód z `js/render/art.js` do `js/render/foundry.js`
-     (teď tam je, protože `index.html` držela paralelní práce).
-2. **Rozestupy v paletě**: grass vs. hills i grass vs. road jsou od sebe jen
-   **22,1** (L2) — na 46 px se pletou. Posunout odstín/hodnotu (foundry to
-   neřeší, je to barva, ne kresba).
+   Zbývá k němu jen **doladit vzhled okem** — hustota a velikost štětců
+   (`G.FOUNDRY.daub`, `deco`), síla přechodů, barvy. Náhled:
+   `tools/tiles/preview.html`. Volitelně přesunout kód z `js/render/art.js` do
+   `js/render/foundry.js` (teď tam je, protože `index.html` držela paralelní práce).
+2. **Paleta a vzhled postav** — ✅ **hotové** (§12): jeden zdroj barev
+   (`G.PAL` + `scripts/tile_palette.py`), rozestup terénů 8,3 → **33,1**,
+   assety přegradované, `settings.units` odděluje vzhled postav od mapy.
 3. **Volba vzhledu** — doporučení platí (**1 — Žoldnéřská kronika**: pergamenová
    mapa + Battle Brothers postavy). Projeví se hlavně paletou a štětci, ne
    přepisem pipeline. Volitelně i volba „kód: varianty náhodně vs. zrcadlení
@@ -353,14 +367,15 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 
 ## 8. Git — jak je to teď
 
-- Poslední commit: **foundry** — světová vrstva mapy (podklad, přechody terénů,
-  dekorace) + testy + náhled. Před ním **Stage 0 dlaždic** (torusy + okno do
-  textury, měření). Viz `git log`.
+- Poslední commit: **jedna paleta + nezávislý vzhled postav** (rozestup terénů
+  8,3 → 33,1, `settings.units`). Před ním **foundry** (světová vrstva mapy) a
+  **Stage 0 dlaždic** (torusy + okno do textury, měření). Viz `git log`.
 - **Pracovní strom NENÍ čistý** — běží v něm paralelní práce na **výbavě postav
-  a skupinách/expedicích** (`js/systems/{misc,combat}.js`,
+  a skupinách/expedicích** (`js/main.js`, `js/systems/{misc,combat,economy,expeditions}.js`,
   `js/ui/{panels,trade,ui,title_screen,combat_modal}.js`, `css/style.css`,
-  `index.html`, `README.md`, `docs/BOJ.md`, část `docs/HANDOFF.md`). Ta není moje;
-  při commitu stage **jen svoje soubory** (viz pasti č. 17–18).
+  `index.html`, `README.md`, `docs/{BOJ,TECHNICKY_DOKUMENT}.md`, část
+  `docs/HANDOFF.md`). Ta není moje; při commitu stage **jen svoje soubory**
+  (viz pasti č. 17–18).
 - Při push nezapomeň na `-c http.sslBackend=openssl` (viz §2) — v sandboxu
   `workspace-write` push spadne (`sh.exe: couldn't create signal pipe`), je
   potřeba širší oprávnění.
@@ -372,11 +387,13 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 1. Zkontroluj `git status` / `git log` a ujisti se, že navazuješ na poslední stav
    (a co je cizí rozdělaná práce — viz §8).
 2. **Hotové:** svět (64×48), LOD, backlog, audit menu, AI dlaždice (bezešvé
-   a měřené), AI postavy, **foundry (světová vrstva mapy)**.
-   **Další v řadě:** doladit foundry okem + oddělit přepínač jednotek od mapy
-   (§6 bod 1), **rozestupy v paletě** (§6 bod 2), **sjednocení postav** (§6 bod 4)
-   a volba vzhledu (§6 bod 3).
+   a měřené), AI postavy, **foundry (světová vrstva mapy)**, **jedna paleta**,
+   **nezávislý vzhled postav**.
+   **Další v řadě:** doladit foundry a paletu **okem** (§6 body 1–2),
+   **sjednocení postav** (jeden model + erb + výbava tintem, §6 bod 4),
+   **volba vzhledu** a AI ilustrace pro vrstvu 3 (§6 bod 3).
 3. Než začneš měnit vzhled mapy, otevři `tools/tiles/preview.html` (náhled
-   z reálného kódu: dlaždice, švy, foundry) a spusť `python scripts/check-tiles.py`
-   — čísla jsou v `docs/STYL_GRAFIKY.md` §8 a §11.
+   z reálného kódu: dlaždice, švy, foundry, paleta) a spusť
+   `python scripts/check-tiles.py` — čísla jsou v `docs/STYL_GRAFIKY.md` §8,
+   §11 a §12.
 4. Po každé fázi: sedm kontrol + commit + push (viz §2).

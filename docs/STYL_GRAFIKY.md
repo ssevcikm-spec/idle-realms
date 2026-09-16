@@ -280,6 +280,7 @@ Výchozí hodnota je 0; kterou použít, se má rozhodnout **okem** v náhledu.
 | `node test/tile-window.js` | geometrie kreslení: okna navazují, obtáčejí se na torusu, nepřetékají, fallback na kreslenou cestu, váhy prolnutí sčítají na 1. |
 | `node test/tiles-preview.js` | náhledová stránka se spustí bez chyby a spočítá diagnostiku. |
 | `scripts/seamless_tiles.py --check` | jen změří `wrap` a ztrátu ostrosti, nic nemění. |
+| `scripts/tile_palette.py` | **jediný zdroj barev terénů** — parsuje `G.PAL` z `art.js`; berou ho `grade_tiles.py` i `check-tiles.py`. |
 
 **Dvě klíčové lekce k metrice** (jinak se měří nesmysly):
 
@@ -447,14 +448,81 @@ plochý podklad.
 
 **Otevřené (do dalšího kroku):**
 
-- **Malované jednotky zůstávají jen u `ai`** — ve foundry se kreslí kódové
-  figurky. Pro cestu C (hybrid) by se měl přepínač jednotek oddělit od přepínače
-  mapy (`settings.units`).
 - **Přechody jsou jen vizuální pás** — nejsou to plnohodnotné „biomy"
   (např. břeh nemá vlastní plážový terén).
-- **Paleta** má pořád blízké terény (grass vs. hills i grass vs. road = 22,1 L2),
-  což foundry nezachrání — chce to posunout odstíny.
+- **Vzhled foundry je potřeba doladit okem** — hustota a velikost štětců,
+  síla přechodů, barvy (vše v `G.FOUNDRY` a `G.PAL`).
 - Foundry bydlí v `js/render/art.js`, protože `index.html` měl v době práce
   cizí rozpracované změny a přidání `<script>` by rozbilo konzistenci
   commitnutého stavu. Až se práce sejde, je čistší ho přesunout do
   `js/render/foundry.js`.
+
+---
+
+## 12. Jedna paleta a vzhled postav *(unifikace, 2026-09-16)*
+
+### 12.1 Paleta byla na dvou místech a rozešla se
+
+Barvy terénů se vedly dvakrát: `G.PAL` v `js/render/art.js` (kreslená dlaždice
+a foundry) a `TARGET` v `scripts/grade_tiles.py` (+ druhá kopie v
+`check-tiles.py`) — cíl, na který se barevně srovnávají **malované (AI)
+dlaždice**. Naměřeno: stejný terén se v obou vzhledech barvil jinak o **15–38**
+(L2) — hora 36,8, voda 38,1, hlína 32,7, sníh 30,6. Nebyla to „jedna paleta",
+ale dvě.
+
+**Teď je zdroj jeden:** `G.PAL` v `art.js`. `scripts/tile_palette.py` ho parsuje
+a `grade_tiles.py` i `check-tiles.py` ho odsud berou (když se parsování
+nepovede, skript spadne — tichý fallback by znamenal, že se dlaždice gradují na
+staré barvy a nikdo si toho nevšimne).
+
+### 12.2 Rozestupy terénů (čitelnost na 46 px)
+
+Paleta měla dvojice, které se na dlaždici 46 px slévaly:
+
+| dvojice | dřív | teď |
+|---|---|---|
+| hills vs dirt | **8,3** | 50,4 |
+| forest vs swamp | 17,9 | 34,4 |
+| grass vs dirt | 18,3 | 34,5 |
+| hills vs road | 19,8 | 71,9 |
+| grass vs hills | 20,1 | 42,7 |
+| **minimum palety** | **8,3** | **33,1** |
+
+Postup: základní barvy se roztáhly podle významu terénu (hills = khaki,
+mountain = chladná šedá, road = světlá dlažba, dirt = červenohnědá,
+water = skutečná modrá, snow = jasnější), a `dark`/`light`/`daubs` odstíny se
+dopočítaly **zachováním původních rozdílů vůči základu** — struktura kresby
+(světlo/stín) zůstala stejná, změnily se jen barvy.
+
+Ověřeno: odlišnost terénů v assetech **22,5 → 31,8** (paleta dovoluje 33,1),
+odchylka od cíle 2,19, švy beze změny (wrap 1,87, seam/zrno 0,78).
+
+### 12.3 Pořadí pipeline dlaždic (důležité)
+
+```
+vygenerovat
+  → python scripts/grade_tiles.py      # barvy podle G.PAL (art.js)
+  → python scripts/seamless_tiles.py   # z dlaždic udělá torusy
+  → python scripts/check-tiles.py --scheme sliding --repeat 6
+```
+
+Gradování je posun po kanálech (+ kontrast), takže **bezešvost nerozbije** —
+proto je správné pořadí gradovat a *pak* zacelit. Při každé změně `G.PAL` je
+proto potřeba assety přegradovat a znovu zacelit.
+
+### 12.4 Vzhled postav je nezávislý na vzhledu mapy
+
+Dřív se malované postavy zapínaly jen s `tileStyle === 'ai'`, takže **nešlo**
+zkombinovat foundry mapu s malovanými postavami — což je pro cestu C cílový
+stav. Nově (`js/render/units_ai.js`):
+
+- `G.unitStyle()` / `G.setUnitStyle()` (`settings.units`), přepínač v debug
+  panelu **D** → „Mapa — vzhled" → *postavy kreslené / malované*,
+- bez explicitní volby se chování **odvozuje od mapy** (jako dřív, takže se nic
+  nezměnilo pro existující hry),
+- `G.ensureAiUnits()` dočte sprity, když je potřeba (např. sav s
+  `units: 'ai'` a kreslenou mapou, kde boot sprity nenačítá), a příznak `tried`
+  brání tomu, aby se chybějící soubory zkoušely znovu každý snímek.
+
+Testy (`test/foundry-game.js`): nezávislost obou přepínačů, použití sprite jen
+při malovaném vzhledu, a že se **všech šest kombinací** mapy a postav vykreslí.

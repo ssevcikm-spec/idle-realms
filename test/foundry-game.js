@@ -173,6 +173,58 @@ check('foundry zvladne i posun a zoom kamery', () => {
   }
 });
 
+check('vzhled postav je nezavisly na vzhledu mapy', () => {
+  // výchozí stav: bez settings.units se odvozuje od mapy (jako dřív)
+  G.setTileStyle('ai');
+  assert(G.unitStyle() === 'ai', 's malovanou mapou mají být malované i postavy: ' + G.unitStyle());
+  G.setTileStyle('code');
+  assert(G.unitStyle() === 'code', 's kreslenou mapou mají být kreslené postavy: ' + G.unitStyle());
+
+  // cílový stav cesty C: foundry mapa + malované postavy
+  G.setUnitStyle('ai');
+  G.setTileStyle('foundry');
+  assert(G.unitStyle() === 'ai', 'foundry + malované postavy nejde nastavit: ' + G.unitStyle());
+  assert(G.state.settings.units === 'ai', 'volba postav se neuložila do settings');
+  G.setTileStyle('code');
+  assert(G.unitStyle() === 'ai', 'explicitní volba postav se přebila mapou');
+
+  // a naopak: malovaná mapa + kreslené postavy
+  G.setUnitStyle('code');
+  G.setTileStyle('ai');
+  assert(G.unitStyle() === 'code', 'kreslené postavy se přebily mapou: ' + G.unitStyle());
+  G.setTileStyle('foundry');
+  assert(G.unitStyle() === 'code', 'kreslené postavy se přebily foundry');
+});
+
+check('sprite se pouzije jen kdyz je zapnuty malovany vzhled', () => {
+  const u = G.state.units[0];
+  // v headless se obrázky nenačtou, takže si sprite podstrčíme
+  const fake = { fake: true };
+  const arch = G.aiUnitArchetype(u);
+  G.AI_UNITS.sprites[arch] = fake;
+  G.setUnitStyle('ai');
+  assert(G.aiUnitSprite(u) === fake, 'malovaný vzhled nemá vrátit sprite');
+  G.setUnitStyle('code');
+  assert(G.aiUnitSprite(u) === null, 'kreslený vzhled má vrátit null (kreslí se figurka)');
+  delete G.AI_UNITS.sprites[arch];
+  G.setUnitStyle('ai');
+});
+
+check('vsechny ctyri kombinace vzhledu se vykresli', () => {
+  for (const tile of ['code', 'ai', 'foundry']) {
+    for (const unit of ['code', 'ai']) {
+      G.setTileStyle(tile);
+      G.setUnitStyle(unit);
+      resetCounts();
+      G.drawWorldFrame();
+      assert((counts.fillRect || 0) + (counts.drawImage || 0) > 50,
+        'kombinace ' + tile + '+' + unit + ' nic nevykreslila');
+    }
+  }
+  G.setTileStyle('code');
+  G.setUnitStyle('code');
+});
+
 check('foundry na realne mape zustava v rozpoctu', () => {
   const c = { 0: 0, 1: 0, 2: 0 };
   const view = {

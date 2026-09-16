@@ -3,6 +3,8 @@
 
 Používá se PŘED nasazením dlaždic do `assets/tiles/`. Důvod: hra nesmí číst
 pixely za běhu (file:// canvas taint), takže barevnou korekci děláme tady.
+Cílové barvy se berou z `js/render/art.js` (`G.PAL`) přes `tile_palette.py`, aby
+kreslená i malovaná mapa hrály stejnou paletou.
 
 Použití:
     python scripts/grade_tiles.py [adresar] [cil]
@@ -16,18 +18,9 @@ import sys, os
 from PIL import Image
 import numpy as np
 
-TARGET = {
-    'grass':       [104, 108,  56],
-    'forest':      [ 54,  72,  40],
-    'deep_forest': [ 34,  48,  32],
-    'hills':       [ 98,  94,  72],
-    'mountain':    [108, 108, 106],
-    'water':       [ 52,  92, 122],
-    'swamp':       [ 84,  80,  46],
-    'snow':        [196, 204, 212],
-    'road':        [122, 100,  66],
-    'dirt':        [138, 116,  80],
-}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from tile_palette import TARGET  # jediný zdroj barev = js/render/art.js (G.PAL)
+
 CONTRAST = 1.06
 
 def grade(path):

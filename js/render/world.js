@@ -440,7 +440,10 @@
       const sx = ox + u.pos.x*tilePx, sy = oy + u.pos.y*tilePx;
       if (mode !== 'detail') { drawUnitDot(u, sx, sy, tilePx, mode); continue; }
       if (u.resting) ctx.globalAlpha = 0.55;
-      const spr = (G.tileStyle && G.tileStyle() === 'ai' && G.aiUnitSprite) ? G.aiUnitSprite(u) : null;
+      // Vzhled postav je nezávislý na vzhledu mapy (malované jde zapnout
+      // i k foundry/kreslené mapě) — viz G.unitStyle v units_ai.js.
+      if (G.ensureAiUnits) G.ensureAiUnits();
+      const spr = (G.aiUnitSprite) ? G.aiUnitSprite(u) : null;
       if (spr) drawAiFigure(ctx, spr, u, sx, sy, tilePx);
       else G.drawFigure(ctx, u, sx, sy, figScale(tilePx));
       ctx.globalAlpha = 1;

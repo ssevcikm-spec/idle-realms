@@ -40,30 +40,20 @@ import sys
 import numpy as np
 from PIL import Image, ImageFilter
 
-# cílové průměrné barvy terénů (stejné jako v grade_tiles.py)
-TARGET = {
-    'grass':       [104, 108,  56],
-    'forest':      [ 54,  72,  40],
-    'deep_forest': [ 34,  48,  32],
-    'hills':       [ 98,  94,  72],
-    'mountain':    [108, 108, 106],
-    'water':       [ 52,  92, 122],
-    'swamp':       [ 84,  80,  46],
-    'snow':        [196, 204, 212],
-    'road':        [122, 100,  66],
-    'dirt':        [138, 116,  80],
-}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from tile_palette import TARGET, min_distance, TERRAINS  # jediný zdroj = art.js (G.PAL)
 
 # meze pro PASS
 LIM_SEAM_RATIO = 1.6  # skok na hranici / zrno textury (1.0 = nerozeznatelné)
 LIM_WRAP = 2.5        # samonavazování dlaždice
 LIM_PERIOD = 4        # nejmenší přípustná perioda opakování (v dlaždicích)
-LIM_TARGET = 22.0     # odchylka barvy od cíle terénu
+LIM_TARGET = 22.0     # odchylka barvy od cíle terénu (paleta v art.js)
 LIM_CONTRAST = 5.0    # mikro-kontrast v 46 px
-# Pozor: sama paleta má nejbližší dvojici terénů 22,1 (grass vs hills i grass vs
-# road), takže víc než ~20 nejde dosáhnout. Limit je tedy "udržet 90 % toho, co
-# paleta navrhuje" — když je odlišnost nižší, textura terény slévá dohromady.
-LIM_DISTINCT = 20.0   # odlišnost terénů
+# Odlišnost terénů se poměřuje proti tomu, co paleta sama dovoluje: její
+# nejbližší dvojice je teď 33,1 (dřív 8,3 — hills vs dirt se na 46 px slévaly).
+# Limit 26 = "udržet ~80 % rozestupu palety"; když je odlišnost nižší, textura
+# terény slévá dohromady.
+LIM_DISTINCT = 26.0   # odlišnost terénů
 
 
 def load_set(directory):
@@ -344,9 +334,11 @@ def main():
     print(f'  period  {str(per):>6s}   (limit >= {LIM_PERIOD} dlazdic; None = neopakuje se)')
     print(f'  wrap    {wrap_mean:6.2f}   (limit {LIM_WRAP}), nejhorsi {worst[1]} {worst[0]:.2f}')
     print(f'  target  {target_mean:6.2f}   (limit {LIM_TARGET}), nejhorsi {tmax[1]} {tmax[0]:.1f}')
+    pal_d, pal_a, pal_b = min_distance()
     print(f'\n[readability] kontrast v 46 px, odlisnost terenu')
     print(f'  kontrast min {cmin[1]:5.1f} ({cmin[0]}), limit {LIM_CONTRAST}')
     print(f'  odlisnost   {dist:5.1f} ({ta} vs {tb}), limit {LIM_DISTINCT}')
+    print(f'  paleta      {pal_d:5.1f} ({pal_a} vs {pal_b}) - rozestup, ktery paleta (art.js) dovoluje')
 
     fails = []
     if seam_ratio > LIM_SEAM_RATIO:

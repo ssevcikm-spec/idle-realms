@@ -54,6 +54,8 @@
         <div class="dbg-section"><div class="dbg-label">Mapa — vzhled</div>
           <div class="dbg-row" id="dbg-styles"></div>
           <div class="dbg-note">foundry = krajina kreslená ve světových souřadnicích (bezešvá, neopakuje se)</div>
+          <div class="dbg-row" id="dbg-unitstyles"></div>
+          <div class="dbg-note">vzhled postav je nezávislý na mapě (foundry + malované postavy jde kombinovat)</div>
         </div>
         <div class="dbg-section"><div class="dbg-label">Svět</div>
           <div class="dbg-row" id="dbg-events"></div>
@@ -131,6 +133,12 @@
     el.innerHTML = STYLE_STEPS.map(([v, name]) =>
       `<button class="dbg-btn ${v === cur ? 'active' : ''}" data-dbg="tilestyle" data-v="${v}">${name}</button>`
     ).join('');
+    const uEl = document.getElementById('dbg-unitstyles');
+    if (!uEl) return;
+    const uCur = G.unitStyle ? G.unitStyle() : 'code';
+    uEl.innerHTML = [['code', 'postavy kreslené'], ['ai', 'postavy malované']].map(([v, name]) =>
+      `<button class="dbg-btn ${v === uCur ? 'active' : ''}" data-dbg="unitstyle" data-v="${v}">${name}</button>`
+    ).join('');
   }
   function buildScaleButtons() {
     const tEl = document.getElementById('dbg-tiles');
@@ -174,6 +182,10 @@
     }
     else if (a === 'tilestyle') {
       if (G.setTileStyle) G.setTileStyle(el.dataset.v);
+      buildStyleButtons();
+    }
+    else if (a === 'unitstyle') {
+      if (G.setUnitStyle) G.setUnitStyle(el.dataset.v);
       buildStyleButtons();
     }
     else if (a === 'speed') { speed = parseFloat(el.dataset.speed); buildSpeedButtons(); }
