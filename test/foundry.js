@@ -229,6 +229,42 @@ check('kresleni vraci alfu zpet na 1', () => {
   assert(base.globalAlpha === 1, 'po kreslení zůstala alpha ' + base.globalAlpha);
 });
 
+check('foundry zachova barvu a rozestup terenu', () => {
+  // Štětce mají jen texturovat, ne měnit barvu terénu: kdyby byly v průměru
+  // tmavší než základ palety, krajina zšedne a terény se slijí (přesně to se
+  // stalo: rozestup spadl z 33 na 25, než se štětce vycentrovaly na základ).
+  const ter = Object.keys(G.PAL);
+  const rgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const lum = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  const eff = {};
+  let worstDev = 0, worstName = null;
+  for (const t of ter) {
+    const e = G.foundryTerrainColor(t);
+    assert(e && e.length === 3, 'terén ' + t + ' nemá spočítanou barvu');
+    eff[t] = e;
+    const b = rgb(G.PAL[t].base);
+    const dev = Math.hypot(e[0] - b[0], e[1] - b[1], e[2] - b[2]);
+    if (dev > worstDev) { worstDev = dev; worstName = t; }
+    assert(lum(e) > 24 && lum(e) < 240, 'terén ' + t + ' je po foundry mimo rozumný jas: ' + lum(e).toFixed(0));
+  }
+  assert(worstDev <= 12, 'foundry posouvá barvu terénu: ' + worstName + ' o ' + worstDev.toFixed(1));
+  let minF = 1e9, minPair = '', minP = 1e9;
+  for (let i = 0; i < ter.length; i++) {
+    for (let j = i + 1; j < ter.length; j++) {
+      const a = eff[ter[i]], b = eff[ter[j]];
+      const d = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+      if (d < minF) { minF = d; minPair = ter[i] + '/' + ter[j]; }
+      const ba = rgb(G.PAL[ter[i]].base), bb = rgb(G.PAL[ter[j]].base);
+      minP = Math.min(minP, Math.hypot(ba[0] - bb[0], ba[1] - bb[1], ba[2] - bb[2]));
+    }
+  }
+  console.log('       (foundry: nejbližší ' + minPair + ' = ' + minF.toFixed(1) +
+    ', paleta ' + minP.toFixed(1) + ', největší posun barvy ' + worstDev.toFixed(1) + ')');
+  assert(minF >= 26, 'foundry slévá terény: ' + minPair + ' = ' + minF.toFixed(1));
+  assert(minF >= minP * 0.85, 'foundry ztratila víc než 15 % rozestupu palety (' +
+    minF.toFixed(1) + ' vs ' + minP.toFixed(1) + ')');
+});
+
 check('ladeni foundry se uklada a meni plan', () => {
   G.state = { settings: {} };
   const wide = { x0: 0, x1: 30, y0: 0, y1: 20, terrainAt: mapOf(64, 64, () => 'grass') };

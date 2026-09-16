@@ -6,17 +6,21 @@
   // Rozestupy: nejbližší dvojice (grass vs swamp) je 33,1 (L2 v RGB), dřív
   // bylo 8,3 (hills vs dirt se na 46 px nedaly rozeznat). Při změně barvy
   // spusť `python scripts/check-tiles.py` — hlídá odchylku assetů od palety.
+  // `daubs` (barvy štětců) jsou VYCENTROVANÉ na `base`: jejich průměr se rovná
+  // základu, takže štětce nemění barvu terénu, jen ho texturují. Bez toho byla
+  // krajina v průměru o ~8 tmavší než paleta a rozestup terénů padal z 33 na
+  // 25 (naměřeno `G.foundryTerrainColor`, hlídá `test/foundry.js`).
   G.PAL = {
-    grass:       { base:'#5e7042', dark:'#47572f', light:'#7a8d55', daubs:['#657847','#546636','#6f824c','#4c5d31','#6a7d4d'] },
-    forest:      { base:'#304828', dark:'#1a2f18', light:'#466036', daubs:['#344d26','#273e1f','#3d562f','#203519'] },
-    deep_forest: { base:'#1e281a', dark:'#0c130c', light:'#303d25', daubs:['#1a2215','#12190f','#26301f','#0e150d'] },
-    hills:       { base:'#86794e', dark:'#6a5f38', light:'#9f9160', daubs:['#827649','#74693f','#908354','#665c35'] },
-    mountain:    { base:'#686870', dark:'#484952', light:'#8a878b', daubs:['#64636a','#55555d','#747379','#4c4c55'] },
-    water:       { base:'#305474', dark:'#1d3d5a', light:'#4a7396', daubs:['#2e5270','#254764','#3a6085','#20405c'] },
-    swamp:       { base:'#4c5834', dark:'#354120', light:'#616f47', daubs:['#495430','#3e4b27','#546239','#303c1b'] },
-    snow:        { base:'#ced5dc', dark:'#aab3bd', light:'#eff4f9', daubs:['#cbd2d9','#bec6cf','#dbe1e7','#b5bec8'] },
-    road:        { base:'#a69c84', dark:'#88816e', light:'#c2b79a', daubs:['#a09780','#938b76','#afa68c','#827c6f'] },
-    dirt:        { base:'#6d523a', dark:'#523927', light:'#896c4e', daubs:['#684d37','#5c422e','#765a41','#4f3627'] }
+    grass:       { base:'#5e7042', dark:'#47572f', light:'#7a8d55', daubs:['#637648','#526437','#6d804d','#4a5b32','#687b4e'] },
+    forest:      { base:'#304828', dark:'#1a2f18', light:'#466036', daubs:['#36502b','#294124','#3f5934','#22381e'] },
+    deep_forest: { base:'#1e281a', dark:'#0c130c', light:'#303d25', daubs:['#202a1b','#182115','#2c3825','#141d13'] },
+    hills:       { base:'#86794e', dark:'#6a5f38', light:'#9f9160', daubs:['#8d8053','#7f7349','#9b8d5e','#71663f'] },
+    mountain:    { base:'#686870', dark:'#484952', light:'#8a878b', daubs:['#6e6d75','#5f5f68','#7e7d84','#565660'] },
+    water:       { base:'#305474', dark:'#1d3d5a', light:'#4a7396', daubs:['#335877','#2a4d6b','#3f668c','#254663'] },
+    swamp:       { base:'#4c5834', dark:'#354120', light:'#616f47', daubs:['#525d39','#475430','#5d6b42','#394524'] },
+    snow:        { base:'#ced5dc', dark:'#aab3bd', light:'#eff4f9', daubs:['#d3d9df','#c6cdd5','#e3e8ed','#bdc5ce'] },
+    road:        { base:'#a69c84', dark:'#88816e', light:'#c2b79a', daubs:['#ada288','#a0967e','#bcb194','#8f8777'] },
+    dirt:        { base:'#6d523a', dark:'#523927', light:'#896c4e', daubs:['#73573e','#674c35','#816448','#5a402e'] }
   };
   G.PAL_BUILDING = {
     village: { wall:'#8a7a5e', wallDark:'#6a5d47', roof:'#7a3f32', roofDark:'#5b2d24' },
@@ -907,23 +911,90 @@
     }, 1);
   };
 
-  function paintDaub(ctx, sx, sy, size, ti, variant, light) {
+  /**
+   * Barva a alfa štětce podkladu. Sdílí to kresba (`paintDaub`) i měření
+   * výsledné barvy terénu (`G.foundryTerrainColor`) — kdyby si to každý počítal
+   * po svém, čísla by přestala odpovídat tomu, co je vidět.
+   */
+  function daubStyle(ti, variant) {
     const t = TER[ti], pal = G.PAL[t] || G.PAL.grass;
     const daubs = pal.daubs || [pal.base];
-    ctx.globalAlpha = 0.10 + variant * 0.13;
-    ctx.fillStyle = daubs[(variant * daubs.length) | 0] || pal.base;
-    const flat = (t === 'water') ? 0.42 : 0.60 + variant * 0.20;
+    return {
+      color: daubs[(variant * daubs.length) | 0] || pal.base,
+      alpha: 0.10 + variant * 0.13,
+      flat: (t === 'water') ? 0.42 : 0.60 + variant * 0.20,
+      // Světlo/vrhání stínu bere odstíny VLASTNÍHO terénu, ne bílou a černou:
+      // bílá+černá sice vypadá jako světlo, ale ve skutečnosti place kontrast
+      // (tmavé terény zesvětlí, světlé ztmaví) — naměřeno: rozestup terénů
+      // spadl z 33 na 19 a louka s močálem se slily. Vlastní odstíny drží
+      // barevný rod i rozestupy.
+      lightColor: pal.light || pal.base,
+      darkColor: pal.dark || pal.base
+    };
+  }
+
+  /** Meze světelného nádechu štětce — jedny pro kresbu i pro měření barvy. */
+  const DAUB_LIGHT = { cap: 0.16, slope: 0.32, threshold: 0.10 };
+
+  function paintDaub(ctx, sx, sy, size, ti, variant, light) {
+    const st = daubStyle(ti, variant);
+    ctx.globalAlpha = st.alpha;
+    ctx.fillStyle = st.color;
     ctx.beginPath();
-    ctx.ellipse(sx, sy, size, size * flat, variant * 3.1, 0, Math.PI * 2);
+    ctx.ellipse(sx, sy, size, size * st.flat, variant * 3.1, 0, Math.PI * 2);
     ctx.fill();
-    // velkoplošné světlo: prosvětlení/ztmavení podle světového pole
-    if (light > 0.10 || light < -0.10) {
-      ctx.globalAlpha = Math.min(0.13, Math.abs(light) * 0.26);
-      ctx.fillStyle = light > 0 ? '#ffffff' : '#000000';
+    // světlo/stín: odstín VLASTNÍHO terénu, ať se krajina nerozplývá do šeda
+    if (light > DAUB_LIGHT.threshold || light < -DAUB_LIGHT.threshold) {
+      ctx.globalAlpha = Math.min(DAUB_LIGHT.cap, Math.abs(light) * DAUB_LIGHT.slope);
+      ctx.fillStyle = light > 0 ? st.lightColor : st.darkColor;
       ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
+
+  /**
+   * Jakou barvu má terén **po průchodu foundry** (podklad + štětce). Počítá se
+   * z plánu, tedy bez canvasu, takže se dá ověřit v Node — a je to jediná
+   * obrana proti tomu, aby se krajina vyladila do nečitelna (hluboký les úplně
+   * do černa, louka a kopce do stejné barvy).
+   *
+   * Model: štětec zakryje `π·r²·flat / tilePx²` dlaždice (max 1) a přes tu
+   * plochu se jeho barva míchá s alfou; světelný nádech se míchá stejně.
+   */
+  G.foundryTerrainColor = function (terrain, opts) {
+    const o = opts || {};
+    const tilePx = o.tilePx || 64;
+    const n = o.tiles || 24;
+    if (TER_IDX[terrain] === undefined) return null;
+    const base = (G.PAL[terrain] || G.PAL.grass).base;
+    const b = rgbOf(base);
+    // Vážený průměr přes plochu dlaždice: štětec kryje `cov` dlaždice s alfou
+    // `a`, takže přispěje `a·cov` svou barvou a zbytek zůstane podklad.
+    let w = 0, sr = 0, sg = 0, sb = 0;
+    const add = function (a, c) { w += a; sr += a * c[0]; sg += a * c[1]; sb += a * c[2]; };
+    const view = {
+      x0: 0, x1: n - 1, y0: 0, y1: n - 1, ox: 0, oy: 0, tilePx: tilePx,
+      mode: 'detail', quality: 1, terrainAt: function () { return terrain; }
+    };
+    foundryPlan(view, function (kind, sx, sy, size, p1, p2, p3) {
+      if (kind !== 0) return;
+      const st = daubStyle(p1, p2);
+      const cov = Math.min(1, (Math.PI * size * size * st.flat) / (tilePx * tilePx));
+      add(st.alpha * cov, rgbOf(st.color));
+      if (p3 > DAUB_LIGHT.threshold || p3 < -DAUB_LIGHT.threshold) {
+        const la = Math.min(DAUB_LIGHT.cap, Math.abs(p3) * DAUB_LIGHT.slope) * cov;
+        add(la, rgbOf(p3 > 0 ? st.lightColor : st.darkColor));
+      }
+    }, 0);
+    if (w <= 0) return [b[0], b[1], b[2]];
+    const k = Math.min(1, w);            // víc než plná krytost nemá smysl
+    const mix = [sr / w, sg / w, sb / w];
+    return [
+      Math.round(b[0] * (1 - k) + mix[0] * k),
+      Math.round(b[1] * (1 - k) + mix[1] * k),
+      Math.round(b[2] * (1 - k) + mix[2] * k)
+    ];
+  };
 
   /** Pás na hranici dvou terénů — pěna, obrubník lesa, závěj. */
   function paintEdge(ctx, sx, sy, size, ti, tj, jitter, horizontal) {

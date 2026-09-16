@@ -442,6 +442,22 @@ jen čísla — takže se dá ověřit v Node bez prohlížeče. `G.foundryGroun
 V přehledovém LOD se štětce i přechody ředí (`quality`), v `far` se kreslí jen
 plochý podklad.
 
+**Foundry nesmí měnit barvu terénu** — jen ho texturovat. Dá se to změřit bez
+canvasu: `G.foundryTerrainColor(terén)` spočítá z plánu průměrnou barvu, kterou
+krajina po štětcích má (štětec kryje `π·r²·flat / tilePx²` dlaždice a přes tu
+plochu míchá svou barvu s alfou). Ověřuje to `test/foundry.js`:
+
+| | hodnota |
+|---|---|
+| nejbližší dvojice terénů po foundry | **33,3** (paleta 33,1) |
+| největší posun barvy terénu | **5,2** |
+
+Naměřeno při ladění: když měly štětce v průměru tmavší barvu než `base`
+(či světelný nádech míchal bílou a černou), krajina zšedla, rozestup terénů
+spadl z **33 na 19–25** a louka s močálem se slily. Proto jsou `daubs`
+**vycentrované na `base`** (jejich průměr = základ) a světlo/stín bere odstíny
+vlastního terénu (`pal.light` / `pal.dark`), ne bílou a černou.
+
 **Ladění:** `G.FOUNDRY = { daub, deco, edge, quality }` — velikost mřížky
 štětců/dekorace, zapnutí přechodů a hustota. Dá se ladit **přímo ve hře**:
 debug panel **D** → „Mapa — vzhled" → řádky *štětce / dekorace / hustota /
@@ -501,6 +517,12 @@ dopočítaly **zachováním původních rozdílů vůči základu** — struktur
 
 Ověřeno: odlišnost terénů v assetech **22,5 → 31,8** (paleta dovoluje 33,1),
 odchylka od cíle 2,19, švy beze změny (wrap 1,87, seam/zrno 0,78).
+
+**Pravidlo pro `daubs`:** jejich **průměr se musí rovnat `base`** daného terénu.
+Štětce (v kresbě dlaždic i ve foundry) pak terén jen texturují a nemění jeho
+barvu — jinak krajina v průměru ztmavne, terény se slijí a rozestup palety se
+ztratí (naměřeno: 33 → 25, resp. 19 při světelném nádechu přes bílou a černou).
+Kontrola: `node test/foundry.js` → „foundry zachova barvu a rozestup terenu".
 
 ### 12.3 Pořadí pipeline dlaždic (důležité)
 

@@ -333,8 +333,14 @@
       const cell = document.createElement('div');
       cell.className = 'cell';
       const sw = document.createElement('div');
-      sw.style.cssText = 'width:96px;height:46px;border-radius:3px;border:1px solid #3a352a;background:' + pal.base;
+      sw.style.cssText = 'width:96px;height:30px;border-radius:3px 3px 0 0;border:1px solid #3a352a;border-bottom:none;background:' + pal.base;
       cell.appendChild(sw);
+      // druhý pruh = co z terénu vyleze po štětcích foundry (má se krýt se základem)
+      const eff = G.foundryTerrainColor ? G.foundryTerrainColor(t) : null;
+      const fSw = document.createElement('div');
+      fSw.style.cssText = 'width:96px;height:14px;border:1px solid #3a352a;border-top:none;' +
+        'background:' + (eff ? 'rgb(' + eff.join(',') + ')' : pal.base);
+      cell.appendChild(fSw);
       const strip = document.createElement('div');
       strip.style.cssText = 'display:flex;width:96px;height:10px;margin-top:2px;border-radius:2px;overflow:hidden';
       for (const c of [pal.dark, pal.light].concat(pal.daubs || [])) {
@@ -344,10 +350,27 @@
       }
       cell.appendChild(strip);
       const lab = document.createElement('div');
-      lab.textContent = (TILE_NAMES[t] || t) + ' · ' + pal.base;
+      const hex = (c) => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+      lab.textContent = (TILE_NAMES[t] || t) + ' · ' + pal.base + (eff ? ' → ' + hex(eff) : '');
       cell.appendChild(lab);
       box.appendChild(cell);
     }
+  }
+
+  /** Nejbližší dvojice barev terénů PO štětcích foundry (čitelnost na 46 px). */
+  function foundryMinDistance() {
+    if (!G.foundryTerrainColor) return null;
+    const eff = {};
+    for (const t of TERRAINS) eff[t] = G.foundryTerrainColor(t);
+    let best = { d: 1e9, a: '', b: '' };
+    for (let i = 0; i < TERRAINS.length; i++) {
+      for (let j = i + 1; j < TERRAINS.length; j++) {
+        const A = eff[TERRAINS[i]], B = eff[TERRAINS[j]];
+        const d = Math.sqrt((A[0]-B[0])**2 + (A[1]-B[1])**2 + (A[2]-B[2])**2);
+        if (d < best.d) best = { d: d, a: TERRAINS[i], b: TERRAINS[j] };
+      }
+    }
+    return best;
   }
 
   /** Nejbližší dvojice barev terénů (čitelnost na 46 px). */
@@ -565,6 +588,11 @@
     const pd = paletteMinDistance();
     log('paleta (art.js): nejbližší dvojice ' + pd.a + ' vs ' + pd.b + ' = ' +
         pd.d.toFixed(1) + '  (limit 26; dřív 8,3)');
+    const fd = foundryMinDistance();
+    if (fd) {
+      log('foundry barvy:   nejbližší dvojice ' + fd.a + ' vs ' + fd.b + ' = ' +
+          fd.d.toFixed(1) + '  (má se držet palety — štětce jen texturují)');
+    }
     } catch (e) {
       log('foundry: CHYBA ' + e.message);
     }

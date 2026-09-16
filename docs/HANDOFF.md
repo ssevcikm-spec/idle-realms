@@ -176,6 +176,12 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
     `settings.figureStyle` = `unified` (jeden model + erb role, bez zbraně) |
     `classic` (původní). Když měníš vzhled postav, sáhni na plán a otestuj
     `test/figures.js` — nehádej z kreslení.
+25. **Vrstva, která maluje přes paletu, ji nesmí posunout.** Foundry měl štětce
+    v průměru tmavší než `base` a světelný nádech míchal bílou/černou — krajina
+    zšedla a rozestup terénů spadl z 33 na 19–25. Platí: `daubs` centrované na
+    `base`, světlo/stín z `pal.light`/`pal.dark`, a **měř to** přes
+    `G.foundryTerrainColor` (test „foundry zachova barvu a rozestup terenu").
+    Stejná past číhá u každé další vrstvy (přechody, dekorace, sezónní tint).
 
 ---
 
@@ -185,14 +191,18 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 - 59 JS souborů, **697** definovaných/used globálů `G.*` (check-globals čisté;
   část přírůstku je z paralelní práce na výbavě postav).
 - Testy: headless-smoke **77** + tile-window **10** + tiles-preview **4** +
-  foundry **18** + foundry-game **13** + figures **12** kontrol, deterministicky.
+  foundry **19** + foundry-game **13** + figures **12** kontrol, deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
 - Dlaždice: assety jsou **torusy** (`wrap` 1,87), kreslí se jako **okno do
   textury** ve světových souřadnicích — `seam/zrno` 0,78, perioda 6 dlaždic.
 - **Paleta je jedna**: `G.PAL` v `js/render/art.js` je jediný zdroj — bere ji
   kresba, foundry i barevné srovnání malovaných dlaždic (`scripts/tile_palette.py`).
   Nejbližší dvojice terénů **33,1** (dřív 8,3 — hills vs dirt se slévaly).
+  **`daubs` musí mít průměr = `base`** (štětce jen texturují, nemění barvu).
   Detail: `docs/STYL_GRAFIKY.md` §12.
+- **Foundry drží paletu**: `G.foundryTerrainColor(terén)` spočítá z plánu
+  výslednou barvu krajiny — naměřeno nejbližší dvojice **33,3** (paleta 33,1),
+  největší posun barvy **5,2**. Hlídá `test/foundry.js`.
 - **Foundry** (nový vzhled mapy, Stage 1): krajina jako funkce světa — plochý
   podklad + světové štětce + přechody terénů + dekorace. Plán **0,15 ms/snímek**,
   na obrazovku ~224 štětců / 176 přechodů / 36 dekorací, **žádné opakování**
