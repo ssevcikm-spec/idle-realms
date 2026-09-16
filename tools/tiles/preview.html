@@ -78,6 +78,15 @@
 <h2>Mozaika — jak to vypadá na mapě</h2>
 <div class="grid" id="mosaics"></div>
 
+<h2>Foundry — krajina ve světových souřadnicích</h2>
+<p class="note">
+  Podklad, <b>přechody terénů</b> a dekorace kreslené jako funkce světa: prvek
+  přes hranici dlaždice je prostě prvek na svém světovém místě, takže se nic
+  neřeže, a hash nemá periodu, takže se krajina neopakuje. Demo mapa je
+  procedurální, aby byly vidět přechody (břeh, okraj lesa, cesta).
+</p>
+<div class="grid" id="foundry"></div>
+
 <h2>Kontaktní list terénů</h2>
 <div class="list" id="sheet"></div>
 
@@ -182,6 +191,72 @@
     return (parseInt(document.getElementById('blend').value, 10) || 0) / 100;
   }
 
+  // ---------- foundry: demo svět a jeho vykreslení ----------
+  const FW = 64, FH = 48;
+  /** Procedurální demo mapa (stejná pro všechny panely, ať se dají srovnat). */
+  function foundryTerrain(x, y) {
+    if (x < 0 || y < 0 || x >= FW || y >= FH) return '';
+    const e = G.foundryField(x, y, 11, 101);
+    const m = G.foundryField(x, y, 8, 202);
+    const d = G.foundryField(x, y, 4, 303);
+    if (e < 0.34) return 'water';
+    if (Math.abs(y - (26 + Math.sin(x / 7) * 3)) < 0.7) return 'road';
+    if (e > 0.76) return d > 0.5 ? 'snow' : 'mountain';
+    if (e > 0.64) return 'hills';
+    if (m > 0.60) return d > 0.55 ? 'deep_forest' : 'forest';
+    if (m < 0.34) return 'dirt';
+    if (m > 0.52 && d > 0.62) return 'swamp';
+    return 'grass';
+  }
+
+  /** Vykreslí výřez demo světa foundry cestou (jako to dělá hra). */
+  function drawFoundry(canvas, tilePx, tilesX, tilesY, wx0, wy0) {
+    canvas.width = tilesX * tilePx;
+    canvas.height = tilesY * tilePx;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#1b1a17';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let y = 0; y < tilesY; y++) for (let x = 0; x < tilesX; x++) {
+      const t = foundryTerrain(wx0 + x, wy0 + y);
+      if (!t) continue;
+      ctx.fillStyle = G.foundryBase(t);
+      ctx.fillRect(x * tilePx, y * tilePx, tilePx + 0.5, tilePx + 0.5);
+    }
+    const view = {
+      x0: wx0, x1: wx0 + tilesX - 1, y0: wy0, y1: wy0 + tilesY - 1,
+      ox: -wx0 * tilePx, oy: -wy0 * tilePx, tilePx: tilePx,
+      mode: 'detail', quality: 1, terrainAt: foundryTerrain
+    };
+    G.foundryGround(ctx, view);
+    G.foundryDeco(ctx, view);
+  }
+
+  function renderFoundry() {
+    const box = document.getElementById('foundry');
+    if (!box) return;
+    box.innerHTML = '';
+    const panels = [
+      { title: 'demo svět', note: '18×11 dlaždic po 64 px — celek', px: 64, tw: 18, th: 11, wx: 8, wy: 12 },
+      { title: 'přechody zblízka', note: '6×4 dlaždice po 160 px — břeh, les, cesta', px: 160, tw: 6, th: 4, wx: 12, wy: 15 },
+      { title: 'pás 40 dlaždic', note: '40×7 dlaždic po 46 px — hledej opakování', px: 46, tw: 40, th: 7, wx: 6, wy: 20 }
+    ];
+    for (const p of panels) {
+      const fig = document.createElement('figure');
+      const c = document.createElement('canvas');
+      drawFoundry(c, p.px, p.tw, p.th, p.wx, p.wy);
+      fig.appendChild(c);
+      const cap = document.createElement('figcaption');
+      cap.innerHTML = '<b>' + p.title + '</b><br>' + p.note;
+      fig.appendChild(cap);
+      box.appendChild(fig);
+    }
+  }
+
+  /** Opakuje se pás? Vrací nejmenší posun v dlaždicích, nebo null. */
+  function foundryRepeat(canvas, tilePx, tw, th) {
+    return periodOf(canvas, tilePx, tw, th, 0.985);
+  }
+
   function render() {
     const terrain = document.getElementById('terrain').value;
     const tilePx = parseInt(document.getElementById('tile').value, 10);
@@ -241,6 +316,8 @@
         sheet.appendChild(cell);
       }
     }
+
+    renderFoundry();
   }
 
   // ---------- měření (stejná matematika jako scripts/check-tiles.py) ----------
@@ -281,8 +358,8 @@
     return { seam: s, grain: g, ratio: s / Math.max(0.01, g) };
   }
 
-  /** Perioda opakování: nejmenší posun dlaždic, při kterém je mozaika stejná. */
-  function periodOf(canvas, tilePx, grid, lim) {
+  /** Perioda opakování: nejmenší posun dlaždic, při kterém je obrazec stejný. */
+  function periodOf(canvas, tilePx, gridX, gridY, lim) {
     const img = pixels(canvas), W = img.width, d = img.data;
     const block = (bx, by) => {
       const out = [];
@@ -301,12 +378,12 @@
       }
       return num / Math.max(1e-9, Math.sqrt(da * db));
     };
-    for (let k = 1; k <= Math.floor(grid / 2); k++) {
+    for (let k = 1; k <= Math.floor(gridX / 2); k++) {
       let worst = 1;
-      for (let ty = 0; ty < grid; ty++) for (let tx = 0; tx + k < grid; tx++) {
+      for (let ty = 0; ty < gridY; ty++) for (let tx = 0; tx + k < gridX; tx++) {
         worst = Math.min(worst, corr(block(tx, ty), block(tx + k, ty)));
       }
-      for (let tx = 0; tx < grid; tx++) for (let ty = 0; ty + k < grid; ty++) {
+      for (let tx = 0; tx < gridX; tx++) for (let ty = 0; ty + k < gridY; ty++) {
         worst = Math.min(worst, corr(block(tx, ty), block(tx, ty + k)));
       }
       if (worst >= lim) return k;
@@ -357,7 +434,7 @@
         const c = document.createElement('canvas');
         drawMosaic(c, m.id, 'grass', tilePx, grid);
         const sg = seamGrain(c, tilePx, grid);
-        const per = periodOf(c, tilePx, grid, 0.985);
+        const per = periodOf(c, tilePx, grid, grid, 0.985);
         const ok = sg.ratio <= 1.6;
         log('  ' + m.label.padEnd(30) +
             sg.seam.toFixed(2).padStart(5) + '  ' + sg.grain.toFixed(2).padStart(5) + '   ' +
@@ -366,6 +443,18 @@
       } catch (e) {
         log('  ' + m.label.padEnd(30) + 'CHYBA: ' + e.message);
       }
+    }
+    log('');
+
+    // 2b) foundry: opakuje se krajina?
+    try {
+      const c = document.createElement('canvas');
+      drawFoundry(c, 46, 40, 7, 6, 20);
+      const per = periodOf(c, 46, 40, 7, 0.985);
+      log('foundry (pás 40 dlaždic, demo mapa): ' +
+        (per === null ? 'neopakuje se (do 20 dlaždic)' : 'POZOR opakuje se po ' + per + ' dlaždicích'));
+    } catch (e) {
+      log('foundry: CHYBA ' + e.message);
     }
     log('');
 

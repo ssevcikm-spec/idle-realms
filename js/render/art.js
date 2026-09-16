@@ -524,4 +524,365 @@
     areaScatter(ctx, node, tiles, ox, oy, tilePx);
     return true;
   };
+
+  // ==========================================================================
+  // FOUNDRY — světová vrstva mapy (podklad, přechody terénů, dekorace)
+  //
+  // Proč takhle: dlaždice jako obrázek má dvě nemoci — šev na hranici a
+  // opakování po několika dlaždicích. Obě zmizí, když se krajina kreslí jako
+  // FUNKCE SVĚTA místo dlaždice:
+  //   - podklad  = štětce na světové mřížce (hash ze světových souřadnic),
+  //   - přechody = pásy na hranicích, kde se mění terén (každá hrana jednou),
+  //   - dekorace = trsy, kameny, rákosí na hrubší světové mřížce.
+  // Nic z toho se neopakuje (hash nemá periodu) a nic se neřeže na hranici
+  // dlaždice — kreslí se přes celou viditelnou oblast naráz, takže prvek přes
+  // hranici je prostě prvek na svém světovém místě.
+  //
+  // Plánování je oddělené od kreslení: `G.foundryOps` je ČISTÁ funkce (žádný
+  // canvas, žádné řetězce), takže se dá ověřit v Node — viz `test/foundry.js`.
+  // ==========================================================================
+
+  /** Terény v pevném pořadí (index se používá v plánu místo jména). */
+  const TER = ['grass','forest','deep_forest','hills','mountain','water','swamp','snow','road','dirt'];
+  const TER_IDX = {};
+  for (let i = 0; i < TER.length; i++) TER_IDX[TER[i]] = i;
+
+  /** Laditelné hodnoty foundry (náhled je umí měnit). */
+  G.FOUNDRY = {
+    daub: 1.0,      // dlaždic na jeden štětec podkladu
+    deco: 2.2,      // dlaždic na jednu dekoraci
+    edge: 1,        // 1 = kreslit přechody terénů
+    quality: 1      // <1 = řidší štětce (přehledový LOD)
+  };
+
+  /** 32bitový hash dvou celých souřadnic -> [0,1). Bez periody. */
+  function fhash(x, y, s) {
+    let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(s | 0, 2246822519);
+    h = Math.imul(h ^ (h >>> 15), 1274126177);
+    h ^= h >>> 13;
+    h = Math.imul(h, 2654435761);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+  function smoothstep(t) { return t * t * (3 - 2 * t); }
+
+  /**
+   * Hladké hodnotové pole ve světových dlaždicových souřadnicích.
+   * `cell` = velikost oktávy v dlaždicích. Vrací 0..1.
+   */
+  G.foundryField = function (x, y, cell, salt) {
+    const gx = x / cell, gy = y / cell;
+    const ix = Math.floor(gx), iy = Math.floor(gy);
+    const fx = smoothstep(gx - ix), fy = smoothstep(gy - iy);
+    const s = salt | 0;
+    const a = fhash(ix, iy, s), b = fhash(ix + 1, iy, s);
+    const c = fhash(ix, iy + 1, s), d = fhash(ix + 1, iy + 1, s);
+    return (a + (b - a) * fx) * (1 - fy) + (c + (d - c) * fx) * fy;
+  };
+
+  /** Základní barva terénu pro plošný podklad. */
+  G.foundryBase = function (terrain) {
+    const pal = G.PAL[terrain] || G.PAL.grass;
+    return pal.base;
+  };
+
+  const RGB_CACHE = {};
+  function rgbOf(hex) {
+    let v = RGB_CACHE[hex];
+    if (!v) {
+      const n = parseInt(hex.slice(1), 16);
+      v = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      RGB_CACHE[hex] = v;
+    }
+    return v;
+  }
+  /** Smíchá dvě barvy `#rrggbb` (t = 0 → a, 1 → b). */
+  function mixHex(a, b, t) {
+    const A = rgbOf(a), B = rgbOf(b);
+    return 'rgb(' + Math.round(A[0] + (B[0] - A[0]) * t) + ',' +
+                    Math.round(A[1] + (B[1] - A[1]) * t) + ',' +
+                    Math.round(A[2] + (B[2] - A[2]) * t) + ')';
+  }
+
+  // Předpočítané barvy přechodů (10×10 dvojic) — ať se ve smyčce nealokuje.
+  const EDGE_COLOR = [], EDGE_LIGHT = [];
+  for (let a = 0; a < TER.length; a++) {
+    EDGE_COLOR[a] = []; EDGE_LIGHT[a] = [];
+    for (let b = 0; b < TER.length; b++) {
+      const pa = G.PAL[TER[a]] || G.PAL.grass, pb = G.PAL[TER[b]] || G.PAL.grass;
+      EDGE_COLOR[a][b] = mixHex(pa.base, pb.base, 0.5);
+      EDGE_LIGHT[a][b] = mixHex(pa.light || pa.base, pb.light || pb.base, 0.5);
+    }
+  }
+
+  /** Hustota dekorace podle terénu (pravděpodobnost na buňku mřížky). */
+  const DECO_DENSITY = {
+    grass: 0.55, forest: 0.60, deep_forest: 0.55, hills: 0.40, mountain: 0.30,
+    water: 0.30, swamp: 0.60, snow: 0.35, road: 0.18, dirt: 0.22
+  };
+
+  /**
+   * Naplánuje světové prvky mapy. Nic nekreslí, jen volá `emit`:
+   *   emit(kind, sx, sy, size, p1, p2, p3, p4)
+   *   kind 0 = štětec podkladu: p1 terén, p2 varianta barvy, p3 světlo (-0.5..0.5)
+   *   kind 1 = přechod terénů:  p1 terén A, p2 terén B, p3 jitter, p4 0=svislá/1=vodorovná
+   *   kind 2 = dekorace:        p1 terén, p2 varianta, p3 tvar, p4 jitter
+   *
+   * `view` = { x0, x1, y0, y1 (dlaždice), ox, oy, tilePx (px), mode, terrainAt }
+   */
+  G.foundryOps = function (view, emit) { foundryPlan(view, emit, 2); };
+
+  /**
+   * Vykreslí podklad a přechody terénů. `what`: 0 = jen podklad, 1 = jen
+   * dekorace, 2 = obojí (používá se i pro test plánu).
+   */
+  function foundryPlan(view, emit, what) {
+    const px = view.tilePx, ox = view.ox, oy = view.oy;
+    const tAt = view.terrainAt;
+    const detail = view.mode === 'detail';
+    const q = view.quality === undefined ? G.FOUNDRY.quality : view.quality;
+
+    // --- štětce podkladu -------------------------------------------------
+    if (what !== 1) {
+      const cell = detail ? G.FOUNDRY.daub : G.FOUNDRY.daub * 1.8;
+      const gx0 = Math.floor(view.x0 / cell) - 1, gx1 = Math.ceil(view.x1 / cell) + 1;
+      const gy0 = Math.floor(view.y0 / cell) - 1, gy1 = Math.ceil(view.y1 / cell) + 1;
+      for (let gy = gy0; gy <= gy1; gy++) {
+        for (let gx = gx0; gx <= gx1; gx++) {
+          const r1 = fhash(gx, gy, 11);
+          if (!detail && r1 > q) continue;      // v přehledu kreslit řidčeji
+          const r2 = fhash(gx, gy, 23), r3 = fhash(gx, gy, 37), r4 = fhash(gx, gy, 53);
+          const wx = (gx + 0.12 + r1 * 0.76) * cell;
+          const wy = (gy + 0.12 + r2 * 0.76) * cell;
+          const ti = TER_IDX[tAt(Math.floor(wx), Math.floor(wy))];
+          if (ti === undefined) continue;
+          const light = G.foundryField(wx, wy, 7, 5) - 0.5;
+          emit(0, ox + wx * px, oy + wy * px, (0.30 + r3 * 0.55) * cell * px, ti, r4, light, 0);
+        }
+      }
+
+      // --- přechody terénů (každá hrana jednou: pravý a spodní soused) ----
+      if (G.FOUNDRY.edge) {
+        const m = 1;
+        for (let y = view.y0 - m; y <= view.y1 + m; y++) {
+          for (let x = view.x0 - m; x <= view.x1 + m; x++) {
+            const a = TER_IDX[tAt(x, y)];
+            if (a === undefined) continue;
+            if (!detail && fhash(x, y, 97) > q) continue;   // v přehledu řidší přechody
+            const bR = TER_IDX[tAt(x + 1, y)];
+            if (bR !== undefined && bR !== a) {
+              emit(1, ox + (x + 1) * px, oy + (y + 0.5) * px, px, a, bR, fhash(x, y, 71), 0);
+            }
+            const bD = TER_IDX[tAt(x, y + 1)];
+            if (bD !== undefined && bD !== a) {
+              emit(1, ox + (x + 0.5) * px, oy + (y + 1) * px, px, a, bD, fhash(x, y, 89), 1);
+            }
+          }
+        }
+      }
+    }
+
+    // --- dekorace (jen v detailu) ---------------------------------------
+    if (what !== 0 && detail) {
+      const cell = G.FOUNDRY.deco;
+      const gx0 = Math.floor(view.x0 / cell) - 1, gx1 = Math.ceil(view.x1 / cell) + 1;
+      const gy0 = Math.floor(view.y0 / cell) - 1, gy1 = Math.ceil(view.y1 / cell) + 1;
+      for (let gy = gy0; gy <= gy1; gy++) {
+        for (let gx = gx0; gx <= gx1; gx++) {
+          const r1 = fhash(gx, gy, 101);
+          const wx = (gx + 0.15 + r1 * 0.7) * cell;
+          const wy = (gy + 0.15 + fhash(gx, gy, 103) * 0.7) * cell;
+          const terr = tAt(Math.floor(wx), Math.floor(wy));
+          const ti = TER_IDX[terr];
+          if (ti === undefined) continue;
+          if (r1 > (DECO_DENSITY[terr] === undefined ? 0.3 : DECO_DENSITY[terr])) continue;
+          const r2 = fhash(gx, gy, 113), r3 = fhash(gx, gy, 127), r4 = fhash(gx, gy, 139);
+          emit(2, ox + wx * px, oy + wy * px, (0.09 + r2 * 0.15) * px, ti, r3, r4, r2);
+        }
+      }
+    }
+  }
+
+  /** Vykreslí dlaždici terénu jako plochu podkladu (foundry). */
+  G.foundryGround = function (ctx, view) {
+    foundryPlan(view, function (kind, sx, sy, size, p1, p2, p3, p4) {
+      if (kind === 0) paintDaub(ctx, sx, sy, size, p1, p2, p3);
+      else paintEdge(ctx, sx, sy, size, p1, p2, p3, p4);
+    }, 0);
+  };
+
+  /** Vykreslí dekoraci krajiny (foundry). */
+  G.foundryDeco = function (ctx, view) {
+    foundryPlan(view, function (kind, sx, sy, size, p1, p2, p3) {
+      if (kind === 2) paintDeco(ctx, sx, sy, size, p1, p2, p3);
+    }, 1);
+  };
+
+  function paintDaub(ctx, sx, sy, size, ti, variant, light) {
+    const t = TER[ti], pal = G.PAL[t] || G.PAL.grass;
+    const daubs = pal.daubs || [pal.base];
+    ctx.globalAlpha = 0.10 + variant * 0.13;
+    ctx.fillStyle = daubs[(variant * daubs.length) | 0] || pal.base;
+    const flat = (t === 'water') ? 0.42 : 0.60 + variant * 0.20;
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, size, size * flat, variant * 3.1, 0, Math.PI * 2);
+    ctx.fill();
+    // velkoplošné světlo: prosvětlení/ztmavení podle světového pole
+    if (light > 0.10 || light < -0.10) {
+      ctx.globalAlpha = Math.min(0.13, Math.abs(light) * 0.26);
+      ctx.fillStyle = light > 0 ? '#ffffff' : '#000000';
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** Pás na hranici dvou terénů — pěna, obrubník lesa, závěj. */
+  function paintEdge(ctx, sx, sy, size, ti, tj, jitter, horizontal) {
+    const A = TER[ti], B = TER[tj];
+    const water = A === 'water' || B === 'water';
+    const snow = A === 'snow' || B === 'snow';
+    const column = jitter * 1000 | 0;      // deterministický "seed" pásu
+
+    if (water) {
+      // pěna: světlé obloučky podél břehu
+      ctx.fillStyle = EDGE_LIGHT[ti][tj];
+      for (let i = 0; i < 3; i++) {
+        const a1 = fhash(column, i, 7), a2 = fhash(column, i, 13), a3 = fhash(column, i, 19);
+        const off = (i - 1) * size * 0.26 + (a1 - 0.5) * size * 0.18;
+        const along = (a2 - 0.5) * size * 0.5;
+        const rx = size * (0.16 + a3 * 0.16), ry = size * (0.06 + a1 * 0.07);
+        ctx.globalAlpha = 0.10 + a3 * 0.14;
+        ctx.beginPath();
+        if (horizontal) ctx.ellipse(sx + along, sy + off, ry * 1.6, ry, 0, 0, Math.PI * 2);
+        else ctx.ellipse(sx + off, sy + along, ry, ry * 1.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    if (snow) {
+      ctx.fillStyle = '#e9eff5';
+      ctx.globalAlpha = 0.13 + jitter * 0.10;
+      ctx.beginPath();
+      if (horizontal) ctx.ellipse(sx, sy, size * 0.5, size * 0.11, 0, 0, Math.PI * 2);
+      else ctx.ellipse(sx, sy, size * 0.11, size * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    // ostatní dvojice: drobné kamínky / obruba v barvě přechodu
+    ctx.fillStyle = EDGE_COLOR[ti][tj];
+    const n = 2 + ((jitter * 3) | 0);
+    for (let i = 0; i < n; i++) {
+      const a1 = fhash(column, i, 31), a2 = fhash(column, i, 41), a3 = fhash(column, i, 47);
+      const along = ((i + 0.5) / n - 0.5) * size * 0.9 + (a1 - 0.5) * size * 0.12;
+      const off = (a2 - 0.5) * size * 0.16;
+      ctx.globalAlpha = 0.08 + a3 * 0.14;
+      ctx.beginPath();
+      if (horizontal) ctx.ellipse(sx + along, sy + off, size * (0.06 + a3 * 0.06), size * (0.04 + a1 * 0.05), 0, 0, Math.PI * 2);
+      else ctx.ellipse(sx + off, sy + along, size * (0.04 + a1 * 0.05), size * (0.06 + a3 * 0.06), 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** Dekorace podle terénu: trs, kamínek, rákosí, závěj, vyjetá kolej. */
+  function paintDeco(ctx, sx, sy, size, ti, variant, shape) {
+    const t = TER[ti], pal = G.PAL[t] || G.PAL.grass;
+    const dark = pal.dark || pal.base, light = pal.light || pal.base;
+    const seed = (shape * 4096) | 0;
+
+    if (t === 'water') {
+      ctx.globalAlpha = 0.16 + variant * 0.16;
+      ctx.strokeStyle = light; ctx.lineWidth = Math.max(1, size * 0.5);
+      const len = size * (2.2 + variant * 1.6);
+      ctx.beginPath(); ctx.moveTo(sx - len / 2, sy); ctx.lineTo(sx + len / 2, sy); ctx.stroke();
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    if (t === 'road') {
+      ctx.globalAlpha = 0.18 + variant * 0.14;
+      ctx.strokeStyle = dark; ctx.lineWidth = Math.max(1, size * 0.35);
+      const len = size * (2.4 + variant * 1.4), gap = size * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(sx - len / 2, sy - gap); ctx.lineTo(sx + len / 2, sy - gap * 0.6);
+      ctx.moveTo(sx - len / 2, sy + gap); ctx.lineTo(sx + len / 2, sy + gap * 0.6);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    if (t === 'forest' || t === 'deep_forest') {
+      // podrost: dva tmavé trsy
+      ctx.globalAlpha = 0.30 + variant * 0.22;
+      ctx.fillStyle = dark;
+      for (let i = 0; i < 2; i++) {
+        const a1 = fhash(seed, i, 3), a2 = fhash(seed, i, 9);
+        ctx.beginPath();
+        ctx.ellipse(sx + (a1 - 0.5) * size, sy + (a2 - 0.5) * size * 0.6,
+                    size * (0.7 + a1 * 0.6), size * (0.45 + a2 * 0.4), 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    if (t === 'swamp') {
+      ctx.globalAlpha = 0.5 + variant * 0.3;
+      ctx.strokeStyle = '#6d7a4e'; ctx.lineWidth = Math.max(1, size * 0.28);
+      for (let i = 0; i < 4; i++) {
+        const a1 = fhash(seed, i, 5), a2 = fhash(seed, i, 11);
+        const bx = sx + (a1 - 0.5) * size * 1.4, by = sy + (a2 - 0.5) * size * 0.6;
+        ctx.beginPath();
+        ctx.moveTo(bx, by); ctx.lineTo(bx + (a1 - 0.5) * size * 0.6, by - size * (1.4 + a2));
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    if (t === 'snow') {
+      ctx.globalAlpha = 0.20 + variant * 0.18;
+      ctx.fillStyle = '#f2f6fa';
+      ctx.beginPath();
+      ctx.ellipse(sx, sy, size * (1.2 + variant), size * (0.5 + variant * 0.5), 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    if (t === 'hills' || t === 'mountain' || t === 'dirt') {
+      // kamínek s osvětlenou hranou
+      const r = size * (0.55 + variant * 0.5);
+      ctx.globalAlpha = 0.22; ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.ellipse(sx, sy + r * 0.5, r * 1.05, r * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.75;
+      ctx.fillStyle = pal.base;
+      ctx.beginPath(); ctx.ellipse(sx, sy, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = light;
+      ctx.beginPath(); ctx.ellipse(sx - r * 0.2, sy - r * 0.3, r * 0.5, r * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    // louka: trs trávy, občas květ
+    ctx.globalAlpha = 0.45 + variant * 0.3;
+    ctx.strokeStyle = variant > 0.7 ? light : dark;
+    ctx.lineWidth = Math.max(1, size * 0.25);
+    for (let i = 0; i < 3; i++) {
+      const a1 = fhash(seed, i, 17), a2 = fhash(seed, i, 29);
+      const bx = sx + (a1 - 0.5) * size * 1.2, by = sy + (a2 - 0.5) * size * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(bx, by); ctx.lineTo(bx + (a1 - 0.5) * size * 0.7, by - size * (0.9 + a2 * 0.8));
+      ctx.stroke();
+    }
+    if (variant > 0.86) {
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = variant > 0.93 ? '#d9c07a' : '#c98b8b';
+      ctx.beginPath(); ctx.arc(sx + size * 0.4, sy - size * 0.7, size * 0.28, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
 })();

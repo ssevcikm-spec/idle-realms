@@ -192,8 +192,9 @@ Zbývá:
 2. Uložit styl k projektu (`--set-style`) pro generátor ilustrací.
 3. Vygenerovat **testovací trojici** (1 dlaždice lesa, 1 postava, 1 příběhová
    ilustrace) a porovnat vedle sebe.
-4. **Stage 1 — „foundry"** (§8.5): světová pole, toroidní razítkování, dekorace,
-   přechody terénů; teprve pak sídla a postavy.
+4. **Stage 1 — „foundry"** — ✅ **hotovo** (§11): světová vrstva mapy (podklad,
+   přechody terénů, dekorace), měřená a bez opakování. Zbývá doladit vzhled
+   okem a připojit k tomu malované jednotky (§11 „Otevřené").
 
 ---
 
@@ -291,7 +292,8 @@ Výchozí hodnota je 0; kterou použít, se má rozhodnout **okem** v náhledu.
 
 - **Perioda 6 dlaždic** v malované cestě (okno je 1/6 textury). Správné řešení
   není další obrázek, ale **světová dekorace z kódu** (trsy, kameny, rákosí) —
-  ta opakování rozbije, protože je funkce světa.
+  ta opakování rozbije, protože je funkce světa. **Foundry tuhle cestu realizuje
+  (§11); malovaná cesta `ai` periodu 6 pořád má.**
 - **Kreslená cesta** (`art.js`, výchozí vzhled) pořád kreslí prvky uříznuté na
   hranici. Náhled porovnává dvě varianty: dnešní (varianty náhodně) vs.
   **zrcadlení podle parity** (šev 0 i pro dlaždice, které netileují, ale perioda
@@ -398,3 +400,61 @@ takže mapa i postavy drží jeden malovaný styl.
 Postavy jsou zatím každá jiná (postava, vybavení, zbraň). Plán na sjednocení
 viz `docs/HANDOFF.md` — všichni na jednom základním modelu + ikona role (erb)
 + jen zbroj/oblečení, žádná zbraň.
+
+---
+
+## 11. Foundry — krajina ve světových souřadnicích *(Stage 1, hotovo 2026-09-16)*
+
+**Co to je:** třetí vzhled mapy vedle `code` a `ai` — `settings.tileStyle =
+'foundry'` (přepínač v debug panelu **D** → „Mapa — vzhled"). Krajina se
+nekreslí po dlaždicích, ale jako **funkce světa**:
+
+| Vrstva | Co dělá | Kde |
+|---|---|---|
+| Plochý podklad | barva terénu na dlaždici (`fillRect`) | `G.foundryBase` |
+| Světové štětce | dauby na světové mřížce 1 dlaždice, hash + jitter, velkoplošné světlo z `foundryField` | `G.foundryGround` |
+| Přechody terénů | pás na každé hraně, kde se mění terén — pěna u vody, závěj u sněhu, obruba jinde | `G.foundryGround` |
+| Dekorace | trsy, kamínky, rákosí, vyjeté koleje, závěje (`DECO_DENSITY` podle terénu) | `G.foundryDeco` |
+
+**Proč to řeší obě nemoci dlaždic:**
+
+1. **Šev nemůže vzniknout** — prvek přes hranici dlaždice je prostě prvek na
+   svém světovém místě; kreslí se přes celou viditelnou oblast naráz, takže se
+   nic neřeže ani neopakuje na hranici.
+2. **Krajina se neopakuje** — umístění i barva pocházejí z 32bitového hashe
+   světových souřadnic (`fhash`), který nemá krátkou periodu. Ověřeno
+   autokorelací: |korelace| < 0,5 pro všechny posuny 1–24 dlaždic.
+
+**Jak je to postavené (a proč):** plánování je oddělené od kreslení.
+`G.foundryOps(view, emit)` je **čistá funkce** — žádný canvas, žádné řetězce,
+jen čísla — takže se dá ověřit v Node bez prohlížeče. `G.foundryGround` a
+`G.foundryDeco` jsou jen „paintery", které plán překreslí.
+
+| Nástroj | Co ověřuje |
+|---|---|
+| `node test/foundry.js` (13 kontrol) | determinismus, **ukotvení ve světě** (posun kamery posune prvky přesně o posun — kdyby se hashoval screen, krajina by „plavala"), přesné pokrytí mřížky, žádná perioda, každá hrana právě jednou, nic mimo mapu, rozpočet prvků, všech větví kreslení |
+| `node test/foundry-game.js` (9 kontrol) | integrace: spustí celou hru, přepne vzhled, změří reálné kreslicí operace, přehledový LOD, posun a zoom kamery |
+| `tools/tiles/preview.html` | tři panely foundry: demo svět, přechody zblízka (160 px/dlaždice), pás 40 dlaždic (hledání opakování) + měření repetice |
+
+**Naměřený rozpočet** (viewport 14×12 dlaždic při 64 px, reálná mapa):
+**224 štětců, 176 přechodů, 36 dekorací**, plán **0,15 ms** na snímek.
+V přehledovém LOD se štětce i přechody ředí (`quality`), v `far` se kreslí jen
+plochý podklad.
+
+**Ladění:** `G.FOUNDRY = { daub, deco, edge, quality }` — velikost mřížky
+štětců/dekorace, zapnutí přechodů a hustota. Vzhled se ladí **okem v náhledu**,
+čísla hlídá `test/foundry.js`.
+
+**Otevřené (do dalšího kroku):**
+
+- **Malované jednotky zůstávají jen u `ai`** — ve foundry se kreslí kódové
+  figurky. Pro cestu C (hybrid) by se měl přepínač jednotek oddělit od přepínače
+  mapy (`settings.units`).
+- **Přechody jsou jen vizuální pás** — nejsou to plnohodnotné „biomy"
+  (např. břeh nemá vlastní plážový terén).
+- **Paleta** má pořád blízké terény (grass vs. hills i grass vs. road = 22,1 L2),
+  což foundry nezachrání — chce to posunout odstíny.
+- Foundry bydlí v `js/render/art.js`, protože `index.html` měl v době práce
+  cizí rozpracované změny a přidání `<script>` by rozbilo konzistenci
+  commitnutého stavu. Až se práce sejde, je čistší ho přesunout do
+  `js/render/foundry.js`.

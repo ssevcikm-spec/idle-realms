@@ -51,6 +51,10 @@
           <div class="dbg-row" id="dbg-figs"></div>
           <div class="dbg-note" id="dbg-scale-note"></div>
         </div>
+        <div class="dbg-section"><div class="dbg-label">Mapa — vzhled</div>
+          <div class="dbg-row" id="dbg-styles"></div>
+          <div class="dbg-note">foundry = krajina kreslená ve světových souřadnicích (bezešvá, neopakuje se)</div>
+        </div>
         <div class="dbg-section"><div class="dbg-label">Svět</div>
           <div class="dbg-row" id="dbg-events"></div>
           <div class="dbg-row"><button class="dbg-btn" data-dbg="spawn-caravan">🐎 Karavana</button></div>
@@ -90,7 +94,7 @@
       `;
       document.body.appendChild(el);
       el.addEventListener('click', onDebugClick);
-      buildSpeedButtons(); buildMatButtons(); buildEventButtons(); buildScaleButtons();
+      buildSpeedButtons(); buildMatButtons(); buildEventButtons(); buildScaleButtons(); buildStyleButtons();
       setInterval(updateStats, 500); updateStats();
     }
     if (el) el.classList.toggle('show', open);
@@ -115,6 +119,19 @@
   /** Přepínače měřítka mapy — velikost dlaždice a výška postav. */
   const TILE_STEPS = [46, 56, 64, 80];
   const FIG_STEPS = [0.6, 0.8, 0.94, 1.15];
+  const STYLE_STEPS = [
+    ['code', 'kreslený'],
+    ['ai', 'malovaný'],
+    ['foundry', 'foundry']
+  ];
+  function buildStyleButtons() {
+    const el = document.getElementById('dbg-styles');
+    if (!el) return;
+    const cur = G.tileStyle ? G.tileStyle() : 'code';
+    el.innerHTML = STYLE_STEPS.map(([v, name]) =>
+      `<button class="dbg-btn ${v === cur ? 'active' : ''}" data-dbg="tilestyle" data-v="${v}">${name}</button>`
+    ).join('');
+  }
   function buildScaleButtons() {
     const tEl = document.getElementById('dbg-tiles');
     const fEl = document.getElementById('dbg-figs');
@@ -154,6 +171,10 @@
       if (G.setFigureHeight) G.setFigureHeight(parseFloat(el.dataset.v));
       if (G.state && G.state.settings) G.state.settings.figHeight = G.getFigureHeight();
       buildScaleButtons();
+    }
+    else if (a === 'tilestyle') {
+      if (G.setTileStyle) G.setTileStyle(el.dataset.v);
+      buildStyleButtons();
     }
     else if (a === 'speed') { speed = parseFloat(el.dataset.speed); buildSpeedButtons(); }
     else if (a === 'gold') G.state.resources.gold += 500;

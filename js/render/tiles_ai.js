@@ -44,20 +44,24 @@
     repeat: REPEAT
   };
 
-  /** Aktivní vzhled mapy: 'code' (kreslený) nebo 'ai' (bitmapy). */
+  /** Aktivní vzhled mapy: 'code' (kreslený), 'ai' (bitmapy) nebo 'foundry' (světová vrstva). */
   G.tileStyle = function () {
     const s = (G.state && G.state.settings) || {};
-    return s.tileStyle === 'ai' ? 'ai' : 'code';
+    if (s.tileStyle === 'ai') return 'ai';
+    if (s.tileStyle === 'foundry') return 'foundry';
+    return 'code';
   };
   G.setTileStyle = function (style) {
     if (!G.state) return 'code';
     if (!G.state.settings) G.state.settings = {};
-    G.state.settings.tileStyle = (style === 'ai') ? 'ai' : 'code';
-    if (G.state.settings.tileStyle === 'ai') {
+    const v = (style === 'ai' || style === 'foundry') ? style : 'code';
+    G.state.settings.tileStyle = v;
+    if (v === 'ai') {
       if (G.loadAiTiles) G.loadAiTiles();
       if (G.loadAiUnits) G.loadAiUnits();
     }
-    return G.state.settings.tileStyle;
+    if (G.drawWorldFrame) G.drawWorldFrame();
+    return v;
   };
 
   /** Nastaví míru prolnutí dvou textur (0–1). Vrací použitou hodnotu. */

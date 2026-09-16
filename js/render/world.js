@@ -270,6 +270,13 @@
     G.state.selected = null;
   }
   function tileSize() { return tileBase * (G.state.camera.zoom || 1); }
+
+  /** Terén pro foundry (světová vrstva): mimo mapu vrací '', prvek se vynechá. */
+  function foundryTerrainAt(x, y) {
+    const w = G.WORLD;
+    if (!w || x < 0 || y < 0 || x >= w.w || y >= w.h) return '';
+    return w.terrainAt(x, y);
+  }
   /** Měřítko pro G.drawFigure — figura má být vysoká `figureHeight` dlaždice (24,5 jednotek). */
   function figScale(tilePx) { return (tilePx * figureHeight) / 24.5; }
 
@@ -353,16 +360,29 @@
     const y1 = Math.ceil(cam.y + halfH) + 1;
     const ox = cw/2 - cam.x*tilePx, oy = ch/2 - cam.y*tilePx;
     ctx.fillStyle = '#1b1a17'; ctx.fillRect(0, 0, cw, ch);
+    // Foundry = krajina jako funkce SVĚTA: plochý podklad po dlaždicích a přes
+    // něj světové štětce, přechody terénů a dekorace (js/render/art.js).
+    const foundry = G.tileStyle && G.tileStyle() === 'foundry' && G.foundryGround;
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       if (x < 0 || y < 0 || x >= w.w || y >= w.h) continue;
       const name = w.terrainAt(x, y);
       const tx = ox + x*tilePx, ty = oy + y*tilePx;
+      if (foundry) { ctx.fillStyle = G.foundryBase(name); ctx.fillRect(tx, ty, tilePx + 0.5, tilePx + 0.5); continue; }
       // Malovaný vzhled se kreslí jako okno do torusu na SVĚTOVÝCH souřadnicích
       // (x, y) — proto dostává souřadnice dlaždice, ne jen index varianty.
       if (G.tileDraw && G.tileDraw(ctx, name, tx, ty, tilePx + 0.5, x, y)) continue;
       const v = ((x*7 + y*13) % 8 + 8) % 8;
       const art = (G.tileArt || G.getTileArt)(name, v);
       ctx.drawImage(art, tx, ty, tilePx + 0.5, tilePx + 0.5);
+    }
+    if (foundry && mode !== 'far') {
+      const view = {
+        x0:x0, x1:x1, y0:y0, y1:y1, ox:ox, oy:oy, tilePx:tilePx, mode:mode,
+        quality: mode === 'detail' ? 1 : 0.45,
+        terrainAt: foundryTerrainAt
+      };
+      G.foundryGround(ctx, view);
+      G.foundryDeco(ctx, view);
     }
     // Cesty se kreslí zvlášť a spojitě — dlaždice sama neví, kterým směrem cesta vede.
     drawRoads(ox, oy, tilePx, x0, x1, y0, y1);

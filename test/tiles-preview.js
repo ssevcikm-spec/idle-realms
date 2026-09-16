@@ -114,15 +114,17 @@ check('postavily se vsechny panely', () => {
   const seams = byId['seams'] ? byId['seams'].children.length : 0;
   const mosaics = byId['mosaics'] ? byId['mosaics'].children.length : 0;
   const sheet = byId['sheet'] ? byId['sheet'].children.length : 0;
+  const foundry = byId['foundry'] ? byId['foundry'].children.length : 0;
   assert(seams === 5, 'panelu svy: ' + seams + ' (ceka se 5)');
   assert(mosaics === 4, 'panelu mozaiky: ' + mosaics + ' (ceka se 4 bez prolnuti)');
   assert(sheet === 30, 'kontaktni list: ' + sheet + ' (ceka se 30 = 10 terenu x 3 velikosti)');
+  assert(foundry === 3, 'panelu foundry: ' + foundry + ' (ceka se 3)');
 });
 
 check('spocitala se diagnostika', () => {
   const diag = byId['diag'] ? byId['diag'].textContent : '';
   assert(diag && diag.length > 200, 'diagnostika je prazdna');
-  for (const must of ['navazování assetu', 'seam', 'perioda', 'kontrast']) {
+  for (const must of ['navazování assetu', 'seam', 'perioda', 'kontrast', 'foundry']) {
     assert(diag.indexOf(must) >= 0, 'v diagnostice chybi "' + must + '"');
   }
   assert(diag.indexOf('NaN') < 0, 'diagnostika obsahuje NaN');
