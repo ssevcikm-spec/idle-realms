@@ -20,7 +20,7 @@
       caravans: [], worldEvents: [],
       expeditions: [], masterworks: [], orders: [], construction: [], productionOrders: [],
       prestige: { level: 0, totalPrestige: 0, unlocks: [], lastUnlock: null },
-      base: { unlocked: false, buildings: {}, accum: {}, x: 14, y: 18, placing: false, placementOffered: false, suggested: null, moving: false },
+      base: { unlocked: false, buildings: {}, accum: {}, x: 30, y: 30, placing: false, placementOffered: false, suggested: null, moving: false },
       story: { completed: [], flags: {}, choices: {} },
       achievements: { unlocked: [] },
       combat: { active: null },
@@ -100,9 +100,9 @@
     save.prestige = save.prestige || { level: 0, totalPrestige: 0, unlocks: [] };
     if (!save.prestige.unlocks) save.prestige.unlocks = [];
     if (save.prestige.lastUnlock === undefined) save.prestige.lastUnlock = null;
-    save.base = save.base || { unlocked: false, buildings: {}, accum: {}, x: 14, y: 18 };
-    if (save.base.x == null) save.base.x = 14;
-    if (save.base.y == null) save.base.y = 18;
+    save.base = save.base || { unlocked: false, buildings: {}, accum: {}, x: 30, y: 30 };
+    if (save.base.x == null) save.base.x = 30;
+    if (save.base.y == null) save.base.y = 30;
     if (save.base.placementOffered == null) save.base.placementOffered = !!save.base.unlocked;
     if (save.base.suggested === undefined) save.base.suggested = null;
     save.base.placing = false;   // výběr místa je jen dočasný stav

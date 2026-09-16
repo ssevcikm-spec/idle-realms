@@ -109,8 +109,8 @@ Uzel má teď `tiles` (seznam dlaždic) a celá hra s ním zachází jako s ploc
 - **Výběr** (kroužek) se kreslí přes celou oblast.
 - Panel místa ukazuje „N polí".
 
-Hotové je i **LOD** (přehled vs. detail — viz `docs/SKALOVANI_MAPY.md` kap. 4).
-Zbývá z původního plánu jen **větší svět** (40×30 → 64×48).
+Hotové je i **LOD** (přehled vs. detail) a **větší svět** (64×48, 10 sídel) —
+viz `docs/SKALOVANI_MAPY.md` kap. 4. Z původního plánu už nezbývá nic.
 **Props sídel podle zaměření (kap. 4) je hotové** — `drawSettlementProps`
 kreslí podle `s.spec`: těžní věž a haldy rudy (mining), kruhovou pilu a klády
 (forestry), silo a stohy sena (farming), stánky s plachtou a vůz (trade).

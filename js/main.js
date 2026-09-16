@@ -164,7 +164,7 @@
     s.quests = s.quests || {};
     s.caravans = s.caravans || [];
     s.worldEvents = s.worldEvents || [];
-    s.base = s.base || { unlocked: false, buildings: {}, accum: {}, x: 14, y: 18 };
+    s.base = s.base || { unlocked: false, buildings: {}, accum: {}, x: 30, y: 30 };
     s.construction = s.construction || [];
     s.construction.forEach(j => {
       if (j.site == null) j.site = j.kind === 'base' ? 'base' : j.settlementId;
@@ -172,8 +172,8 @@
     });
     s.base.accum = s.base.accum || {};
     s.base.buildings = s.base.buildings || {};
-    if (s.base.x == null) s.base.x = 14;
-    if (s.base.y == null) s.base.y = 18;
+    if (s.base.x == null) s.base.x = 30;
+    if (s.base.y == null) s.base.y = 30;
     if (s.base.placementOffered == null) s.base.placementOffered = !!s.base.unlocked;
     if (s.base.suggested === undefined) s.base.suggested = null;
     s.story = s.story || { completed: [], flags: {} };
@@ -182,8 +182,8 @@
     s.achievements = s.achievements || { unlocked: [] };
     s.camera = s.camera || { x: 7, y: 22, zoom: 1 };
     s.camera.zoom = G.clampZoom ? G.clampZoom(s.camera.zoom || 1) : G.clamp(s.camera.zoom || 1, 0.55, 2.0);
-    s.camera.x = G.clamp(s.camera.x || 7, 0, 40);
-    s.camera.y = G.clamp(s.camera.y || 22, 0, 30);
+    s.camera.x = G.clamp(s.camera.x || 7, 0, (G.WORLD && G.WORLD.w ? G.WORLD.w - 1 : 63));
+    s.camera.y = G.clamp(s.camera.y || 22, 0, (G.WORLD && G.WORLD.h ? G.WORLD.h - 1 : 47));
     s.selected = s.selected || null;
   }
 

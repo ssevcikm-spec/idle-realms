@@ -104,6 +104,17 @@ catch (e) { failed++; console.log('  FAIL main.js: ' + e.message); }
 check('title screen zavolan', () => assert(!!titleOpts));
 check('Nova hra se spusti', () => { titleOpts.onNewGame('normal'); assert(!!G.state); });
 check('stav ma postavy a svet', () => assert(G.state.units.length > 0 && G.WORLD.settlements.length > 0));
+check('svet je 64x48, ma 10 sidel a cesty propojuji vse', () => {
+  assert(G.WORLD.w === 64 && G.WORLD.h === 48, 'svet nema 64x48 (' + G.WORLD.w + 'x' + G.WORLD.h + ')');
+  assert(G.WORLD.settlements.length === 10, 'svet nema 10 sidel (' + G.WORLD.settlements.length + ')');
+  assert(!!G.WORLD.settlementById['svitavy'], 'chybi startovni sidlo svitavy');
+  const adj = {};
+  for (const s of G.WORLD.settlements) adj[s.id] = [];
+  for (const [a, b] of (G.ROADS || [])) { adj[a].push(b); adj[b].push(a); }
+  const seen = new Set(['svitavy']), stack = ['svitavy'];
+  while (stack.length) { const id = stack.pop(); for (const n of (adj[id] || [])) if (!seen.has(n)) { seen.add(n); stack.push(n); } }
+  assert(seen.size === G.WORLD.settlements.length, 'ne vsechna sidla jsou dosazitelna po cestach (' + seen.size + '/' + G.WORLD.settlements.length + ')');
+});
 check('obtiznost funguje', () => assert(G.currentDifficulty().id === 'normal'));
 check('200x tick() bez vyjimky', () => { for (let i = 0; i < 200; i++) G.tick(0.1); });
 check('20x tickAutonomy() bez vyjimky', () => { for (let i = 0; i < 20; i++) G.tickAutonomy(2); });
@@ -511,7 +522,10 @@ check('LOD: prehled ma co psat (jmena, frakce, role)', () => {
 });
 check('LOD: prekresleni mapy ve vsech urovnich nespadne', () => {
   assert(typeof G.drawWorldFrame === 'function', 'chybi G.drawWorldFrame');
-  const z0 = G.state.camera.zoom;
+  const z0 = G.state.camera.zoom, cx0 = G.state.camera.x, cy0 = G.state.camera.y;
+  // větší svět: postavy se rozlezou — vycentruj kameru na živou postavu, ať jsou v záběru
+  const u0 = G.state.units.find(u => !u.dead);
+  if (u0) { G.state.camera.x = u0.pos.x; G.state.camera.y = u0.pos.y; }
   G.state.camera.zoom = 1;
   G.drawWorldFrame();
   const det = G.lodFrameStats();
@@ -531,7 +545,7 @@ check('LOD: prekresleni mapy ve vsech urovnich nespadne', () => {
   const far = G.lodFrameStats();
   assert(far.level === 'far', 'pri zoomu 0,3 uz ma byt jen symboly (' + far.level + ')');
   assert(far.dots > 0 && far.labels === 0, 'nejvzdalenejsi uroven ma kreslit tecky a zadne texty');
-  G.state.camera.zoom = z0;
+  G.state.camera.zoom = z0; G.state.camera.x = cx0; G.state.camera.y = cy0;
 });
 check('LOD: tlacitko prehledu prepne detail a zpet', () => {
   assert(typeof G.toggleMapOverview === 'function', 'chybi G.toggleMapOverview');

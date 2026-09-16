@@ -220,17 +220,24 @@
     city:    { label:'Metropole', icon:'🏛️', radius:2, goldBase:1100, stockMult:1.5, houses:8 }
   };
   G.SETTLEMENT_DEFS = [
-    { id:'svitavy',  name:'Svitavy',         x:7,  y:22, size:'village', spec:'farming'  },
-    { id:'kamenice', name:'Kamenice',        x:31, y:20, size:'village', spec:'mining'   },
-    { id:'brezova',  name:'Březová',         x:11, y:8,  size:'town',    spec:'forestry' },
-    { id:'stribrod', name:'Stříbrný Brod',   x:28, y:10, size:'town',    spec:'trade'    },
-    { id:'hluboka',  name:'Hluboká',         x:19, y:25, size:'village', spec:'mining'   },
-    { id:'kralov',   name:'Královské Město', x:20, y:15, size:'city',    spec:'trade'    }
+    { id:'svitavy',  name:'Svitavy',         x:11, y:35, size:'village', spec:'farming'  },
+    { id:'kamenice', name:'Kamenice',        x:50, y:32, size:'village', spec:'mining'   },
+    { id:'brezova',  name:'Březová',         x:18, y:13, size:'town',    spec:'forestry' },
+    { id:'stribrod', name:'Stříbrný Brod',   x:45, y:16, size:'town',    spec:'trade'    },
+    { id:'hluboka',  name:'Hluboká',         x:30, y:40, size:'village', spec:'mining'   },
+    { id:'kralov',   name:'Královské Město', x:32, y:24, size:'city',    spec:'trade'    },
+    { id:'zelezna',  name:'Železná',         x:5,  y:16, size:'village', spec:'mining'   },
+    { id:'pristav',  name:'Přístav',         x:58, y:9,  size:'town',    spec:'trade'    },
+    { id:'dolina',   name:'Úrodná Dolina',   x:54, y:44, size:'village', spec:'farming'  },
+    { id:'haj',      name:'Starý Háj',       x:16, y:3,  size:'village', spec:'forestry' }
   ];
   G.ROADS = [
     ['kralov','svitavy'],['kralov','brezova'],['kralov','stribrod'],
     ['kralov','kamenice'],['kralov','hluboka'],['brezova','stribrod'],
-    ['svitavy','hluboka']
+    ['svitavy','hluboka'],
+    ['brezova','zelezna'],['brezova','haj'],
+    ['stribrod','pristav'],
+    ['kamenice','dolina'],['hluboka','dolina']
   ];
 
   G.FACTIONS = {
@@ -241,7 +248,8 @@
   };
   G.SETTLEMENT_FACTION = {
     svitavy:'crown', kamenice:'guild', brezova:'brotherhood',
-    stribrod:'league', hluboka:'guild', kralov:'crown'
+    stribrod:'league', hluboka:'guild', kralov:'crown',
+    zelezna:'guild', pristav:'league', dolina:'crown', haj:'brotherhood'
   };
   G.REP_TIERS = [
     { min:-100, id:'hostile',  name:'Nepřátelský', color:'#c05a45', buyMult:1.25, sellMult:0.75 },
@@ -258,7 +266,7 @@
   G.REP_QUEST_SUCCESS = 8;
   G.REP_QUEST_FAIL = -5;
 
-  const W = 40, H = 30;
+  const W = 64, H = 48;
   const TERR = ['grass','forest','deep_forest','hills','mountain','water','swamp','snow','road','dirt'];
   const TI = {}; TERR.forEach((t, i) => TI[t] = i);
   function smooth(t) { return t * t * (3 - 2 * t); }

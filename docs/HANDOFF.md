@@ -97,8 +97,9 @@ node test/headless-smoke.js                                              # "VYSL
 ## 4. Stav kódu (co je hotové)
 
 ### Čísla
-- 57 JS souborů, 623 definovaných/used globálů `G.*` (check-globals čisté).
-- Smoke test: **56 kontrol**, deterministicky.
+- 57 JS souborů, 626 definovaných/used globálů `G.*` (check-globals čisté).
+- Smoke test: **57 kontrol**, deterministicky.
+- Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
 
 ### Klíčové soubory
 | Oblast | Soubor |
@@ -171,8 +172,8 @@ node test/headless-smoke.js                                              # "VYSL
 | `docs/TECHNICKY_DOKUMENT.md` | architektura, inventář | **zastaralé počty** (48→57 souborů, 445→~614 globálů); jinak orientačně platí |
 | `docs/AUDIT_MENU.md` | audit menu + log fází **M-A … M-J** | aktuální (přidává se tam řádek za každou fázi) |
 | `docs/ANALYZA_BUDOVY_A_ZAKLADNA.md` | stavby, základna, výběr místa, stavitelské efekty | aktuální |
-| `docs/SKALOVANI_MAPY.md` | měřítko mapy, prvky, cesty, **LOD (hotové)**; plán většího světa | aktuální |
-| `docs/OBLASTI_A_SIDLA.md` | multi-tile oblasti, props sídel; zbývá už jen větší svět | aktuální |
+| `docs/SKALOVANI_MAPY.md` | měřítko mapy, prvky, cesty, **LOD + větší svět (hotové)** | aktuální |
+| `docs/OBLASTI_A_SIDLA.md` | multi-tile oblasti, props sídel, LOD + větší svět | aktuální |
 | `docs/PRIBEHOVE_POPUPY.md` | příběhové popupy (efekty, trvalé vlajky, přepínač) | aktuální |
 | `docs/UKOLY_A_VYROBA.md` | zakázky, escort, automatika, výroba, dílny na základně | aktuální |
 | `docs/BOJ.md` | boj (automatický, kill questy, explore) | aktuální |
@@ -182,20 +183,17 @@ node test/headless-smoke.js                                              # "VYSL
 
 ## 6. Co je dál (plán)
 
-1. **Větší svět** (40×30 → **64×48**) — *nejbližší krok, LOD je hotové*: hlavně
-   `W/H` v `generateWorld` (`js/data/world.js`), víc sídel/uzlů, doladit hustotu.
-   Detail se dá procházet, přehled (🔭) přehlédnout.
-2. **Styl grafiky** — viz `docs/STYL_GRAFIKY.md`; uživatel ještě nevybral.
+1. **Drobný backlog**: potvrzení u drahých staveb, požadavky/strop budov
+   základny, karavany na základně, řazení zakázek.
+2. **Zbytky z auditu menu** (`docs/AUDIT_MENU.md` §10): vizuální upozornění při
+   narazení na maximum v polích množství, filtr logu podle času, prázdné stavy
+   panelů s odkazem „kde to udělat". (Mrtvá kontrola `u.role === 'trader'`
+   v `G.startTask` už neplatí — roli přiděluje `G.setMerchant`.)
+3. **Styl grafiky** — viz `docs/STYL_GRAFIKY.md`; uživatel ještě nevybral.
    Doporučeno: definovat styl projektu (`imagegen --set-style`) a pak generovat
    ilustrace (titul + 7 příběhových scén). Skills: `imagegen` (generování,
    styl na serveru `.style.txt`, `--size WxH --colors N` = pixel art) a `vision`
    (čtení screenshotů pro vizuální ladění).
-3. Drobný backlog z doků: potvrzení u drahých staveb, požadavky/strop budov
-   základny, karavany na základně, řazení zakázek.
-4. **Zbytky z auditu menu** (`docs/AUDIT_MENU.md` §10): vizuální upozornění při
-   narazení na maximum v polích množství, filtr logu podle času, prázdné stavy
-   panelů s odkazem „kde to udělat". (Mrtvá kontrola `u.role === 'trader'`
-   v `G.startTask` už neplatí — roli přiděluje `G.setMerchant`.)
 
 ---
 
@@ -222,6 +220,6 @@ node test/headless-smoke.js                                              # "VYSL
 ## 9. Okamžité „další kroky" pro nový chat
 
 1. Zkontroluj `git status` / `git log` a ujisti se, že navazuješ na poslední stav.
-2. LOD je hotové — další na řadě je buď **větší svět** (64×48, připravené), nebo
-   **styl grafiky** (čeká na rozhodnutí uživatele) — viz §6.
+2. LOD i větší svět (64×48) jsou hotové — dál jde **drobný backlog** a **zbytky
+   auditu menu** (viz §6), případně **styl grafiky** (čeká na rozhodnutí uživatele).
 3. Po každé fázi: tři kontroly + commit + push (viz §2).

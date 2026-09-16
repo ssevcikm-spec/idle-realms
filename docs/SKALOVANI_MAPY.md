@@ -101,12 +101,17 @@ Od oddálení mapy se kreslení **přepíná podle velikosti dlaždice na obrazo
   vidět, kdo je vůdce, ranhojič nebo průzkumník.
 - Debug panel (D → „Mapa — měřítko") ukazuje aktuální úroveň a px na dlaždici.
 
-### Krok 3 — větší svět
-- Svět je dnes 40×30 dlaždic. Při 64 px je to 2560×1920 px — v detailu se dá
-  procházet, v přehledu (LOD) přehlédnout.
-- Rozšíření na **64×48** (+ ~2,5× plochy) je pak hlavně datová změna:
-  `W/H` v `generateWorld`, víc sídel a uzlů, doladit hustotu.
-- Podmínka (LOD) je **splněná** — velký svět už nebude jen víc puntíků.
+### Krok 3 — větší svět — ✅ *hotovo*
+- Svět je **64×48 dlaždic** (původně 40×30, + ~2,5× plochy) — `W/H` v
+  `generateWorld` (`js/data/world.js`).
+- **10 sídel** (původně 6): stávající posunutá do nových proporcí + 4 nová
+  (Železná, Přístav, Úrodná Dolina, Starý Háj), každé se svou frakcí a zaměřením;
+  cesty (`G.ROADS`) propojují všechna do souvislého grafu.
+- **~220 uzlů** (původně ~88) — hustota zůstala stejná, takže plocha je pořád
+  „zalidněná" lesy, doly, loukami a jezery, ne prázdná.
+- Kamera se zařezává na skutečné rozměry světa (`G.WORLD.w/h` v `main.js`),
+  výchozí pozice základny posunutá na střed (30,30).
+- V detailu se dá procházet, v přehledu (🔭) přehlédnout — LOD (Krok 2) to umožnil.
 
 ### Krok 4 — volitelně: posuvník výšky mapy
 Mapa vs. panel by šlo rozdělit tažením (split), aby si hráč zvolil, kolik krajiny

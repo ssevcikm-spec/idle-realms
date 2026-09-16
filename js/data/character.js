@@ -108,7 +108,7 @@
   };
   G.BASE_FINE_CHANCE = 0.10;
   G.BASE_UNLOCK = { renown: 25 };
-  G.BASE_POS = { x: 14, y: 18 };
+  G.BASE_POS = { x: 30, y: 30 };
 
   G.INJURIES = {
     bruise:     { id:'bruise',     name:'Pohmožděnina',  icon:'🟣', severity:1, desc:'−25 % rychlost', workMult:0.75, duration:180 },
