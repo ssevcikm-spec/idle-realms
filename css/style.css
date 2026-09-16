@@ -288,6 +288,13 @@ input:focus, select:focus, textarea:focus { border-color: #a8813a; }
   padding: 4px 6px; cursor: pointer;
 }
 .qty-chip:active { background: #2e2b25; color: #d8b45a; }
+/* upozornění, že hodnota narazila na strop */
+.qty-ctl.qty-warn { border-radius: 8px; animation: qty-warn .9s ease; }
+@keyframes qty-warn {
+  0% { box-shadow: 0 0 0 2px rgba(192,90,69,.75); }
+  55% { box-shadow: 0 0 0 2px rgba(192,90,69,.45); }
+  100% { box-shadow: 0 0 0 0 rgba(192,90,69,0); }
+}
 .save-textarea {
   width: 100%; min-height: 120px;
   font-family: ui-monospace, Menlo, monospace;

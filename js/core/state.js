@@ -38,7 +38,7 @@
       selected: null,
       camera: { x: 7, y: 22, zoom: 1.0 },
       log: [], pendingEvents: [],
-      logFilter: 'all', logSearch: '',
+      logFilter: 'all', logSearch: '', logTime: 'all',
       stats: {
         totalWork: 0, tasksDone: 0, goldEarned: 0, goldSpent: 0,
         injuries: 0, masterworks: 0, combatsWon: 0, combatsLost: 0,

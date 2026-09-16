@@ -211,7 +211,7 @@
     }
     const inv = G.state.equipment || [];
     html += `<div class="panel-title">Tvůj sklad (${inv.length})</div>`;
-    if (!inv.length) html += `<div class="empty">Žádné vybavení.</div>`;
+    if (!inv.length) html += G.emptyState ? G.emptyState('Žádné vybavení — vyrob si ho, nebo kup.', 'craft', '🔨 Výroba') : `<div class="empty">Žádné vybavení.</div>`;
     else {
       for (const it of inv) {
         const def = G.EQUIPMENT[it.itemId];
@@ -249,7 +249,7 @@
       Aktivní: <b style="color:#d8b45a">${G.activeQuestCount()}/${G.MAX_ACTIVE_QUESTS}</b>
     </div>`;
     html += `<div class="panel-title">Vypsané</div>`;
-    if (!available.length) html += `<div class="empty">Žádné nové zakázky.</div>`;
+    if (!available.length) html += G.emptyState ? G.emptyState('Žádné nové zakázky — počkej na obměnu, nebo se stav v jiném sídle.', null) : `<div class="empty">Žádné nové zakázky.</div>`;
     else for (const q of available) html += questRow(q, 'available');
     if (active.length) {
       html += `<div class="panel-title">Přijaté</div>`;

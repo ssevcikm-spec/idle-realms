@@ -2,6 +2,13 @@
   const G = window.Game;
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   G.esc = esc;
+  /** Prázdný stav s tlačítkem „kam jít" (přepne záložku). */
+  G.emptyState = function (text, subId, btnLabel, icon) {
+    const btn = subId && btnLabel
+      ? `<br><button class="btn-sm ghost" data-action="select-tab" data-tab="${subId}" style="margin-top:8px">${icon || ''}${esc(btnLabel)}</button>`
+      : '';
+    return `<div class="empty">${text}${btn}</div>`;
+  };
   function bestSkill(sid) { return G.bestSkill(sid); }
   function meetsReq(node, act) {
     if (!act.requires || !act.requires.skillLevel) return { ok:true };
@@ -199,7 +206,7 @@
     const usableList = cand.filter(c => c.usable);
     const blockedList = cand.filter(c => !c.usable);
     html += `<div class="panel-title">Přiřadit jedné postavě</div>`;
-    if (!usableList.length) html += `<div class="empty">Nikdo teď nemůže pracovat.</div>`;
+    if (!usableList.length) html += G.emptyState('Nikdo teď nemůže pracovat — probuď odpočívající nebo počkej na uzdravení.', 'units', '🧙 Postavy');
     usableList.forEach((c, i) => {
       const u = c.u;
       const dist = c.d != null ? ` • ${Math.round(c.d)} polí` : '';
@@ -736,7 +743,7 @@
     const list = G.expeditionList ? G.expeditionList() : [];
     let html = `<div class="panel-title">⛵ Expedice (${list.length})</div>`;
     html += `<div class="expedition-hint">Vyšli skupinu na 2–9 herních dní mimo mapu. Riskantní, ale s velkými odměnami. Expedice vyžaduje jídlo (chléb nebo rybu). Na cestě se může stát cokoli.</div>`;
-    if (!list.length) html += `<div class="empty">Žádná expedice neprobíhá.</div>`;
+    if (!list.length) html += G.emptyState('Žádná expedice neprobíhá.', 'units', '👥 Vybrat postavy');
     for (const exp of list) {
       const tpl = G.EXPEDITIONS[exp.templateId];
       if (!tpl) continue;
@@ -854,7 +861,7 @@
       if (cnt === 0) continue;
       gemRows.push(`<div class="inv-row"><div class="inv-icon">${G.GEMS[gid].icon}</div><div class="inv-main"><div class="inv-name">${esc(G.GEMS[gid].name)} <span style="color:#8d8570;font-weight:400">×${cnt}</span></div><div class="inv-q">${esc(G.GEMS[gid].desc)}</div></div></div>`);
     }
-    html += rows.length ? rows.join('') : `<div class="empty">Zatím nic nemáš.</div>`;
+    html += rows.length ? rows.join('') : G.emptyState('Batoh je prázdný — pošli postavy sbírat suroviny.', 'activities', '⚒️ Práce');
     if (gemRows.length) { html += `<div class="panel-title">💎 Gemy</div>`; html += gemRows.join(''); }
     const mw = G.state.masterworks || [];
     if (mw.length) {
@@ -911,11 +918,15 @@
 
   G.panelLog = function () {
     const filter = G.state.logFilter || 'all';
+    const time = G.state.logTime || 'all';
     const cats = ['all'].concat(G.LOG_CATEGORIES || []);
     const labels = { all:'Vše', info:'Info', work:'Práce', economy:'Ekonomika', combat:'Boj', story:'Příběh', social:'Social', politics:'Politika' };
+    const timeOpts = { all:'Celá historie', '5m':'Posledních 5 min', '1h':'Poslední hodina', '1d':'Poslední den', '1w':'Poslední týden' };
     let html = `<div class="panel-title">Log</div><div class="log-filters">`;
     for (const c of cats) html += `<button class="log-filter ${filter === c ? 'active' : ''}" data-log-filter="${c}">${labels[c] || c}</button>`;
-    html += `</div><input type="text" id="log-search" class="log-search" placeholder="🔍 Hledat v logu…" value="${esc(G.state.logSearch || '')}" />`;
+    html += `</div><select id="log-time" class="log-time" data-change="log-time" title="Filtr podle herního času">`;
+    for (const k in timeOpts) html += `<option value="${k}" ${time === k ? 'selected' : ''}>${timeOpts[k]}</option>`;
+    html += `</select><input type="text" id="log-search" class="log-search" placeholder="🔍 Hledat v logu…" value="${esc(G.state.logSearch || '')}" />`;
     html += `<div id="log-count" class="log-count"></div>`;
     html += `<div id="log-list" class="log-list"></div>`;
     return html;
@@ -977,7 +988,7 @@
       }
       html += `</div>`;
     }
-    if (!any) html += `<div class="empty">Zatím žádné perky.</div>`;
+    if (!any) html += G.emptyState('Zatím žádné perky — zvyšuj dovednosti postav.', 'units', '🧙 Postavy');
     html += `<div class="perk-actions"><button class="btn" data-action="close-modal">Zavřít</button></div></div>`;
     return html;
   };
@@ -988,7 +999,7 @@
     if (u.mentorId) { const m = G.getUnit(u.mentorId); if (m) html += `<div class="mentor-current"><div>Mistr: <b>${G.esc(m.name)}</b></div><button class="btn-sm danger" data-action="clear-mentor" data-unit="${u.id}">Zrušit</button></div>`; }
     else html += `<div class="perk-hint">Mistr musí mít dovednost o ${G.MENTOR_MIN_DIFF} úrovní výš.</div>`;
     const mentors = G.availableMentors(unitId);
-    if (!mentors.length) html += `<div class="empty">Žádný vhodný mistr.</div>`;
+    if (!mentors.length) html += G.emptyState('Žádný vhodný mistr — někdo s dovedností o 8+ úrovní výš.', 'units', '🧙 Postavy');
     else {
       html += `<div class="mentor-list">`;
       for (const m of mentors) { const mm = m.mentor; html += `<button class="mentor-pick" data-action="set-mentor" data-apprentice="${u.id}" data-mentor="${mm.id}"><div class="mentor-name">${G.esc(mm.name)} <span class="mentor-diff">+${m.diff}</span></div><div class="mentor-skill">${G.SKILLS[m.skill].icon} ${G.esc(G.SKILLS[m.skill].name)}</div></button>`; }
@@ -1034,13 +1045,18 @@
     const el = document.getElementById('log-list');
     if (!el || !G.state) return;
     const filter = G.state.logFilter || 'all';
+    const time = G.state.logTime || 'all';
     const query = String(G.state.logSearch || '').trim().toLowerCase();
+    const win = { '5m':300, '1h':3600, '1d':86400, '1w':604800 }[time] || 0;
+    const now = G.state.time;
     const lines = G.state.log.slice(-150).reverse();
     let filtered = filter === 'all' ? lines : lines.filter(l => l.cat === filter);
+    if (win) filtered = filtered.filter(l => (now - l.t) <= win);
     if (query) filtered = filtered.filter(l => String(l.msg).toLowerCase().indexOf(query) !== -1);
     const counter = document.getElementById('log-count');
     if (counter) {
-      counter.textContent = query || filter !== 'all'
+      const active = (query || filter !== 'all' || time !== 'all');
+      counter.textContent = active
         ? `Zobrazeno ${Math.min(80, filtered.length)} / ${filtered.length} zpráv`
         : `${filtered.length} zpráv (zobrazuji posledních 80)`;
     }

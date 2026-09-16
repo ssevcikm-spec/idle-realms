@@ -146,6 +146,7 @@
     s.season = s.season || 'spring';
     s.year = s.year || 1;
     s.logFilter = s.logFilter || 'all';
+    if (s.logTime == null) s.logTime = 'all';
     s.prestige = s.prestige || { level: 0, totalPrestige: 0, unlocks: [] };
     if (!s.prestige.unlocks) s.prestige.unlocks = [];
     s.stats = s.stats || {};

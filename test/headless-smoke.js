@@ -814,6 +814,14 @@ check('boj: svet bezi dal a okno se samo zavre po konci', () => {
   assert(G.combatAutoCloseAt() === 0, 'po zavreni nemelo nic zustat naplanovano');
   assert(G.unitInCombat(u) === false, 'po zavreni uz postava nebojuje');
 });
+check('emptyState: prázdný stav odkazuje kam jit', () => {
+  assert(typeof G.emptyState === 'function', 'chybi G.emptyState');
+  const h = G.emptyState('Nic.', 'units', 'Postavy');
+  assert(h.indexOf('data-action="select-tab"') !== -1 && h.indexOf('data-tab="units"') !== -1, 'emptyState neobsahuje odkaz na zalozku');
+});
+check('log: filtr podle casu je v defaultu all', () => {
+  assert(G.state.logTime === 'all', 'logTime neni v defaultu all: ' + G.state.logTime);
+});
 check('auto-pokracovani: se savem se nezastavi na menu', () => {
   G.save();
   assert(!!localStorageStub.getItem(G.SAVE_KEY), 'save se neulozil');

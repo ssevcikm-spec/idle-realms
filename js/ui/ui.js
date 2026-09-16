@@ -97,6 +97,7 @@
       if (!isFinite(v)) return;
       const max = parseInt(el.dataset.qtyMax, 10) || 500;
       const v2 = Math.max(1, Math.min(max, v));
+      if (v > max) warnQtyMax(el.dataset.qtyKey);
       G.qtySet(el.dataset.qtyKey, v2);
       applyQtySideEffect(el.dataset.qtyKey, v2);
     });
@@ -578,6 +579,7 @@
       case 'socket-gem': return doSocketGem(ds);
       case 'unsocket-gem': return doUnsocketGem(ds);
       case 'close-modal':   return closeModal();
+      case 'select-tab':    return G.selectTab(ds.tab);
       case 'pick-perk':     return doPickPerk(ds);
       case 'respec':        return doRespec(ds);
       case 'set-mentor':    return doSetMentor(ds);
@@ -613,6 +615,18 @@
   /* --- ovládání množství: hodnoty drží paměť v panels.js --- */
   function qtyInputEl(key) { return document.querySelector(`input[data-qty-key="${key}"]`); }
   function qtyMaxOf(el) { return (el && parseInt(el.dataset.qtyMax, 10)) || 500; }
+  /** Vizuální upozornění, že hodnota narazila na strop (už se tiše neořízne). */
+  function warnQtyMax(key) {
+    const el = qtyInputEl(key);
+    const ctl = el && el.closest ? el.closest('.qty-ctl') : null;
+    const target = ctl || el;
+    if (!target || !target.classList) return;
+    target.classList.remove('qty-warn');
+    void target.offsetWidth;   // restart animace
+    target.classList.add('qty-warn');
+    clearTimeout(warnQtyMax._t);
+    warnQtyMax._t = setTimeout(() => target.classList.remove('qty-warn'), 900);
+  }
   function readQty(key, fallback, max) {
     const el = qtyInputEl(key);
     const raw = (el && el.value !== '') ? el.value : G.qtyGet(key, fallback);
@@ -625,6 +639,7 @@
     const el = qtyInputEl(key);
     const max = qtyMaxOf(el);
     const cur = readQty(key, 1, max);
+    if (delta > 0 && cur >= max) warnQtyMax(key);
     const next = G.qtyClamp(cur + delta, max);
     G.qtySet(key, next);
     if (el) el.value = next;
@@ -634,7 +649,9 @@
     if (!key) return;
     const el = qtyInputEl(key);
     const max = qtyMaxOf(el);
-    const next = (value === 'max') ? max : G.qtyClamp(parseInt(value, 10), max);
+    const raw = parseInt(value, 10);
+    const next = (value === 'max') ? max : G.qtyClamp(raw, max);
+    if (value !== 'max' && (raw > max || raw < 1)) warnQtyMax(key);
     G.qtySet(key, next);
     if (el) el.value = next;
     applyQtySideEffect(key, next);
@@ -685,6 +702,9 @@
     } else if (change === 'unit-task') {
       if (value) { doUnitTask(ds.unit, value); return; }
       render();
+    } else if (change === 'log-time') {
+      G.state.logTime = value || 'all';
+      if (G.renderLog) G.renderLog();
     }
   }
 
