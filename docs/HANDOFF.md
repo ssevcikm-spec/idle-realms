@@ -78,14 +78,19 @@ node test/headless-smoke.js                                              # "VYSL
    blokuje). Pixely se čtou z reálného canvasu (`ctx.getImageData`), takže se dá
    čísly ověřit barva prstence sídla, přítomnost textu nebo tečky postavy.
    Dočasné soubory pak smaž.
+9. **V generování světa používej jen seedovaný `rnd`**, nikdy `G.rand`/`G.randInt`:
+   `G.rngFrom(seed)` drží mapu stabilní, kdežto globální RNG je jiný při každém
+   spuštění (a rozladí i zbytek testů). Přesně tohle byla chyba ve velikosti
+   shluků uzlů — mapa se při každém načtení savu mírně změnila; hlídá to test
+   „svet je deterministicky".
 
 ---
 
 ## 4. Stav kódu (co je hotové)
 
 ### Čísla
-- 57 JS souborů, ~625 definovaných/used globálů `G.*` (check-globals čisté).
-- Smoke test: **54 kontrol**, deterministicky.
+- 57 JS souborů, 623 definovaných/used globálů `G.*` (check-globals čisté).
+- Smoke test: **55 kontrol**, deterministicky.
 
 ### Klíčové soubory
 | Oblast | Soubor |

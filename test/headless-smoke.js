@@ -544,6 +544,17 @@ check('LOD: tlacitko prehledu prepne detail a zpet', () => {
   assert(second === 'detail', 'druhe stisknuti ma vratit detail (' + second + ')');
   G.state.camera.zoom = z0;
 });
+check('svet je deterministicky: stejny seed = stejna mapa', () => {
+  const sig = (w) => w.nodes.map(n => n.id + ':' + n.kind + ':' + n.x + ',' + n.y + ':' + n.tiles.length).join('|');
+  const a = G.generateWorld(20260910), b = G.generateWorld(20260910);
+  assert(sig(a) === sig(b), 'dva svety se stejnym seedem se lisi (' + a.nodes.length + ' vs ' + b.nodes.length + ' uzlu)');
+  assert(a.nodes.length > 0, 'svet nema zadne uzly');
+  assert(sig(a) !== sig(G.generateWorld(20260911)), 'jiny seed ma dat jinou mapu');
+  // generateWorld nesmi sahat na globalni RNG (rozladil by zbytek testu)
+  const seedBefore = G.getSeed();
+  G.generateWorld(20260910);
+  assert(G.getSeed() === seedBefore, 'generateWorld meni globalni nahodny proud');
+});
 check('krajinne prvky uzlu: kresleni a determinismus', () => {
   const noop = () => {};
   const stub = new Proxy({}, {

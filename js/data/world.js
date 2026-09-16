@@ -409,7 +409,9 @@
       const bounds = AREA_KINDS[kind];
       let nodeTiles;
       if (bounds) {
-        const target = G.randInt(bounds[0], bounds[1]);
+        // velikost shluku ze **seedovaného** rnd — jinak by se mapa při každém
+        // načtení savu mírně změnila (G.randInt jede z globálního, ne-seedovaného RNG)
+        const target = bounds[0] + ((rnd() * (bounds[1] - bounds[0] + 1)) | 0);
         nodeTiles = [[x, y]];
         const claimed = { [x + ',' + y]: true };
         occ[y*W+x] = 1;

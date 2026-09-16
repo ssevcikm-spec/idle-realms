@@ -156,7 +156,7 @@ Má tmavý lem a světlejší povrch. Dlaždice cesty žijí zvlášť v `G.WORL
 
 ## 6. Testy
 
-`test/headless-smoke.js` (celkem 54 kontrol) ověřuje:
+`test/headless-smoke.js` (celkem 55 kontrol) ověřuje:
 - `G.setTileBase` / `G.getTileBase` včetně podlazení (32) a zastropování (96),
 - `G.setFigureHeight` / `G.getFigureHeight`,
 - `G.settlementSpread`: vesnice 1,0 < město < metropole,

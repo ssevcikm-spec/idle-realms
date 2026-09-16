@@ -119,7 +119,7 @@ kreslí podle `s.spec`: těžní věž a haldy rudy (mining), kruhovou pilu a kl
 
 ## 7. Testy
 
-`test/headless-smoke.js` (celkem 54 kontrol) nově ověřuje:
+`test/headless-smoke.js` (celkem 55 kontrol) nově ověřuje:
 - les má alespoň 2 dlaždice a jezero alespoň 3 (plocha),
 - každé jezero má břeh (dlaždici vedle země),
 - `G.nodeAnchor` vrátí pozici a `G.nodeAt` najde uzel přes kteroukoli dlaždici,
