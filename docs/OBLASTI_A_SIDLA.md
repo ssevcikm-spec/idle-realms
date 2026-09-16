@@ -1,9 +1,8 @@
 # Oblasti (multi-tile) a vzhled sídel — návrh
 
 > **Datum:** 2026-09-15
-> **Podnět:** „Některé prvky by mohly být přes více dlaždic … lesy by se daly
-> vybrat kliknutím jako celá oblast … hezčí by bylo vybrat oblast jezera …
-> jak náročné by bylo upravit design sídel podle zaměření."
+> **Stav:** **Krok 1 hotový** (model oblastí — viz §6). Krok 2 (jezero jako terén)
+> je tím částečně pokrytý; zbývá props sídel podle zaměření a LOD.
 
 ---
 
@@ -91,12 +90,34 @@ se tím **nezvětší** — props sedí dovnitř stávajících hradeb. Řádov�
 
 ---
 
-## 5. Doporučené pořadí
+## 6. Co je hotové (krok 1 — model oblastí)
 
-1. **Oblast model** (kap. 2) — vyřeší klikání na plochu, výběr sídel a jezero.
-2. **Jezero = terén s rybařením z břehu** (kap. 3) — přirozený důsledek bodu 1.
-3. **Props sídel podle zaměření** (kap. 4) — samostatný, čistě vizuální krok.
-4. LOD a větší svět (z `docs/SKALOVANI_MAPY.md`) — až po oblastním modelu.
+Uzel má teď `tiles` (seznam dlaždic) a celá hra s ním zachází jako s plochou:
 
-Body 1+2 spolu souvisí a dává smysl je udělat jako jednu fázi; bod 3 jde kdykoli
-zvlášť.
+- **Generování** (`js/data/world.js`):
+  - jezero = **celá souvislá vodní plocha** (flood fill), musí mít břeh;
+  - les / hluboký les / háj / louka / močál = **shluk 2–5 dlaždic** (seeded růst);
+  - důl / jeskyně / kamenolom zůstávají bodové.
+- **Klikání** (`handleTap`) — vybere se uzel na kterékoli dlaždici plochy
+  (`G.nodeDistance`), nejen na středu.
+- **Kam postava jde** — `G.nodeAnchor` = nejbližší dlaždice (u jezera = břeh),
+  takže rybář stojí na břehu, ne uprostřed.
+- **Hledání práce** — `nearestNode` měří k ploše.
+- **Kreslení** (`js/render/art.js`): les/háj/močál se kreslí **na každou dlaždici**,
+  louka jako jedno souvislé pole přes celý shluk, jezero jako rákosí u břehu + molo,
+  bodové prvky zůstávají na středu.
+- **Výběr** (kroužek) se kreslí přes celou oblast.
+- Panel místa ukazuje „N polí".
+
+Zbývá z původního plánu: props sídel podle zaměření (kap. 4) a LOD + větší svět
+(`docs/SKALOVANI_MAPY.md`).
+
+---
+
+## 7. Testy
+
+`test/headless-smoke.js` (celkem 48 kontrol) nově ověřuje:
+- les má alespoň 2 dlaždice a jezero alespoň 3 (plocha),
+- každé jezero má břeh (dlaždici vedle země),
+- `G.nodeAnchor` vrátí pozici a `G.nodeAt` najde uzel přes kteroukoli dlaždici,
+- všech 9 druhů uzlů se stále vykreslí.

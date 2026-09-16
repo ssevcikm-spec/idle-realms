@@ -301,7 +301,7 @@
       <div class="loc-icon">${kind.icon}</div>
       <div class="loc-main">
         <div class="loc-name">${esc(kind.name)}</div>
-        <div class="loc-sub">poloha ${n.x}, ${n.y} • bohatost ${Math.round(n.richness*100)} %</div>
+        <div class="loc-sub">poloha ${n.x}, ${n.y} • ${G.nodeTiles ? G.nodeTiles(n).length : 1} polí • bohatost ${Math.round(n.richness*100)} %</div>
         <div class="loc-sub" style="color:${dLabel.color}">⚠️ ${dLabel.text}${risk ? ` • ${risk.text}` : ''}</div>
       </div>
     </div>`;

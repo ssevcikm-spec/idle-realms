@@ -207,12 +207,16 @@
         return;
       }
     }
+    // Uzly jsou oblasti — klik se počítá na kteroukoli dlaždici plochy.
+    let hitNode = null, hitD = 1.25;
     for (const n of G.WORLD.nodes) {
-      if (Math.hypot(n.x + 0.5 - tx, n.y + 0.5 - ty) < 1.15) {   // prvek je větší než dlaždice
-        G.state.selected = { type: 'node', id: n.id };
-        if (G.selectTab) G.selectTab('place');
-        return;
-      }
+      const d = G.nodeDistance ? G.nodeDistance(n, tx, ty) : Math.hypot(n.x + 0.5 - tx, n.y + 0.5 - ty);
+      if (d < hitD) { hitD = d; hitNode = n; }
+    }
+    if (hitNode) {
+      G.state.selected = { type: 'node', id: hitNode.id };
+      if (G.selectTab) G.selectTab('place');
+      return;
     }
     G.state.selected = null;
   }
@@ -250,7 +254,8 @@
           const node = G.WORLD.nodes.find(n => n.id === t.nodeId);
           if (node) {
             const off = hashOffset(u.id);
-            target = { x: node.x + 0.5 + off.x, y: node.y + 0.5 + off.y };
+            const a = G.nodeAnchor ? G.nodeAnchor(node, u.pos.x, u.pos.y) : { x: node.x + 0.5, y: node.y + 0.5 };
+            target = { x: a.x + off.x, y: a.y + off.y };
             working = true;
           } else if (t.site) {
             // stavba (nemá uzel) — stavitelé jdou ke staveništi
@@ -317,7 +322,7 @@
       const r = tilePx * 0.34;
       // Uzel je skutečný kus krajiny (les, jezero, pole…). Když je mapa hodně
       // oddálená, prvek by se slil s terénem — pak se přepne na symbol.
-      const asFeature = tilePx >= 34 && G.drawNodeFeature && G.drawNodeFeature(ctx, n, cx, cy, tilePx);
+      const asFeature = tilePx >= 34 && G.drawNodeFeature && G.drawNodeFeature(ctx, n, ox, oy, tilePx);
       if (!asFeature) G.drawBadge(ctx, cx, cy, r, G.NODE_TINT[n.kind] || '#5a5347', kind.icon, r*1.15);
       const danger = G.nodeDanger ? G.nodeDanger(n.kind) : 0;
       if (danger >= 2) {
@@ -611,8 +616,12 @@
     let tx, ty, rx = tilePx*0.60, ry = tilePx*0.60;
     if (sel.type === 'node') {
       const n = G.WORLD.nodes.find(x => x.id === sel.id); if (!n) return;
-      tx = n.x + 0.5; ty = n.y + 0.5;
-      rx = tilePx*0.70; ry = tilePx*0.52;                 // prvek je širší než dlaždice
+      const tiles = G.nodeTiles(n);
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const t of tiles) { minX = Math.min(minX, t[0]); maxX = Math.max(maxX, t[0]); minY = Math.min(minY, t[1]); maxY = Math.max(maxY, t[1]); }
+      tx = (minX + maxX + 1) * 0.5; ty = (minY + maxY + 1) * 0.5;
+      rx = tilePx * ((maxX - minX + 1) * 0.5 + 0.12);
+      ry = tilePx * ((maxY - minY + 1) * 0.5 + 0.10);
     } else if (sel.type === 'settlement') {
       const s = G.WORLD.settlementById[sel.id]; if (!s) return;
       tx = s.x + 0.5; ty = s.y + 0.5;

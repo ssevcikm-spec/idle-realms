@@ -83,6 +83,42 @@
     quarry:'#6b6350', mine:'#5a5347', cave:'#3a3730', marsh:'#4a5240', lake:'#3d5a68'
   };
 
+  /* ---------- uzly jako oblasti ----------
+     Uzel nemusí být jedno políčko — může mít `tiles` (shluk dlaždic).
+     Tyhle helpery se používají pro kreslení, klikání, hledání i pohyb postav. */
+
+  /** Seznam dlaždic uzlu; pro staré/body uzly je to jediná dlaždice. */
+  G.nodeTiles = function (node) {
+    if (node && node.tiles && node.tiles.length) return node.tiles;
+    return node ? [[node.x, node.y]] : [];
+  };
+  /** Vzdálenost od bodu k nejbližší dlaždici uzlu. */
+  G.nodeDistance = function (node, x, y) {
+    let best = Infinity;
+    for (const t of G.nodeTiles(node)) {
+      const d = Math.hypot(t[0] + 0.5 - x, t[1] + 0.5 - y);
+      if (d < best) best = d;
+    }
+    return best;
+  };
+  /** Kam má postava dojít — nejbližší dlaždice uzlu (u jezera = břeh). */
+  G.nodeAnchor = function (node, x, y) {
+    let best = null, bestD = Infinity;
+    for (const t of G.nodeTiles(node)) {
+      const d = Math.hypot(t[0] + 0.5 - x, t[1] + 0.5 - y);
+      if (d < bestD) { bestD = d; best = { x: t[0] + 0.5, y: t[1] + 0.5 }; }
+    }
+    return best || { x: node.x + 0.5, y: node.y + 0.5 };
+  };
+  /** Uzel, do jehož plochy patří dlaždice (pro klikání). */
+  G.nodeAt = function (x, y) {
+    if (!G.WORLD) return null;
+    for (const n of G.WORLD.nodes) {
+      for (const t of G.nodeTiles(n)) if (t[0] === x && t[1] === y) return n;
+    }
+    return null;
+  };
+
   G.ACTIVITIES = {
     chop_wood: { id:'chop_wood', name:'Kácet dřevo', icon:'🪓', nodeKinds:['forest','deep_forest','grove'],
       skill:'woodcutting', attr:'str', mode:'quantity', workPerUnit:4, defaultQty:20,
@@ -303,7 +339,7 @@
     const occ = new Uint8Array(W * H);
     function placeNode(x, y, kindId) {
       const kind = G.NODE_KINDS[kindId]; if (!kind) return null;
-      const n = { id:'n'+(nodeSeq++), x, y, kind:kindId, richness: 0.85 + rnd()*0.35, variant: (rnd()*4)|0 };
+      const n = { id:'n'+(nodeSeq++), x, y, kind:kindId, richness: 0.85 + rnd()*0.35, variant: (rnd()*4)|0, tiles:[[x, y]] };
       nodes.push(n); occ[y*W+x] = 1; return n;
     }
     function tileAt(x, y) { return TERR[tiles[y*W+x]]; }
@@ -325,8 +361,39 @@
       }
       return false;
     }
+    function matchesTerrain(kindId, x, y) {
+      return G.NODE_KINDS[kindId].terrain.includes(tileAt(x, y));
+    }
+    function freeAt(x, y) {
+      return x >= 1 && y >= 1 && x < W-1 && y < H-1 && !occ[y*W+x] && !nearSettlement(x, y, 4) && !nearNode(x, y, 1);
+    }
+
+    // 1) Jezera = celá souvislá vodní plocha (rybaří se z nejbližšího břehu).
+    const waterVisited = new Uint8Array(W * H);
     for (let y = 1; y < H-1; y++) for (let x = 1; x < W-1; x++) {
-      if (occ[y*W+x] || nearSettlement(x, y, 4) || nearNode(x, y, 1)) continue;
+      if (tileAt(x, y) !== 'water' || waterVisited[y*W+x]) continue;
+      const comp = [];
+      const stack = [[x, y]]; waterVisited[y*W+x] = 1;
+      while (stack.length) {
+        const c = stack.pop();
+        comp.push(c);
+        for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+          const nx = c[0]+dx, ny = c[1]+dy;
+          if (nx < 1 || ny < 1 || nx >= W-1 || ny >= H-1) continue;
+          if (waterVisited[ny*W+nx]) continue;
+          if (tileAt(nx, ny) === 'water') { waterVisited[ny*W+nx] = 1; stack.push([nx, ny]); }
+        }
+      }
+      if (comp.length < 3) continue;               // moc malá louže
+      if (!comp.some(([px, py]) => hasLandNeighbor(px, py))) continue;   // jezero bez břehu (okraj mapy)
+      nodes.push({ id:'n'+(nodeSeq++), x: comp[0][0], y: comp[0][1], kind:'lake', richness: 0.85 + rnd()*0.35, variant: (rnd()*4)|0, tiles: comp });
+      for (const [tx, ty] of comp) occ[ty*W+tx] = 1;
+    }
+
+    // 2) Lesy, pole, háje a močály jako shluky dlaždic; doly/jeskyně/kamenolomy jako bod.
+    const AREA_KINDS = { forest:[2,4], deep_forest:[3,5], grove:[2,3], meadow:[2,4], marsh:[2,4] };
+    for (let y = 1; y < H-1; y++) for (let x = 1; x < W-1; x++) {
+      if (!freeAt(x, y)) continue;
       const t = tileAt(x, y);
       const candidates = [];
       for (const k in G.NODE_KINDS) {
@@ -335,9 +402,32 @@
       }
       if (!candidates.length || rnd() > 0.30) continue;
       const kind = candidates[(rnd()*candidates.length)|0];
-      // rybářská místa (voda) musejí být u břehu — ne uprostřed jezera
-      if (G.NODE_KINDS[kind].terrain.indexOf('water') >= 0 && !hasLandNeighbor(x, y)) continue;
-      placeNode(x, y, kind);
+      if (kind === 'lake') continue;
+      const bounds = AREA_KINDS[kind];
+      let nodeTiles;
+      if (bounds) {
+        const target = G.randInt(bounds[0], bounds[1]);
+        nodeTiles = [[x, y]];
+        const claimed = { [x + ',' + y]: true };
+        occ[y*W+x] = 1;
+        for (let guard = 0; nodeTiles.length < target && guard < 60; guard++) {
+          const base = nodeTiles[(rnd()*nodeTiles.length)|0];
+          const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+          for (let i = dirs.length - 1; i > 0; i--) { const j = (rnd()*(i+1))|0; const tmp = dirs[i]; dirs[i] = dirs[j]; dirs[j] = tmp; }
+          let grown = false;
+          for (const [dx, dy] of dirs) {
+            const nx = base[0]+dx, ny = base[1]+dy;
+            if (nx < 1 || ny < 1 || nx >= W-1 || ny >= H-1) continue;
+            if (claimed[nx + ',' + ny] || occ[ny*W+nx]) continue;
+            if (!matchesTerrain(kind, nx, ny)) continue;
+            claimed[nx + ',' + ny] = true; occ[ny*W+nx] = 1; nodeTiles.push([nx, ny]); grown = true; break;
+          }
+          if (!grown) break;
+        }
+      } else {
+        nodeTiles = [[x, y]]; occ[y*W+x] = 1;
+      }
+      nodes.push({ id:'n'+(nodeSeq++), x: nodeTiles[0][0], y: nodeTiles[0][1], kind, richness: 0.85 + rnd()*0.35, variant: (rnd()*4)|0, tiles: nodeTiles });
     }
     const start = byId.svitavy;
     function ensureNear(kindId, maxDist) {
@@ -357,13 +447,13 @@
       w:W, h:H, seed, tiles, terrainNames:TERR,
       settlements, settlementById:byId, nodes, roads:roadSet,
       terrainAt(x, y) { if (x<0||y<0||x>=W||y>=H) return 'grass'; return TERR[tiles[y*W+x]]; },
-      nodeAt(x, y) { return nodes.find(n => n.x===x && n.y===y) || null; },
+      nodeAt(x, y) { return G.nodeAt(x, y) || null; },
       settlementAt(x, y) { return settlements.find(s => s.x===x && s.y===y) || null; },
       nearestNode(kindIds, fromX, fromY) {
         let best = null, bestD = Infinity;
         for (const n of nodes) {
           if (!kindIds.includes(n.kind)) continue;
-          const d = Math.hypot(n.x - fromX, n.y - fromY);
+          const d = G.nodeDistance(n, fromX, fromY);
           if (d < bestD) { bestD = d; best = n; }
         }
         return best;

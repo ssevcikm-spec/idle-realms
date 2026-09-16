@@ -337,71 +337,11 @@
   }
   G.nodeFeatureProps = nodeProps;
 
-  const FEATURES = {
-    forest(ctx, rnd, props) {
-      shadow(ctx, 0, 7, 19, 6);
-      for (const p of props.list) {
-        if ((p.v + 1) % 2) pine(ctx, rnd, p.x, p.y + 8, p.s, '#243019', '#33421f', '#5c6f42');
-        else tree(ctx, rnd, p.x, p.y + 8, p.s, '#26301c', '#39472a', '#6a7a4a');
-      }
-    },
-    deep_forest(ctx, rnd, props) {
-      shadow(ctx, 0, 7, 21, 7);
-      for (const p of props.list) pine(ctx, rnd, p.x, p.y + 8, p.s * 1.08, '#161d10', '#212b16', '#3d4c2b');
-    },
-    grove(ctx, rnd, props) {
-      shadow(ctx, 0, 8, 18, 6);
-      for (const p of props.list) {
-        tree(ctx, rnd, p.x, p.y + 8, p.s * 0.9, '#2f3d22', '#48592f', '#7d8f57');
-        for (let i = 0; i < 5; i++) {                       // jarní květy
-          ctx.fillStyle = i % 2 ? 'rgba(240,225,235,.55)' : 'rgba(245,215,225,.45)';
-          ctx.beginPath();
-          ctx.arc(p.x + (rnd() - 0.5) * 13 * p.s, p.y - 2 + (rnd() - 0.5) * 10 * p.s, 1.1, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    },
-    meadow(ctx, rnd, props) {
-      // obdělávané pole s řádky
-      ctx.save();
-      ctx.globalAlpha = 0.85;
-      ctx.fillStyle = '#6d6a3c';
-      ctx.beginPath(); ctx.ellipse(0, 1, 20, 13, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#8f8a4a'; ctx.lineWidth = 1.4;
-      for (let i = -4; i <= 4; i++) {
-        ctx.beginPath();
-        ctx.moveTo(-18, i * 2.7);
-        ctx.quadraticCurveTo(0, i * 2.7 + 3, 18, i * 2.7);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-      ctx.restore();
-      for (const p of props.list.slice(0, 3)) {             // snopy
-        ctx.fillStyle = '#c9a94e';
-        ctx.beginPath(); ctx.ellipse(p.x, p.y, 2.6 * p.s, 3.4 * p.s, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = '#8a7332'; ctx.lineWidth = 0.8;
-        ctx.beginPath(); ctx.moveTo(p.x, p.y + 3 * p.s); ctx.lineTo(p.x, p.y + 5 * p.s); ctx.stroke();
-      }
-    },
-    marsh(ctx, rnd, props) {
-      for (let i = 0; i < 4; i++) {
-        ctx.globalAlpha = 0.5; ctx.fillStyle = '#2f3f3a';
-        const p = props.list[i % props.list.length];
-        ctx.beginPath(); ctx.ellipse(p.x, p.y, 6.5 * p.s, 3.2 * p.s, 0, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-      for (let i = 0; i < 22; i++) {                        // rákosí
-        const x = (rnd() - 0.5) * 34, y = (rnd() - 0.5) * 18;
-        ctx.strokeStyle = i % 3 ? '#6d7a4e' : '#57623c'; ctx.lineWidth = 1.1;
-        ctx.beginPath(); ctx.moveTo(x, y + 6); ctx.lineTo(x + (rnd() - 0.5) * 3, y - 3 - rnd() * 7); ctx.stroke();
-      }
-      ctx.fillStyle = '#4a3a28';                            // ztrouchnivělý kmen
-      ctx.save(); ctx.rotate(-0.28);
-      ctx.fillRect(-17, -1.4, 15, 2.8); ctx.restore();
-    },
+  /* Bodové prvky (kamenolom, důl, jeskyně) — kreslí se na střed. */
+  const POINT_FEATURES = {
     quarry(ctx, rnd, props) {
       shadow(ctx, 0, 6, 19, 7);
-      ctx.fillStyle = '#6b6350';                            // stupňovitá stěna
+      ctx.fillStyle = '#6b6350';
       ctx.beginPath();
       ctx.moveTo(-20, 8); ctx.lineTo(-13, -6); ctx.lineTo(-4, -9);
       ctx.lineTo(6, -4); ctx.lineTo(17, 7); ctx.closePath(); ctx.fill();
@@ -415,59 +355,37 @@
     },
     mine(ctx, rnd, props) {
       shadow(ctx, 0, 7, 20, 7);
-      ctx.fillStyle = '#544e44';                            // horský hřbet
+      ctx.fillStyle = '#544e44';
       ctx.beginPath();
       ctx.moveTo(-21, 8); ctx.lineTo(-6, -13); ctx.lineTo(9, -9); ctx.lineTo(21, 8); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#6b6353';
       ctx.beginPath(); ctx.moveTo(-21, 8); ctx.lineTo(-8, -9); ctx.lineTo(-1, 8); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#15130f';                            // vstup do dolu
+      ctx.fillStyle = '#15130f';
       ctx.beginPath();
       ctx.moveTo(-6, 8); ctx.lineTo(-6, -1); ctx.quadraticCurveTo(0, -7, 6, -1); ctx.lineTo(6, 8);
       ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = G.PAL_WOOD; ctx.lineWidth = 2.2;    // výztuha
+      ctx.strokeStyle = G.PAL_WOOD; ctx.lineWidth = 2.2;
       ctx.beginPath();
       ctx.moveTo(-6.5, 8); ctx.lineTo(-6.5, -2); ctx.moveTo(6.5, 8); ctx.lineTo(6.5, -2);
       ctx.moveTo(-8, -2); ctx.lineTo(8, -2); ctx.stroke();
       for (const p of props.list.slice(0, 2)) {
-        ctx.fillStyle = '#6f6a60';                          // hromada rudy
+        ctx.fillStyle = '#6f6a60';
         ctx.beginPath(); ctx.ellipse(p.x + 10, p.y + 9, 4.2, 2.4, 0, 0, Math.PI * 2); ctx.fill();
       }
     },
     cave(ctx, rnd, props) {
       shadow(ctx, 0, 7, 18, 6);
       for (const p of props.list) boulder(ctx, rnd, p.x, p.y + 7, 4.2 + p.s * 3, '#6d675d', '#4e4a44', '#332f2b');
-      ctx.fillStyle = '#3a3730';                            // skalní výchoz
+      ctx.fillStyle = '#3a3730';
       ctx.beginPath();
       ctx.moveTo(-14, 8); ctx.lineTo(-10, -9); ctx.lineTo(3, -12); ctx.lineTo(14, 8);
       ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#0f0e0c';                            // ústí jeskyně
+      ctx.fillStyle = '#0f0e0c';
       ctx.beginPath();
       ctx.moveTo(-5, 8); ctx.lineTo(-5, -1); ctx.quadraticCurveTo(0, -8, 5, -1); ctx.lineTo(5, 8);
       ctx.closePath(); ctx.fill();
-      ctx.fillStyle = 'rgba(122,198,216,.5)';               // záblesk krystalu
+      ctx.fillStyle = 'rgba(122,198,216,.5)';
       ctx.beginPath(); ctx.moveTo(-9, -2); ctx.lineTo(-7, -7); ctx.lineTo(-5.5, -2); ctx.closePath(); ctx.fill();
-    },
-    lake(ctx, rnd, props) {
-      ctx.fillStyle = '#3d5a68';                            // jezírko
-      ctx.beginPath(); ctx.ellipse(0, 2, 21, 13, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#4f7183';
-      ctx.beginPath(); ctx.ellipse(-3, 0, 15, 9, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(220,235,240,.28)'; ctx.lineWidth = 1.2;
-      for (let i = 0; i < 6; i++) {                         // vlnky
-        const x = -14 + rnd() * 28, y = -7 + rnd() * 16;
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 5, y - 2, x + 10, y); ctx.stroke();
-      }
-      ctx.strokeStyle = '#6a523a'; ctx.lineWidth = 2;       // molo
-      ctx.beginPath(); ctx.moveTo(6, 8); ctx.lineTo(16, 3); ctx.stroke();
-      ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.moveTo(9, 10.5); ctx.lineTo(19, 5.5); ctx.stroke();
-      for (const p of props.list) {                         // rákosí u břehu
-        ctx.strokeStyle = '#5d6b3e'; ctx.lineWidth = 1.1;
-        ctx.beginPath();
-        ctx.moveTo(p.x - 12, p.y + 9);
-        ctx.lineTo(p.x - 12 + (rnd() - 0.5) * 3, p.y + 2 - rnd() * 6);
-        ctx.stroke();
-      }
     }
   };
 
@@ -476,20 +394,136 @@
     ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
   }
+  function tileSeed(node, tile) {
+    return hash(node.id + ':' + tile[0] + ':' + tile[1]) * 7919 + 13;
+  }
+  function atTile(ctx, tile, ox, oy, tilePx, fn) {
+    ctx.save();
+    ctx.translate(ox + (tile[0] + 0.5) * tilePx, oy + (tile[1] + 0.5) * tilePx);
+    ctx.scale(tilePx / 46, tilePx / 46);
+    try { fn(); } finally { ctx.restore(); }
+  }
+
+  /** Plošné prvky: les, hluboký les, háj a močál se kreslí na každou dlaždici. */
+  function areaScatter(ctx, node, tiles, ox, oy, tilePx) {
+    const kind = node.kind;
+    for (const t of tiles) {
+      atTile(ctx, t, ox, oy, tilePx, () => {
+        const rnd = rndFrom(tileSeed(node, t));
+        shadow(ctx, 0, 6, 17, 5);
+        const n = kind === 'deep_forest' ? 3 + ((rnd() * 2) | 0) : 2 + ((rnd() * 2) | 0);
+        for (let i = 0; i < n; i++) {
+          const x = (rnd() - 0.5) * 30, y = (rnd() - 0.5) * 16, s = 0.7 + rnd() * 0.5;
+          if (kind === 'forest') {
+            if (i % 2) pine(ctx, rnd, x, y + 8, s, '#243019', '#33421f', '#5c6f42');
+            else tree(ctx, rnd, x, y + 8, s, '#26301c', '#39472a', '#6a7a4a');
+          } else if (kind === 'deep_forest') {
+            pine(ctx, rnd, x, y + 8, s, '#161d10', '#212b16', '#3d4c2b');
+          } else if (kind === 'grove') {
+            tree(ctx, rnd, x, y + 8, s * 0.9, '#2f3d22', '#48592f', '#7d8f57');
+            for (let b = 0; b < 4; b++) {
+              ctx.fillStyle = b % 2 ? 'rgba(240,225,235,.5)' : 'rgba(245,215,225,.4)';
+              ctx.beginPath();
+              ctx.arc(x + (rnd() - 0.5) * 12 * s, y - 2 + (rnd() - 0.5) * 10 * s, 1.0, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          } else if (kind === 'marsh') {
+            ctx.globalAlpha = 0.5; ctx.fillStyle = '#2f3f3a';
+            ctx.beginPath(); ctx.ellipse(x, y, 6 * s, 3 * s, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = '#6d7a4e'; ctx.lineWidth = 1.1;
+            for (let r = 0; r < 4; r++) {
+              const rx = x + (rnd() - 0.5) * 16;
+              ctx.beginPath(); ctx.moveTo(rx, y + 4); ctx.lineTo(rx + (rnd() - 0.5) * 3, y - 2 - rnd() * 6); ctx.stroke();
+            }
+          }
+        }
+      });
+    }
+  }
+
+  /** Louka = jedno souvislé pole přes celý shluk. */
+  function areaField(ctx, node, tiles, ox, oy, tilePx) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const t of tiles) { minX = Math.min(minX, t[0]); maxX = Math.max(maxX, t[0]); minY = Math.min(minY, t[1]); maxY = Math.max(maxY, t[1]); }
+    const cx = ox + (minX + maxX + 1) * 0.5 * tilePx;
+    const cy = oy + (minY + maxY + 1) * 0.5 * tilePx;
+    const w = (maxX - minX + 1) * tilePx, h = (maxY - minY + 1) * tilePx;
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = '#6d6a3c';
+    ctx.beginPath(); ctx.ellipse(cx, cy, w * 0.48, h * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#8f8a4a'; ctx.lineWidth = Math.max(1, tilePx * 0.03);
+    const rows = Math.max(3, Math.floor(h / (tilePx * 0.5)));
+    for (let i = 0; i < rows; i++) {
+      const ry = cy - h * 0.30 + (i / Math.max(1, rows - 1)) * h * 0.60;
+      ctx.beginPath();
+      ctx.moveTo(cx - w * 0.40, ry);
+      ctx.quadraticCurveTo(cx, ry + tilePx * 0.06, cx + w * 0.40, ry);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    const rnd = rndFrom(tileSeed(node, tiles[0]));
+    for (let i = 0; i < 3; i++) {                       // snopy
+      const x = cx + (rnd() - 0.5) * w * 0.6, y = cy + (rnd() - 0.5) * h * 0.5;
+      ctx.fillStyle = '#c9a94e';
+      ctx.beginPath(); ctx.ellipse(x, y, tilePx * 0.07, tilePx * 0.10, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#8a7332'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, y + tilePx * 0.10); ctx.lineTo(x, y + tilePx * 0.16); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** Jezero je vodní plocha — kreslí se jen rákosí u břehu a molo. */
+  function drawLake(ctx, node, tiles, ox, oy, tilePx) {
+    const shore = [];
+    for (const t of tiles) {
+      let land = false;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        if (G.WORLD.terrainAt(t[0] + dx, t[1] + dy) !== 'water') { land = true; break; }
+      }
+      if (land) shore.push(t);
+    }
+    let i = 0;
+    for (const t of shore) {
+      if (i++ > 8) break;
+      atTile(ctx, t, ox, oy, tilePx, () => {
+        const rnd = rndFrom(tileSeed(node, t));
+        ctx.strokeStyle = '#5d6b3e'; ctx.lineWidth = 1.1;
+        for (let r = 0; r < 3; r++) {
+          const x = (rnd() - 0.5) * 20, y = 4 + rnd() * 6;
+          ctx.beginPath(); ctx.moveTo(x, y + 4); ctx.lineTo(x + (rnd() - 0.5) * 3, y - 3 - rnd() * 5); ctx.stroke();
+        }
+      });
+    }
+    if (shore.length) {
+      const t = shore[0];
+      atTile(ctx, t, ox, oy, tilePx, () => {
+        ctx.strokeStyle = '#6a523a'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-8, 4); ctx.lineTo(8, -2); ctx.stroke();
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(-6, 7); ctx.lineTo(10, 1); ctx.stroke();
+      });
+    }
+  }
 
   /**
-   * Vykreslí uzel jako krajinný prvek. Kreslí se ve starých jednotkách
-   * dlaždice (46), takže se škáluje podle aktuální velikosti dlaždice.
+   * Vykreslí uzel jako krajinný prvek přes všechny jeho dlaždice.
+   * Vrací true, když se prvek nakreslil (jinak se použije symbol).
    */
-  G.drawNodeFeature = function (ctx, node, x, y, tilePx) {
-    const painter = FEATURES[node.kind];
-    if (!painter) return false;
-    const props = nodeProps(node);
-    const rnd = rndFrom(props.seed + 13);
-    ctx.save();
-    ctx.translate(x, y + tilePx * 0.10);
-    ctx.scale(tilePx / 46, tilePx / 46);
-    try { painter(ctx, rnd, props); } finally { ctx.restore(); }
+  G.drawNodeFeature = function (ctx, node, ox, oy, tilePx) {
+    const tiles = G.nodeTiles(node);
+    if (!tiles.length) return false;
+    const kind = node.kind;
+    if (kind === 'lake') { drawLake(ctx, node, tiles, ox, oy, tilePx); return true; }
+    if (kind === 'meadow') { areaField(ctx, node, tiles, ox, oy, tilePx); return true; }
+    if (POINT_FEATURES[kind]) {
+      const props = nodeProps(node);
+      const rnd = rndFrom(props.seed + 13);
+      atTile(ctx, tiles[0], ox, oy, tilePx, () => POINT_FEATURES[kind](ctx, rnd, props));
+      return true;
+    }
+    areaScatter(ctx, node, tiles, ox, oy, tilePx);
     return true;
   };
 })();
