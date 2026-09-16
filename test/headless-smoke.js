@@ -723,6 +723,30 @@ check('boj: automaticky rezim a dovednosti ve vychozim stavu', () => {
   assert(cb.finished, 'souboj se po kolech nedohral');
   G.closeCombat();
 });
+check('boj: svet bezi dal a okno se samo zavre po konci', () => {
+  G.resumeGame();
+  const u = G.state.units.find(x => !x.dead && !x.isChild && !x.onExpedition);
+  assert(!!u, 'zadna postava');
+  if (G.wakeUnit) G.wakeUnit(u);
+  u.resting = false; u._refuseUntil = null; u.mood = Math.max(u.mood || 70, 70);
+  const node = G.WORLD.nodes.find(n => (G.NODE_DANGER[n.kind] || 0) >= 1) || G.WORLD.nodes[0];
+  const cb = G.startCombat(node, [u], { tactic: 'balanced' });
+  assert(!!cb, 'souboj nezacal');
+  assert(G.isPaused() === false, 'souboj nesmi pauzovat svet');
+  assert(G.unitInCombat(u) === true, 'bojujici postava musi byt oznacena');
+  assert(G.workBlockReason(u) === 'bojuje', 'workBlockReason nereportuje souboj: ' + G.workBlockReason(u));
+  assert(G.orderCandidates({ activityId: 'chop_wood', targetType: 'any' }).indexOf(u) === -1, 'orderCandidates nabizi bojujici postavu');
+  let guard = 0;
+  while (!cb.finished && guard++ < 200) G.combatRound();
+  assert(cb.finished, 'souboj se nedohral');
+  const t0 = G.combatAutoCloseAt();
+  assert(t0 > 0, 'po konci souboje se ma naplanovat samozavreni');
+  G.resetCombatCloseTimer();
+  assert(G.combatAutoCloseAt() >= t0, 'aktivita v okne ma odlozit zavreni');
+  G.closeCombat();
+  assert(G.combatAutoCloseAt() === 0, 'po zavreni nemelo nic zustat naplanovano');
+  assert(G.unitInCombat(u) === false, 'po zavreni uz postava nebojuje');
+});
 check('auto-pokracovani: se savem se nezastavi na menu', () => {
   G.save();
   assert(!!localStorageStub.getItem(G.SAVE_KEY), 'save se neulozil');

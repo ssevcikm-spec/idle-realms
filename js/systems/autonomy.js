@@ -33,6 +33,7 @@
       if (!act) { g.focus = null; continue; }
       const idle = G.groupMembers(g).filter(u =>
         u && !u.dead && !u.isChild && !u.onExpedition && !u.assignedTaskId && !u.resting
+        && !(G.unitInCombat && G.unitInCombat(u))
         && !(G.hasSevereInjury && G.hasSevereInjury(u))
         && !(u.merchantState && u.merchantState.active)
         && !(G.unitRefusesWork && G.unitRefusesWork(u))
@@ -50,6 +51,7 @@
     for (const u of G.state.units) {
       if (u.dead || u.isChild || u.onExpedition) continue;
       if (u.assignedTaskId || u.resting) continue;
+      if (G.unitInCombat && G.unitInCombat(u)) continue;
       if (u.merchantState && u.merchantState.active) continue;
       if (G.hasSevereInjury && G.hasSevereInjury(u)) continue;
       if (G.unitRefusesWork && G.unitRefusesWork(u)) continue;

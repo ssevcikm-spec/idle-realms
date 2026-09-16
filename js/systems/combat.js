@@ -61,7 +61,7 @@
     }
     for (let i = 0; i < count; i++) combat.enemy.push(createEnemyInstance(enemy, i, count, false));
     G.state.combat.active = combat;
-    G.pauseGame();
+    // Svět běží dál i během souboje — boj jen překryje mapu, nic nepauzuje.
     if (G.showCombatModal) G.showCombatModal(combat);
     startCombatAuto();
     return combat;
@@ -93,6 +93,35 @@
     const cb = G.state.combat.active;
     return !!(cb && cb.auto);
   };
+
+  /** Je postava zrovna v aktivním souboji? Svět běží dál, tak ji nesmí přeplánovat. */
+  G.unitInCombat = function (u) {
+    const cb = G.state.combat.active;
+    return !!(u && cb && cb.ally.some(a => a.unitId === u.id));
+  };
+
+  /* ---------- samozavření okna po konci souboje (nečinnost odloží) ---------- */
+  const COMBAT_CLOSE_MS = 5000;
+  let combatCloseTimer = null, combatCloseAt = 0;
+  function startCombatCloseTimer() {
+    stopCombatCloseTimer();
+    combatCloseAt = Date.now() + COMBAT_CLOSE_MS;
+    combatCloseTimer = setTimeout(function arm() {
+      const cb = G.state.combat.active;
+      if (!cb || !cb.finished) { stopCombatCloseTimer(); return; }
+      // menu ☰ překrylo modal — počkej, až se zavře, ať mu nezavřeme okno
+      if (G.isGameMenuOpen && G.isGameMenuOpen()) { combatCloseTimer = setTimeout(arm, 500); return; }
+      G.closeCombat();
+    }, COMBAT_CLOSE_MS);
+  }
+  function stopCombatCloseTimer() {
+    if (combatCloseTimer) { clearTimeout(combatCloseTimer); combatCloseTimer = null; }
+    combatCloseAt = 0;
+  }
+  /** Hráč v okně něco udělal (čte kořist, roluje log) → odlož zavření o dalších 5 s. */
+  G.resetCombatCloseTimer = function () { if (combatCloseAt) startCombatCloseTimer(); };
+  /** Čas plánovaného zavření (0 = nic se neplánuje) — kvůli testům. */
+  G.combatAutoCloseAt = function () { return combatCloseAt; };
 
   function createEnemyInstance(template, index, count, forceElite) {
     const eliteChance = template.eliteChance || 0;
@@ -341,6 +370,7 @@
     cb.finished = true;
     cb.result = result;
     stopCombatAuto();
+    startCombatCloseTimer();   // okno se samo zavře po 5 s (nečinnost prodlouží)
     if (result === 'win') {
       G.state.stats.combatsWon = (G.state.stats.combatsWon || 0) + 1;
       G.log(`⚔️ Vítězství! Porazil jsi ${cb.enemyName}.`, 'combat');
@@ -427,9 +457,9 @@
     const cb = G.state.combat.active;
     if (!cb) return;
     stopCombatAuto();
+    stopCombatCloseTimer();
     G.state.combat.active = null;
     if (G.hideCombatModal) G.hideCombatModal();
-    G.resumeGame();
     if (cb.result === 'lose') { for (const a of cb.ally) { const u = G.getUnit(a.unitId); if (u && !u.dead && a.hp <= 0) G.sendToRest(u, true); } }
   };
 

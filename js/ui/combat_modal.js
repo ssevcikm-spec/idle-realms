@@ -5,6 +5,7 @@
     const root = document.getElementById('modal-root');
     root.innerHTML = renderCombat(cb);
     root.classList.add('show');
+    if (cb.finished) bindCombatAutoClose();
   };
   G.updateCombatModal = function (cb) {
     const root = document.getElementById('modal-root');
@@ -16,6 +17,20 @@
     root.innerHTML = '';
     root.classList.remove('show');
   };
+
+  /** Jakákoli aktivita v okně (čtení/rolování) odloží samozavření o dalších 5 s. */
+  let closeBound = false;
+  function bindCombatAutoClose() {
+    if (closeBound) return;
+    const root = document.getElementById('modal-root');
+    if (!root) return;
+    closeBound = true;
+    const reset = () => { if (G.resetCombatCloseTimer) G.resetCombatCloseTimer(); };
+    root.addEventListener('pointerdown', reset, { passive: true });
+    root.addEventListener('wheel', reset, { passive: true });
+    root.addEventListener('touchstart', reset, { passive: true });
+    root.addEventListener('keydown', reset);
+  }
 
   function renderCombat(cb) {
     const round = cb.round;

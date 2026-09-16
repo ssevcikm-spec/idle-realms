@@ -55,6 +55,7 @@
     if (u.isChild) return 'je dítě';
     if (u.onExpedition) return 'je na expedici';
     if (u.resting) return 'odpočívá';
+    if (G.unitInCombat && G.unitInCombat(u)) return 'bojuje';
     if (u.role === 'trader' || (u.merchantState && u.merchantState.active)) return 'je obchodník';
     if (G.hasSevereInjury && G.hasSevereInjury(u)) return 'má těžké zranění';
     if (G.unitRefusesWork && G.unitRefusesWork(u)) return 'odmítá pracovat';
@@ -308,6 +309,7 @@
       units = G.state.units;
     }
     return units.filter(u => u && !u.dead && !u.isChild && !u.onExpedition && !u.assignedTaskId && !u.resting
+      && !(G.unitInCombat && G.unitInCombat(u))
       && !(G.hasSevereInjury && G.hasSevereInjury(u))
       && !(u.merchantState && u.merchantState.active)
       && !(G.unitRefusesWork && G.unitRefusesWork(u))
