@@ -229,3 +229,51 @@ nebo **hybrid**: plochý základ z kódu + AI jen na prvky (stromy, skály, domk
 - **Gemini API neumí generovat obrázky na free tieru** (`limit: 0` u všech image
   modelů); text a vision fungují. Alternativa zdarma: Pollinations (bez klíče),
   nebo lokálně ComfyUI na Radeonu.
+
+---
+
+## 9. Lokální generování na RX 6600 — ✅ *funkční setup*
+
+**Stav:** ComfyUI 0.36.0 běží na `D:\ComfyUI`, server `http://127.0.0.1:8188`,
+zařízení `AMD Radeon RX 6600 : native`, VRAM 7,98 GB. Ověřeno reálným
+vygenerováním dvou dlaždic (768×768, SDXL Juggernaut XL, 20 kroků):
+**~105–144 s na obrázek** (první je pomalejší kvůli načtení 6,6 GB modelu).
+
+### Funkční postup (tohle je ta cesta, co vyšla)
+
+1. **Python 3.12** (per-user, bez adminu): `python-3.12.10-amd64.exe /quiet
+   InstallAllUsers=0 PrependPath=1 Include_test=0 Include_launcher=0`
+2. `python -m venv D:\ComfyUI\venv-comfy`
+3. **PyTorch s ROCm 10 a kernely pro gfx1032** (klíčové!):
+   `pip install --index-url https://stable.repo.amd.com/rocm/whl-next/
+   "torch[device-gfx1032]" "torchvision[device-gfx1032]" torchaudio`
+   → nainstaluje `rocm-sdk-device-gfx1032` a `amd-torch-device-gfx1032`
+   (celkem ~1,1 GB). **HIP SDK ani ZLUDA nejsou potřeba.**
+4. `git clone https://github.com/comfyanonymous/ComfyUI.git` + `pip install -r requirements.txt`
+5. Model do `ComfyUI\models\checkpoints`, pak `python main.py --port 8188`.
+
+### Dvě slepé uličky (nešlapat do nich)
+
+- **Oficiální `ComfyUI_windows_portable_amd.7z` na RX 6600 NEFUNGUJE**: obsahuje
+  GPU kernely jen pro `gfx1100/1101/1102/1150/1151/1200/1201` — **žádný gfx10xx**
+  (RDNA2). Ověřeno rozborem 393 `.hsaco` souborů. Navíc jeho embedded Python
+  nemá `venv` a jeho `offload-arch.exe` je nepodepsaný.
+- **Smart App Control blokuje nepodepsané ROCm nástroje** (`offload-arch.exe`
+  v portable) → `torch.cuda.is_available()` spadne s access violation.
+  Cesta přes pip (`stable.repo.amd.com`) tím netrpí.
+
+### Podpora gfx1032 (RX 6600)
+
+Podle [SUPPORTED_GPUS.md](https://github.com/ROCm/TheRock/blob/main/SUPPORTED_GPUS.md)
+má `gfx1032` na Windows **Build ✅ / Sanity Tested ✅ / Release Ready ✅**.
+Ceny: `rocm-sdk-core` ~700 MB, `rocm-sdk-libraries` ~100 MB,
+`rocm-sdk-device-gfx1032` ~50 MB, torch ~100 MB.
+
+### Ovládání
+
+```powershell
+# start (odpojeně, aby přežil zavření terminálu)
+Start-Process 'D:\ComfyUI\venv-comfy\Scripts\python.exe' -ArgumentList 'main.py','--port','8188' `
+  -WorkingDirectory 'D:\ComfyUI\ComfyUI' -WindowStyle Hidden
+# GUI: http://127.0.0.1:8188   (PID se ukládá do D:\ComfyUI\_download\comfy.pid)
+```

@@ -94,9 +94,11 @@ node test/headless-smoke.js                                              # "VYSL
 11. **AI obrázky (grafika):** Gemini API **neumí generovat obrázky na free tieru**
     (`limit: 0` u všech image modelů; text a vision fungují). Zdarma jde
     **Pollinations** (`https://image.pollinations.ai/prompt/<urlencoded>?width=768&height=768&nologo=true&model=flux&seed=N`,
-    bez klíče, občas 500 → zkusit znovu) nebo lokálně ComfyUI (na Radeonu už
-    **není potřeba ZLUDA** — od ROCm 10 pro Windows stačí oficiální AMD balíček
-    PyTorchu, případně AMD portable build ComfyUI).
+    bez klíče, občas 500 → zkusit znovu) nebo **lokálně ComfyUI** — ten je
+    **nainstalovaný a funkční** (`D:\ComfyUI`, `http://127.0.0.1:8188`,
+    RX 6600 native, ~105 s na 768×768 dlaždici). Postup a dvě slepé uličky
+    (portable build nemá gfx1032 kernely; Smart App Control blokuje nepodepsaný
+    `offload-arch.exe`) jsou v `docs/STYL_GRAFIKY.md` §9.
     **Pollinations odřezává dlouhé prompty** (u ~800 znaků zůstal jen styl) —
     drž prompt **do ~350 znaků** a **subjekt dej na začátek**.
 12. **PowerShell `[int]` zaokrouhluje, netruncuje** (`[int]3.98` = 4) — při
