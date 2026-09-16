@@ -305,15 +305,17 @@
         <div class="loc-sub" style="color:${dLabel.color}">⚠️ ${dLabel.text}${risk ? ` • ${risk.text}` : ''}</div>
       </div>
     </div>`;
-    if (danger >= 2 && idleUnits.length) {
+    // Bojovat se dá na každém uzlu, kde se dá narazit na nepřítele (ENCOUNTER_TABLE).
+    const canFight = G.ENCOUNTER_TABLE && G.ENCOUNTER_TABLE[n.kind] && idleUnits.length;
+    if (canFight) {
       const safety = Math.round(G.partySafety(idleUnits));
-      const need = Math.round(danger * 22);
-      const verdict = safety >= need * 1.2 ? 'mělo by to vyjít' : safety >= need * 0.8 ? 'bude to těsné' : 'je to nad síly družiny';
-      const rec = G.recommendParty ? G.recommendParty(danger, idleUnits) : idleUnits;
-      html += `<div class="warn-box">💡 Zaútočí <b>${idleUnits.length}</b> volných postav (všech, i vzdálených). Odhad síly družiny <b>${safety}</b> vs. potřeba <b>${need}</b> — ${verdict}. Doporučená družina: <b>${rec.length}</b> postav.</div>`;
-      html += `<button class="btn attack-btn" data-action="attack-here" data-node="${n.id}" title="Pošle do boje všechny volné postavy, ne jen ty u tohoto uzlu">⚔️ Zaútočit (všichni)</button>`;
+      const need = Math.round(Math.max(1, danger) * 22);
+      const verdict = danger <= 0 ? 'bezpečný lov' : safety >= need * 1.2 ? 'mělo by to vyjít' : safety >= need * 0.8 ? 'bude to těsné' : 'je to nad síly družiny';
+      const rec = G.recommendParty ? G.recommendParty(Math.max(1, danger), idleUnits) : idleUnits;
+      html += `<div class="warn-box">⚔️ Můžeš tu bojovat — v okolí se vyskytují nepřátelé. Odhad síly družiny <b>${safety}</b> vs. potřeba <b>${need}</b> — ${verdict}. Doporučená družina: <b>${rec.length}</b> postav.</div>`;
+      html += `<button class="btn attack-btn" data-action="attack-here" data-node="${n.id}" title="Pošle do boje všechny volné postavy, ne jen ty u tohoto uzlu">⚔️ Bojovat (všichni)</button>`;
       if (rec.length < idleUnits.length) {
-        html += `<button class="btn ghost attack-btn" data-action="attack-here" data-node="${n.id}" data-recommended="1" title="Menší družina s rozumnou šancí — zbytek může dál pracovat">🛡️ Zaútočit s doporučenou družinou (${rec.length})</button>`;
+        html += `<button class="btn ghost attack-btn" data-action="attack-here" data-node="${n.id}" data-recommended="1" title="Menší družina s rozumnou šancí — zbytek může dál pracovat">🛡️ Bojovat s doporučenou družinou (${rec.length})</button>`;
       }
     }
     html += `<div class="panel-title">Dostupné práce</div>`;

@@ -452,7 +452,9 @@
     const timeDanger = G.timeDangerMod ? G.timeDangerMod() : 1;
     let chance = computeAccidentChance(danger, active) * safetyBonus * timeDanger;
     if (!G.chance(chance)) return false;
-    if (danger >= 2 && G.chance(0.45)) {
+    // Nebezpečí 1 = jen zranění; nebezpečí 2+ = šance, že se z toho stane přepadení (souboj)
+    const combatChance = danger >= 2 ? 0.45 : 0.25;
+    if (danger >= 1 && G.chance(combatChance)) {
       G.cancelTask(task.id);
       G.startCombat(node, active, { tactic: 'balanced' });
       return true;

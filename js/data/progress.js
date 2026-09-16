@@ -23,7 +23,7 @@
     escort_noble:    { id:'escort_noble', kind:'escort', weight:4, minSize:1, generate:(s)=>({ text:`Doprovoď šlechtice (${3+s} dní).`, escortDays:3+s, reward:{ gold:Math.round(70*(3+s)*(1+s*0.2)), renown:6, rep:14 }, deadline:2400+s*300 }) },
 
     /* Explore quests — prozkoumej X uzlů / najdi Y */
-    explore_region:  { id:'explore_region', kind:'explore', weight:7, generate:(s)=>({ text:`Prozkoumej ${4+s*2} uzlů v divočině.`, exploreCount:4+s*2, reward:{ gold:Math.round(12*(4+s*2)*(1+s*0.2)), renown:3, rep:8 }, deadline:1800+s*300 }) },
+    explore_region:  { id:'explore_region', kind:'explore', weight:7, generate:(s)=>({ text:`Navštiv ${4+s*2} sídel.`, exploreCount:4+s*2, reward:{ gold:Math.round(12*(4+s*2)*(1+s*0.2)), renown:3, rep:8 }, deadline:1800+s*300 }) },
     find_relic:      { id:'find_relic', kind:'explore', weight:4, minSize:2, generate:(s)=>({ text:`Najdi vzácnou relikvii v troskách.`, need:[{material:'crystal',qty:3+s}], reward:{ gold:Math.round(80*(1+s)*(1+s*0.15)), renown:7, rep:16 }, deadline:2400+s*300 }) }
   };
   G.questSlots = function (size) { return size === 0 ? 2 : size === 1 ? 3 : 4; };

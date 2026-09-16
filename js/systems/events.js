@@ -365,18 +365,25 @@
   /** Může se zakázka odevzdat? (jediné místo s logikou per-kind) */
   G.canTurnInQuest = function (q) {
     if (!q || q.status !== 'active') return false;
-    if (q.kind === 'deliver') return (q.need || []).every(n => !n.material || G.matCount(n.material) >= n.qty);
-    if (q.kind === 'kill') {
-      const have = ((G.state.killCounts && G.state.killCounts[q.killType]) || 0) - (q.killCountAtAccept || 0);
-      return have >= (q.killCount || 0);
-    }
-    if (q.kind === 'explore') {
-      const have = (G.state.stats.settlementsVisited || []).length - (q.visitedAtAccept || 0);
-      return have >= (q.exploreCount || 0);
-    }
+    if ((q.need || []).some(n => n.material && G.matCount(n.material) < n.qty)) return false;
+    if (q.kind === 'deliver') return true;
+    if (q.kind === 'kill') return G.questKillProgress(q) >= (q.killCount || 0);
+    if (q.kind === 'explore') return G.questExploreProgress(q) >= (q.exploreCount || 0);
     if (q.kind === 'escort') return G.state.time >= (q.acceptedAt || 0) + (q.escortDays || 0) * G.TIME.dayLength;
     return false;
   };
+
+  /** Kolik nepřátel daného typu jsme od přijetí zakázky zabili. */
+  G.questKillProgress = function (q) {
+    const have = ((G.state.killCounts && G.state.killCounts[q.killType]) || 0) - (q.killCountAtAccept || 0);
+    return Math.max(0, have);
+  };
+  /** Kolik sídel jsme od přijetí navštívili. */
+  G.questExploreProgress = function (q) {
+    return Math.max(0, (G.state.stats.settlementsVisited || []).length - (q.visitedAtAccept || 0));
+  };
+  const KILL_TYPE_LABEL = { beast: 'zvěř', humanoid: 'humanoidů', monster: 'monster' };
+  G.killTypeLabel = function (t) { return KILL_TYPE_LABEL[t] || t; };
   G.activeQuestCount = function () {
     if (!G.state.quests) return 0;
     let n = 0;

@@ -595,6 +595,24 @@ check('automaticke zakazky: rezim + prijeti a odevzdani', () => {
   assert(q.status === 'done', 'doruceni se samo neprijalo/neodevzdalo: ' + q.status);
   G.setAutoQuestMode('off');
 });
+check('boj: zakazka zabiti ma videtelny postup', () => {
+  G.state.killCounts = { beast: 0, humanoid: 0, monster: 0 };
+  const q = { kind: 'kill', killType: 'beast', killCount: 3, killCountAtAccept: 0, status: 'active' };
+  assert(G.questKillProgress(q) === 0, 'na zacatku ma byt nula');
+  G.recordKill('beast', 1); G.recordKill('beast', 1);
+  assert(G.questKillProgress(q) === 2, 'postup zabiti se nepocita (' + G.questKillProgress(q) + ')');
+  assert(!G.canTurnInQuest(q), '2/3 nemelo jit odevzdat');
+  G.recordKill('beast', 1);
+  assert(G.canTurnInQuest(q) === true, '3/3 melo jit odevzdat');
+  assert(G.killTypeLabel('beast') === 'zvěř', 'chybi preklad killType');
+});
+check('boj: uzel s divocinou ma tlacitko bojovat', () => {
+  const n = G.WORLD.nodes.find(x => x.kind === 'deep_forest');
+  assert(!!n, 'nenasel se hluboky les');
+  G.state.selected = { type: 'node', id: n.id };
+  const html = G.panelPlace();
+  assert(html.indexOf('data-action="attack-here"') !== -1, 'hluboky les nenabizi bojovat');
+});
 check('auto-pokracovani: se savem se nezastavi na menu', () => {
   G.save();
   assert(!!localStorageStub.getItem(G.SAVE_KEY), 'save se neulozil');

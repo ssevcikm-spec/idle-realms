@@ -262,7 +262,7 @@
       }
       return '';
     }).join(' ');
-    const extraInfo = q.kind === 'kill' ? `<div class="act-sub">⚔️ Poraz ${q.killCount} (${q.killType})</div>` : q.kind === 'escort' ? `<div class="act-sub">🚶 Doprovod ${q.escortDays} dní — postavy vyrazí a cestou nemůžou dělat nic jiného</div>` : q.kind === 'explore' ? `<div class="act-sub">🗺️ Prozkoumej ${q.exploreCount || ''}</div>` : '';
+    const extraInfo = q.kind === 'kill' ? `<div class="act-sub">⚔️ Poraz ${G.questKillProgress(q)}/${q.killCount} ${G.killTypeLabel(q.killType)}</div>` : q.kind === 'escort' ? `<div class="act-sub">🚶 Doprovod ${q.escortDays} dní — postavy vyrazí a cestou nemůžou dělat nic jiného</div>` : q.kind === 'explore' ? `<div class="act-sub">🗺️ Navštiv ${G.questExploreProgress(q)}/${q.exploreCount} sídel</div>` : '';
     const r = q.reward;
     const rewardTxt = `+${r.gold} 🪙 • +${r.renown} ⭐${r.rep ? ` • +${r.rep} rep` : ''}`;
     let timeInfo;
