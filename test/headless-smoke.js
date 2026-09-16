@@ -505,16 +505,19 @@ check('krajinne prvky uzlu: kresleni a determinismus', () => {
   const c = G.nodeFeatureProps({ id: 'node-B', kind: 'forest' });
   assert(JSON.stringify(a.list) !== JSON.stringify(c.list), 'dva uzly maji stejne rozvrzeni');
 });
-check('cesty: spojitost mezi dlazdicemi', () => {
-  let tested = 0;
-  for (const key of G.WORLD.roads) {
-    const parts = key.split(',');
-    const links = G.roadLinks(Number(parts[0]), Number(parts[1]));
-    assert(links.length >= 1, 'dlazdice cesty bez spojeni: ' + key);
-    tested++;
-    if (tested >= 5) break;
+check('cesty: spojite polyline mezi sidly', () => {
+  const paths = G.WORLD.roads;
+  assert(Array.isArray(paths) && paths.length >= 6, 'chybi polyline cest (' + (paths && paths.length) + ')');
+  for (const p of paths) assert(p.length >= 2, 'cesta ma mene nez 2 body');
+  assert(G.WORLD.roadTiles && G.WORLD.roadTiles.size > 0, 'chybi roadTiles');
+  // konce cest lezi u sidel
+  for (const p of paths) {
+    for (const [ex, ey] of [p[0], p[p.length - 1]]) {
+      let near = false;
+      for (const s of G.WORLD.settlements) if (Math.hypot(s.x - ex, s.y - ey) <= 2) { near = true; break; }
+      assert(near, 'konec cesty neni u sidla: ' + ex + ',' + ey);
+    }
   }
-  assert(tested >= 5, 've svete nejsou zadne cesty (' + tested + ')');
 });
 check('jezera: oblast ma breh (rybareni z brehu)', () => {
   const lakes = G.WORLD.nodes.filter(n => n.kind === 'lake');

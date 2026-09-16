@@ -373,42 +373,37 @@
 
   /** Je na dlaždici cesta? */
   function roadAt(x, y) {
-    const r = G.WORLD && G.WORLD.roads;
-    if (!r) return false;
-    return r.has(x + ',' + y) || G.WORLD.terrainAt(x, y) === 'road';
+    const t = G.WORLD && G.WORLD.roadTiles;
+    if (!t) return false;
+    return t.has(x + ',' + y);
   }
-  /** Do kterých stran z dlaždice cesta pokračuje (jen ortogonálně — bez úhlopříček). */
-  G.roadLinks = function (x, y) {
-    const out = [];
-    if (roadAt(x + 1, y)) out.push([1, 0]);
-    if (roadAt(x - 1, y)) out.push([-1, 0]);
-    if (roadAt(x, y + 1)) out.push([0, 1]);
-    if (roadAt(x, y - 1)) out.push([0, -1]);
-    return out;
-  };
 
-  /** Cesta = spojité pruhy od středu k hranám; bez šumu, jen dvě vrstvy barvy. */
+  /**
+   * Cesty se kreslí jako spojité polyline středem cesty (G.WORLD.roads =
+   * pole polí bodů [x,y]). Žádné pruhy „od středu k hranám", žádný šum —
+   * jen dvě vrstvy barvy se zaoblenými spoji.
+   */
   function drawRoads(ox, oy, tilePx, x0, x1, y0, y1) {
-    for (let y = y0; y <= y1; y++) {
-      for (let x = x0; x <= x1; x++) {
-        if (x < 0 || y < 0 || x >= G.WORLD.w || y >= G.WORLD.h) continue;
-        if (!roadAt(x, y)) continue;
-        const links = G.roadLinks(x, y);
-        const cx = ox + (x + 0.5)*tilePx, cy = oy + (y + 0.5)*tilePx;
-        if (!links.length) {
-          // osamocená dlaždice (např. okraj štětce) — jen zem
-          ctx.fillStyle = G.PAL.road.base;
-          ctx.beginPath(); ctx.arc(cx, cy, tilePx*0.28, 0, Math.PI*2); ctx.fill();
-          continue;
-        }
-        const seg = () => {
-          ctx.beginPath(); ctx.moveTo(cx, cy);
-          for (const [dx, dy] of links) ctx.lineTo(cx + dx*tilePx*0.5, cy + dy*tilePx*0.5);
-        };
-        ctx.lineCap = 'butt';
-        ctx.strokeStyle = '#51483a'; ctx.lineWidth = tilePx*0.46; seg(); ctx.stroke();
-        ctx.strokeStyle = '#776a51'; ctx.lineWidth = tilePx*0.34; seg(); ctx.stroke();
+    const paths = (G.WORLD && G.WORLD.roads) || [];
+    for (const path of paths) {
+      if (!path || path.length < 2) continue;
+      let inView = false;
+      for (const p of path) {
+        if (p[0] >= x0 - 1 && p[0] <= x1 + 1 && p[1] >= y0 - 1 && p[1] <= y1 + 1) { inView = true; break; }
       }
+      if (!inView) continue;
+      const stroke = (w, color) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = w;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(ox + (path[0][0] + 0.5) * tilePx, oy + (path[0][1] + 0.5) * tilePx);
+        for (let i = 1; i < path.length; i++) ctx.lineTo(ox + (path[i][0] + 0.5) * tilePx, oy + (path[i][1] + 0.5) * tilePx);
+        ctx.stroke();
+      };
+      stroke(tilePx * 0.48, '#51483a');   // tmavý lem
+      stroke(tilePx * 0.34, '#776a51');   // povrch
     }
   }
 

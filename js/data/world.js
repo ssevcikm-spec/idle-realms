@@ -314,24 +314,27 @@
       return { id:def.id, name:def.name, x:def.x, y:def.y, size:def.size, spec:def.spec };
     });
     const byId = {}; settlements.forEach(s => byId[s.id] = s);
-    const roadSet = new Set();
+    const roadSet = new Set();      // dlaždice cesty (pro rychlé testy)
+    const roadPaths = [];           // polyline středem cesty (pro spojité kreslení)
     function carveRoad(a, b) {
       let x0 = a.x, y0 = a.y, x1 = b.x, y1 = b.y;
       const dx = Math.abs(x1-x0), dy = Math.abs(y1-y0);
       const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
       let err = dx - dy, guard = 0;
+      const path = [];
       while (guard++ < 500) {
-        for (const [ox, oy] of [[0,0],[1,0],[0,1],[-1,0],[0,-1]]) {
-          const px = x0+ox, py = y0+oy;
-          if (px < 0 || py < 0 || px >= W || py >= H) continue;
-          const idx = py*W+px;
-          if (tiles[idx] !== TI.water) { tiles[idx] = TI.road; roadSet.add(px+','+py); }
+        // jen střed cesty — pruh se dokreslí spojitě přes body polyline
+        if (x0 >= 0 && y0 >= 0 && x0 < W && y0 < H && tiles[y0*W+x0] !== TI.water) {
+          tiles[y0*W+x0] = TI.road;
+          roadSet.add(x0 + ',' + y0);
+          path.push([x0, y0]);
         }
         if (x0 === x1 && y0 === y1) break;
         const e2v = 2*err;
         if (e2v > -dy) { err -= dy; x0 += sx; }
         if (e2v < dx)  { err += dx; y0 += sy; }
       }
+      if (path.length) roadPaths.push(path);
     }
     G.ROADS.forEach(([a, b]) => { if (byId[a] && byId[b]) carveRoad(byId[a], byId[b]); });
     const nodes = [];
@@ -445,7 +448,7 @@
     ensureNear('quarry', 8); ensureNear('forest', 6);
     return {
       w:W, h:H, seed, tiles, terrainNames:TERR,
-      settlements, settlementById:byId, nodes, roads:roadSet,
+      settlements, settlementById:byId, nodes, roads:roadPaths, roadTiles:roadSet,
       terrainAt(x, y) { if (x<0||y<0||x>=W||y>=H) return 'grass'; return TERR[tiles[y*W+x]]; },
       nodeAt(x, y) { return G.nodeAt(x, y) || null; },
       settlementAt(x, y) { return settlements.find(s => s.x===x && s.y===y) || null; },

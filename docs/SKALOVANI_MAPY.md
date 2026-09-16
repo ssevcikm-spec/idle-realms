@@ -131,10 +131,11 @@ Jak to funguje:
 
 ### Cesty jsou nyní spojité
 Dřív byla cesta zapečená v dlaždici jako pevná křivka, takže na sebe dlaždice
-nenavazovaly a cesta vypadala přerušovaně. Teď dlaždice obsahuje jen **podklad**
-(vyšlapaná hlína) a vlastní pruh cesty kreslí `drawRoads` podle **sousedů**
-(`G.roadLinks`) — pruh se táhne od středu k hranám, takže je plynulý v zatáčkách,
-v křižovatkách i na konci u sídla. Má tmavý lem, světlejší násep a kamínky.
+nenavazovaly a cesta vypadala přerušovaně. Generování teď ukládá **střed cesty
+jako polyline** (`G.WORLD.roads` = pole bodů [x,y]) a `drawRoads` ji kreslí jako
+jednu souvislou čáru se zaoblenými spoji — žádné pruhy od středu k hranám ani šum.
+Má tmavý lem a světlejší povrch. Dlaždice cesty žijí zvlášť v `G.WORLD.roadTiles`
+(pro rychlé testy).
 
 ---
 
@@ -147,4 +148,4 @@ v křižovatkách i na konci u sídla. Má tmavý lem, světlejší násep a kam
 - dlaždice se generuje v rozlišení **192 px**,
 - **všech 9 druhů uzlů** se vykreslí jako krajinný prvek a rozvržení je stabilní
   pro stejný uzel (a různé pro různé uzly),
-- každá dlaždice cesty má alespoň jedno spojení (`G.roadLinks`).
+- cesty jsou polyline mezi sídly (alespoň 2 body) a jejich konce leží u sídel.
