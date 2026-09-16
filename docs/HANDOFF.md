@@ -53,7 +53,7 @@ node test/headless-smoke.js                                              # "VYSL
    $t=[System.IO.File]::ReadAllText($f); $t=$t.Replace(...); [System.IO.File]::WriteAllText($f,$t,[System.Text.UTF8Encoding]::new($false))
    ```
    Po editaci vždy ověř `[regex]::IsMatch($t,'[\u0400-\u04FF]')` (občas se vloudí
-   cyrilské `е`/`а` místo latinky).
+   cyrilské `e`/`a` místo latinky).
 2. Nástroj `edit` vyžaduje **soubor nejdřív v session přečíst** (`read`), jinak
    vrátí „file has not been read". Nezapomínej na `read` před každým `edit`.
 3. `edit` s `old_string` končícím novým řádkem snadno **spojí řádky** — kontroluj
