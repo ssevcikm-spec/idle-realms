@@ -83,11 +83,13 @@ node test/headless-smoke.js                                              # "VYSL
    spuštění (a rozladí i zbytek testů). Přesně tohle byla chyba ve velikosti
    shluků uzlů — mapa se při každém načtení savu mírně změnila; hlídá to test
    „svet je deterministicky".
-10. **Desktop grid musí mít `minmax(0, …)` sloupce** (`#app` `1.1fr 1fr` → bez
-    `minmax(0,…)` hrozí „grid blowout": vnitřní šířka canvasu (= CSS × DPR) na
-    retina displeji roztáhne sloupec mapy a **boční panel se časem zužuje**.
-    Projev se v headless Chrome neprojeví (tam `overflow:hidden` stačí) — opravu
-    ověř simulací: `world-wrap.style.overflow='visible'` + obří `canvas.width`
+10. **Desktop grid musí mít `minmax(0, …)` sloupce + `min-width:0` na položkách**
+    (`#app` `1.1fr 1fr` → bez `minmax(0,…)` hrozí „grid blowout": široký min-content
+    libovolného prvku — canvas (šířka = CSS × DPR na retina displeji) **nebo lišta
+    surovin s mnoha chipy** (`#hud-mats`) — roztáhne sloupec mapy a **boční panel
+    se časem zužuje**. Lišta surovin proto má `min-width:0` a vlastní řádek gridu
+    `mats`, jinak se auto-umísťuje na spodek levého sloupce. Opravu ověř simulací:
+    `world-wrap.style.overflow='visible'` + obří `canvas.width` a desítky chipů
     nesmí hnout šířkou `#panel`.
 
 ---
