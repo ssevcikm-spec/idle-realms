@@ -83,6 +83,12 @@ node test/headless-smoke.js                                              # "VYSL
    spuštění (a rozladí i zbytek testů). Přesně tohle byla chyba ve velikosti
    shluků uzlů — mapa se při každém načtení savu mírně změnila; hlídá to test
    „svet je deterministicky".
+10. **Desktop grid musí mít `minmax(0, …)` sloupce** (`#app` `1.1fr 1fr` → bez
+    `minmax(0,…)` hrozí „grid blowout": vnitřní šířka canvasu (= CSS × DPR) na
+    retina displeji roztáhne sloupec mapy a **boční panel se časem zužuje**.
+    Projev se v headless Chrome neprojeví (tam `overflow:hidden` stačí) — opravu
+    ověř simulací: `world-wrap.style.overflow='visible'` + obří `canvas.width`
+    nesmí hnout šířkou `#panel`.
 
 ---
 
@@ -90,7 +96,7 @@ node test/headless-smoke.js                                              # "VYSL
 
 ### Čísla
 - 57 JS souborů, 623 definovaných/used globálů `G.*` (check-globals čisté).
-- Smoke test: **55 kontrol**, deterministicky.
+- Smoke test: **56 kontrol**, deterministicky.
 
 ### Klíčové soubory
 | Oblast | Soubor |
@@ -121,6 +127,10 @@ node test/headless-smoke.js                                              # "VYSL
 - **Výroba**: „Udržovat zásobu" (`state.productionOrders` → `tickProduction`).
 - **Boj**: tahový, **automatický** (běží sám ~0,7 s/kolo, pozastavitelné), schopnosti
   defaultně automatické, **boj na každém uzlu s nepřáteli**, přepadení v divočině.
+  **Svět běží dál i během souboje** (boj nepauzuje hru, jen překryje mapu;
+  bojující postavy drží `G.unitInCombat`, ať je autonomie nepřeplánuje).
+  **Okno se po konci samo zavře po 5 s**; aktivita v okně odloží
+  (`G.resetCombatCloseTimer`), menu ☰ samozavření pozdrží.
 - **Příběhové popupy**: viditelné efekty voleb, **trvalé následky** (`G.storyFlag`
   — renomé/základna, ceny, boj, reputace, výtěžnost), přepínač v menu.
 

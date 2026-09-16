@@ -59,6 +59,12 @@ ještě neviděl.
 
 - **Automatický boj** — souboj běží sám (vidíš log i stavy), tlačítkem se dá
   pozastavit do ručního režimu. Dřív se na každé kolo muselo klikat.
+- **Svět běží dál i během souboje** — boj nepauzuje hru, jen překryje mapu;
+  bojující postavy jsou označené (`G.unitInCombat`), takže jim autonomie/fronta
+  příkazů/stavba během boje nepřidělí jinou práci.
+- **Okno se samo zavře** 5 s po konci souboje; jakákoli aktivita v okně (klik,
+  rolování, klávesa) zavření odloží o dalších 5 s (`G.resetCombatCloseTimer`).
+  Když modal překryje menu ☰, samozavření počká, až se menu zavře.
 - **Schopnosti se používají samy** ve výchozím stavu.
 - **Bojovat jde na každém uzlu s nepřáteli** (předtím jen na nebezpečí 2+, tedy
   dolech a jeskyních — zvěř v lese nešla lovit vůbec).
@@ -70,8 +76,10 @@ ještě neviděl.
 
 ## 6. Testy
 
-`test/headless-smoke.js` (celkem 47 kontrol) nově ověřuje:
+`test/headless-smoke.js` (celkem 56 kontrol) nově ověřuje:
 - `G.questKillProgress` počítá zabití od přijetí a `G.canTurnInQuest` uvolní
   odevzdání až po 3/3,
 - `G.killTypeLabel` překládá typy,
-- uzel hlubokého lesa nabízí tlačítko „Bojovat".
+- uzel hlubokého lesa nabízí tlačítko „Bojovat",
+- **boj nepauzuje svět** (`G.isPaused()` false), `G.unitInCombat` blokuje práci
+  i frontu příkazů, po konci se ozbrojí samozavření a `G.closeCombat` ho zruší.
