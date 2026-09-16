@@ -184,3 +184,48 @@ Styl se nastaví příkazem `--set-style` a **platí i pro bota v telefonu**.
 3. Vygenerovat **testovací trojici** (1 dlaždice lesa, 1 postava, 1 příběhová
    ilustrace) a porovnat, jak to vypadá vedle sebe.
 4. Teprve pak sáhnout do kódu — a to postupně: paleta → obrysy → auto-tiling → sídla.
+
+---
+
+## 8. Co je implementováno: AI dlaždice a přepínač *(doplněno)*
+
+**Hotovo:** `js/render/tiles_ai.js` + přepínač `settings.tileStyle = 'code' | 'ai'`
+v menu ☰ („🎨 Vzhled mapy"). Hra má jediné místo, kde bere vzhled dlaždice
+(`G.tileArt(terén, varianta)`) — když jsou AI dlaždice zapnuté a načtené, vrátí
+bitmapu; jinak se kreslí proceduralně. **Fallback je vždy funkční**, takže chybějící
+obrázky hru nerozbijí.
+
+Sada: `assets/tiles/<terén>-<1|2>.jpg` (10 terénů × 2 textury, FLUX přes
+Pollinations — zdarma, bez klíče), v kódu se z nich dělá **8 variant**
+(2 textury × zrcadlení × jas), aby se mapa neopakovala.
+
+### Dvě věci, které AI dlaždice nutně potřebují
+
+1. **Barevná korekce podle terénu.** Model vrátil „vodu" olivově zelenou
+   (`#474918`) a „sníh" tmavý (jas 97) — terén se pak nedá poznat. Řešení:
+   průměr dlaždice se posune na cílovou barvu terénu (`TARGET` v `tiles_ai.js`).
+   Ověřeno čísly — všech 10 terénů přesně na cíli (voda `53,92,122`, sníh
+   `194,201,207`, hora `108,108,106`).
+2. **Varianty.** Jedna textura opakovaná po mapě bije do očí; 8 variant to zjemní.
+
+### Co ještě AI dlaždice potřebují (známý otevřený problém)
+
+Dlaždice **na sebe nenavazují** — každá je samostatná malba s vlastním motivem
+a světlem, takže jsou vidět švy a opakující se „kruhové" vzory. Řešení (od
+nejlevnějšího): generovat **seamless tileable texture** (prompt bez ústředního
+motivu a vinětace), **blend okrajů** v kódu (přechodové pásy mezi dlaždicemi),
+nebo **hybrid**: plochý základ z kódu + AI jen na prvky (stromy, skály, domky).
+
+### Pasti při generování (ověřeno)
+
+- **Pollinations odřezává dlouhé prompty** — u promptu ~800 znaků zůstal jen
+  stylový blok a vyšly 4× „dvě postavy s mečem". Drž prompt **do ~350 znaků**
+  a **subjekt dej na začátek**.
+- **Víc panelů v jednom obrázku model nezvládá** — ze 4 promptů na „3 panely"
+  vyšly 2 správně, jeden jako 4 panely a jeden bez panelů. Generuj **jeden
+  asset na obrázek**.
+- **Pixel art se negeneruje, ale dopočítá**: zmenšit na 32×32 → zredukovat na
+  16 barev → zvětšit NEAREST. Ověřeno: 11 barev, 0 neostrých bloků 8×8.
+- **Gemini API neumí generovat obrázky na free tieru** (`limit: 0` u všech image
+  modelů); text a vision fungují. Alternativa zdarma: Pollinations (bez klíče),
+  nebo lokálně ComfyUI na Radeonu.

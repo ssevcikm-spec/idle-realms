@@ -91,15 +91,28 @@ node test/headless-smoke.js                                              # "VYSL
     `mats`, jinak se auto-umísťuje na spodek levého sloupce. Opravu ověř simulací:
     `world-wrap.style.overflow='visible'` + obří `canvas.width` a desítky chipů
     nesmí hnout šířkou `#panel`.
+11. **AI obrázky (grafika):** Gemini API **neumí generovat obrázky na free tieru**
+    (`limit: 0` u všech image modelů; text a vision fungují). Zdarma jde
+    **Pollinations** (`https://image.pollinations.ai/prompt/<urlencoded>?width=768&height=768&nologo=true&model=flux&seed=N`,
+    bez klíče, občas 500 → zkusit znovu) nebo lokálně ComfyUI (na Radeonu už
+    **není potřeba ZLUDA** — od ROCm 10 pro Windows stačí oficiální AMD balíček
+    PyTorchu, případně AMD portable build ComfyUI).
+    **Pollinations odřezává dlouhé prompty** (u ~800 znaků zůstal jen styl) —
+    drž prompt **do ~350 znaků** a **subjekt dej na začátek**.
+12. **PowerShell `[int]` zaokrouhluje, netruncuje** (`[int]3.98` = 4) — při
+    indexování palet/čtverců přes `[int]($v/16)` to přeteče rozsah; používej
+    `[math]::Floor()`.
 
 ---
 
 ## 4. Stav kódu (co je hotové)
 
 ### Čísla
-- 57 JS souborů, 632 definovaných/used globálů `G.*` (check-globals čisté).
-- Smoke test: **62 kontrol**, deterministicky.
+- 58 JS souborů, 637 definovaných/used globálů `G.*` (check-globals čisté).
+- Smoke test: **63 kontrol**, deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
+- Grafika: dlaždice lze přepnout mezi **kreslenou (kód)** a **malovanou (AI
+  bitmapy v `assets/tiles`) — `settings.tileStyle`, přepínač v menu ☰.
 
 ### Klíčové soubory
 | Oblast | Soubor |
@@ -138,6 +151,12 @@ node test/headless-smoke.js                                              # "VYSL
   — renomé/základna, ceny, boj, reputace, výtěžnost), přepínač v menu.
 
 ### Mapa a grafika (poslední velký blok)
+- **Vzhled dlaždic lze přepnout**: kreslený (kód, výchozí) ↔ **malovaný (AI
+  bitmapy)** — `G.tileArt` v `js/render/tiles_ai.js`, `settings.tileStyle`,
+  přepínač „🎨 Vzhled mapy" v menu ☰. AI dlaždice se **barevně srovnávají podle
+  terénu** (voda modrá, sníh světlý) a mají 8 variant, aby se mapa neopakovala.
+  Známý otevřený problém: dlaždice na sebe **nenavazují** (švy) — řešení viz
+  `docs/STYL_GRAFIKY.md` §8.
 - Dlaždice **64 px** při zoomu 1, laditelné v debug panelu (**D** → „Mapa — měřítko":
   46/56/64/80 px, postavy 60–115 %), ukládá se do `settings`.
 - Art dlaždic se kreslí do **192 px** canvasu (`ctx.scale(RES/SIZE)`), kompozice
