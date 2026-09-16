@@ -101,6 +101,7 @@ body {
   height: min(48vh, 400px);
   background: #2a2a22; border-bottom: 1px solid #35322b;
   overflow: hidden;
+  min-width: 0;   /* ať canvas (vnitřní šířka = CSS × DPR) neroztahuje sloupec mapy */
 }
 #world { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 #world:active { cursor: grabbing; }
@@ -135,6 +136,7 @@ body {
 #panel {
   flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
   padding: 12px 12px 22px; background: #1b1a17;
+  min-width: 0;   /* panel je scroll kontejner — obsah nesmí tlačit sloupec */
 }
 /* Směrnice (directives) */
 .directives { margin-bottom: 2px; }
@@ -175,7 +177,7 @@ body {
   #app {
     max-width: 1280px;
     display: grid;
-    grid-template-columns: 1.1fr 1fr;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
     grid-template-rows: auto auto 1fr auto;
     grid-template-areas:
       "hud   hud"
