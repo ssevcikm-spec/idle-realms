@@ -76,22 +76,37 @@ Tohle je zásadní vstup do `docs/STYL_GRAFIKY.md`:
 
 ## 4. Co dál (návrh dalších kroků)
 
-### Krok 2 — LOD (úrovně detailu) — *doporučuji jako další*
-Při oddálení pod určitý práh (např. `tilePx < 34`) **přepnout kreslení**:
-- sídla → **ikona s názvem** a barvou frakce, ne mrňavé domky,
-- postavy → **korouhvička/tečka podle role**, ne sprite,
-- uzly → symbol + název,
-- volitelně jména sídel a regionů.
+### Krok 2 — LOD (úrovně detailu) — ✅ *hotovo*
 
-Tím zmizí „puntíky" úplně (oddálení bude *jiný režim*, ne zmenšený detail)
-a zároveň se otevře prostor pro velký svět.
+Od oddálení mapy se kreslení **přepíná podle velikosti dlaždice na obrazovce**
+(`js/render/world.js`, `G.lodLevel(tilePx)`). Nejsou to zmenšené detaily, ale
+**jiný režim kreslení** — proto při oddálení mizí „puntíky" a mapa zůstane čitelná:
+
+| Úroveň | Kdy | Uzly | Sídla | Postavy |
+|---|---|---|---|---|
+| `detail` | ≥ 34 px | krajinné prvky (les, jezero, pole…) | domky, hradby, props podle zaměření | figurky + pruhy, ikony, postup |
+| `overview` | ≥ 22 px | symbol **+ jméno** | ikona podle velikosti, **prstenec v barvě frakce + jméno** | tečka v barvě role + ikona role |
+| `far` | < 22 px | jen symbol | jen ikona s prstencem | jen tečka |
+
+- Prahy jsou v kódu jako `G.LOD_DETAIL_PX` / `G.LOD_LABEL_PX` (dají se testovat).
+- **Jména se nepřekrývají**: každá jmenovka zkusí osm poloh (pod, nad, vlevo,
+  vpravo + diagonály) a zahodí se jen tehdy, když není místo. Symboly a tečky jsou
+  pro jmenovky překážky, takže text nezakryje mapu. Sídla mají přednost před uzly,
+  uzly s prací a nebezpečné uzly před ostatními (`G.lodLabelFits`).
+- **Tlačítko 🔭** na mapě přepne detail ↔ přehled (nastaví dlaždici na ~26 px).
+  Kolečko/myš i ＋/− se dostanou až na `MIN_ZOOM` 0,28, což je úroveň `far`.
+  Uložený zoom prochází stejnou mezí (`G.clampZoom`, jinak by se přehled po
+  načtení savu srovnal do detailu).
+- Barvy pro tečky postav nesou role v `G.ROLES` (`color`) — v přehledu je tak
+  vidět, kdo je vůdce, ranhojič nebo průzkumník.
+- Debug panel (D → „Mapa — měřítko") ukazuje aktuální úroveň a px na dlaždici.
 
 ### Krok 3 — větší svět
 - Svět je dnes 40×30 dlaždic. Při 64 px je to 2560×1920 px — v detailu se dá
   procházet, v přehledu (LOD) přehlédnout.
 - Rozšíření na **64×48** (+ ~2,5× plochy) je pak hlavně datová změna:
   `W/H` v `generateWorld`, víc sídel a uzlů, doladit hustotu.
-- Podmínka: nejdřív LOD, jinak bude velký svět jen víc puntíků.
+- Podmínka (LOD) je **splněná** — velký svět už nebude jen víc puntíků.
 
 ### Krok 4 — volitelně: posuvník výšky mapy
 Mapa vs. panel by šlo rozdělit tažením (split), aby si hráč zvolil, kolik krajiny
@@ -141,11 +156,18 @@ Má tmavý lem a světlejší povrch. Dlaždice cesty žijí zvlášť v `G.WORL
 
 ## 6. Testy
 
-`test/headless-smoke.js` (celkem 40 kontrol) nově ověřuje:
+`test/headless-smoke.js` (celkem 54 kontrol) ověřuje:
 - `G.setTileBase` / `G.getTileBase` včetně podlazení (32) a zastropování (96),
 - `G.setFigureHeight` / `G.getFigureHeight`,
 - `G.settlementSpread`: vesnice 1,0 < město < metropole,
 - dlaždice se generuje v rozlišení **192 px**,
 - **všech 9 druhů uzlů** se vykreslí jako krajinný prvek a rozvržení je stabilní
   pro stejný uzel (a různé pro různé uzly),
-- cesty jsou polyline mezi sídly (alespoň 2 body) a jejich konce leží u sídel.
+- cesty jsou polyline mezi sídly (alespoň 2 body) a jejich konce leží u sídel,
+- **LOD**: prahy `detail`/`overview`/`far` podle `tilePx` (`G.lodLevel`),
+  `G.lodLabelFits` zahazuje překrývající se jmenovky,
+  každé sídlo má jméno + barvu frakce + ikonu velikosti a každá role barvu tečky,
+  `G.drawWorldFrame()` se překreslí ve všech třech úrovních a
+  `G.lodFrameStats()` potvrdí, že v přehledu jsou symboly, ikony sídel, tečky i jména,
+  zatímco v `far` jsou jen symboly a **žádný text**; tlačítko `G.toggleMapOverview`
+  přepne přehled a zpět do detailu.

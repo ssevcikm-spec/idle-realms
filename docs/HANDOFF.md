@@ -69,14 +69,23 @@ node test/headless-smoke.js                                              # "VYSL
 7. `G.MATERIALS` je map; suroviny mají kvality (`crude..masterwork`); `matCount`
    sčítá přes kvality. `matRemove` **nic neodebere**, když máš méně, než žádáš
    (vrací false) — pro „smaž vše" mazat `state.materials[mat]` přímo.
+8. **Vizuál se dá ověřit i bez očí** (a je to potřeba — Gemini vision umí vrátit
+   `HTTP 429 prepayment credits are depleted`): postav dočasnou harness stránku
+   **v rootu repa** (musí být v rootu, jinak relativní `js/...` cesty 404),
+   spusť `chrome.exe --headless=new --dump-dom` a výsledek nech vypsat do
+   `<pre>`; přečti ho ze souboru přes `Start-Process -RedirectStandardOutput`
+   (roury v PowerShellu na Chrome nefungují — používá jmenné roury a sandbox je
+   blokuje). Pixely se čtou z reálného canvasu (`ctx.getImageData`), takže se dá
+   čísly ověřit barva prstence sídla, přítomnost textu nebo tečky postavy.
+   Dočasné soubory pak smaž.
 
 ---
 
 ## 4. Stav kódu (co je hotové)
 
 ### Čísla
-- 57 JS souborů, ~614 definovaných/used globálů `G.*` (check-globals čisté).
-- Smoke test: **49 kontrol**, deterministicky.
+- 57 JS souborů, ~625 definovaných/used globálů `G.*` (check-globals čisté).
+- Smoke test: **54 kontrol**, deterministicky.
 
 ### Klíčové soubory
 | Oblast | Soubor |
@@ -115,9 +124,17 @@ node test/headless-smoke.js                                              # "VYSL
   46/56/64/80 px, postavy 60–115 %), ukládá se do `settings`.
 - Art dlaždic se kreslí do **192 px** canvasu (`ctx.scale(RES/SIZE)`), kompozice
   v logickém 96 prostoru → ostré i při zoomu a DPR 2.
+- **LOD (úrovně detailu)** — `js/render/world.js`, `G.lodLevel(tilePx)`:
+  `detail` (≥ 34 px) = krajina/domky/figurky s pruhy, `overview` (≥ 22 px) =
+  symboly **+ jména**, sídla jako ikona s **prstencem v barvě frakce** a jménem,
+  postavy jako **tečka v barvě role** (`G.ROLES[].color`), `far` (< 22 px) = jen
+  symboly bez textů. Jmenovky zkouší 8 poloh a nekryjí symboly (`G.lodLabelFits`).
+  Tlačítko **🔭** na mapě přepíná detail ↔ přehled (`G.toggleMapOverview`),
+  `MIN_ZOOM` je 0,28 (`G.clampZoom`), takže se dá dojet až na `far`.
+  Přehled se dá ověřit čísly: `G.drawWorldFrame()` + `G.lodFrameStats()`.
 - **Uzly = krajinné prvky** (`js/render/art.js` `G.drawNodeFeature`), ne emoji:
   les = stromy, louka = pole, jezero = rákosí+molo, důl/jeskyně/kamenolom = bodové.
-  Pod 34 px se přepne na symbol (zárodek LOD).
+  Pod prahem LOD se přepne na symbol.
 - **Uzly = oblasti** (`node.tiles`): lesy/pole/močály = shluk 2–5 dlaždic, **jezero
   = celá vodní plocha** (flood fill), rybaří se z břehu. Helpery: `G.nodeTiles`,
   `G.nodeDistance`, `G.nodeAnchor`, `G.nodeAt`. Klik/chodí/hledá se přes plochu.
@@ -137,8 +154,8 @@ node test/headless-smoke.js                                              # "VYSL
 | `docs/TECHNICKY_DOKUMENT.md` | architektura, inventář | **zastaralé počty** (48→57 souborů, 445→~614 globálů); jinak orientačně platí |
 | `docs/AUDIT_MENU.md` | audit menu + log fází **M-A … M-J** | aktuální (přidává se tam řádek za každou fázi) |
 | `docs/ANALYZA_BUDOVY_A_ZAKLADNA.md` | stavby, základna, výběr místa, stavitelské efekty | aktuální |
-| `docs/SKALOVANI_MAPY.md` | měřítko mapy, prvky, cesty; plán LOD + větší svět | aktuální |
-| `docs/OBLASTI_A_SIDLA.md` | multi-tile oblasti, props sídel; zbývá LOD + větší svět | aktuální |
+| `docs/SKALOVANI_MAPY.md` | měřítko mapy, prvky, cesty, **LOD (hotové)**; plán většího světa | aktuální |
+| `docs/OBLASTI_A_SIDLA.md` | multi-tile oblasti, props sídel; zbývá už jen větší svět | aktuální |
 | `docs/PRIBEHOVE_POPUPY.md` | příběhové popupy (efekty, trvalé vlajky, přepínač) | aktuální |
 | `docs/UKOLY_A_VYROBA.md` | zakázky, escort, automatika, výroba, dílny na základně | aktuální |
 | `docs/BOJ.md` | boj (automatický, kill questy, explore) | aktuální |
@@ -148,19 +165,20 @@ node test/headless-smoke.js                                              # "VYSL
 
 ## 6. Co je dál (plán)
 
-1. **LOD (úrovně detailu)** — *nejbližší krok, navazuje na model oblastí*:
-   při oddálení pod ~34 px přepnout uzly na **symbol + jméno** a sídla na ikonu
-   s názvem/barvou frakce; tím zmizí „puntíky" a otevře se cesta k velkému světu.
-   Částečný základ už je: `tilePx >= 34` v `draw()` rozhoduje feature vs. badge.
-2. **Větší svět** (40×30 → 64×48) — po LOD; hlavně `W/H` v `generateWorld`,
-   víc sídel/uzlů, doladit hustotu.
-3. **Styl grafiky** — viz `docs/STYL_GRAFIKY.md`; uživatel ještě nevybral.
+1. **Větší svět** (40×30 → **64×48**) — *nejbližší krok, LOD je hotové*: hlavně
+   `W/H` v `generateWorld` (`js/data/world.js`), víc sídel/uzlů, doladit hustotu.
+   Detail se dá procházet, přehled (🔭) přehlédnout.
+2. **Styl grafiky** — viz `docs/STYL_GRAFIKY.md`; uživatel ještě nevybral.
    Doporučeno: definovat styl projektu (`imagegen --set-style`) a pak generovat
    ilustrace (titul + 7 příběhových scén). Skills: `imagegen` (generování,
    styl na serveru `.style.txt`, `--size WxH --colors N` = pixel art) a `vision`
    (čtení screenshotů pro vizuální ladění).
-4. Drobný backlog z doků: potvrzení u drahých staveb, požadavky/strop budov
+3. Drobný backlog z doků: potvrzení u drahých staveb, požadavky/strop budov
    základny, karavany na základně, řazení zakázek.
+4. **Zbytky z auditu menu** (`docs/AUDIT_MENU.md` §10): vizuální upozornění při
+   narazení na maximum v polích množství, filtr logu podle času, prázdné stavy
+   panelů s odkazem „kde to udělat". (Mrtvá kontrola `u.role === 'trader'`
+   v `G.startTask` už neplatí — roli přiděluje `G.setMerchant`.)
 
 ---
 
@@ -178,9 +196,8 @@ node test/headless-smoke.js                                              # "VYSL
 
 ## 8. Git — jak je to teď
 
-- Vše je commitnuté a pushnuté, `HEAD == origin/main` (poslední commit `527a84b`
-  „feat: automaticky boj …").
-- Pracovní strom čistý (`git status --short` prázdný).
+- Vše je commitnuté a pushnuté, `HEAD == origin/main`; pracovní strom čistý
+  (poslední změny: LOD — přehled mapy, tlačítko 🔭).
 - Při push nezapomeň na `-c http.sslBackend=openssl` (viz §2).
 
 ---
@@ -188,6 +205,6 @@ node test/headless-smoke.js                                              # "VYSL
 ## 9. Okamžité „další kroky" pro nový chat
 
 1. Zkontroluj `git status` / `git log` a ujisti se, že navazuješ na poslední stav.
-2. Než začneš, rozhodni s uživatelem, jestli jdeme na **LOD**, nebo na **styl
-   grafiky** (oba jsou připravené).
+2. LOD je hotové — další na řadě je buď **větší svět** (64×48, připravené), nebo
+   **styl grafiky** (čeká na rozhodnutí uživatele) — viz §6.
 3. Po každé fázi: tři kontroly + commit + push (viz §2).

@@ -482,6 +482,68 @@ check('skalovani mapy: dlazdice, postavy, pudorys sidel', () => {
   const tile = G.getTileArt('forest', 0);
   assert(tile && tile.width === 192, 'dlazdice se negeneruje v rozliseni 192 (' + (tile && tile.width) + ')');
 });
+check('LOD: uroven detailu podle zoomu dlazdice', () => {
+  assert(typeof G.lodLevel === 'function', 'chybi G.lodLevel');
+  assert(G.lodLevel(G.LOD_DETAIL_PX) === 'detail', 'na prahu ma byt detail');
+  assert(G.lodLevel(G.LOD_DETAIL_PX - 0.1) === 'overview', 'pod prahem ma byt prehled');
+  assert(G.lodLevel(G.LOD_LABEL_PX) === 'overview', 'na prahu popisku ma byt jeste prehled');
+  assert(G.lodLevel(G.LOD_LABEL_PX - 0.1) === 'far', 'hluboko pod prahem uz jen symboly');
+  assert(G.lodLevel() === G.lodLevel(G.getTileBase() * (G.state.camera.zoom || 1)), 'bez argumentu ma vzit aktualni zoom');
+});
+check('LOD: popisky se neprekryvaji', () => {
+  const placed = [];
+  const r = { x: 0, y: 0, w: 40, h: 15 };
+  assert(G.lodLabelFits(placed, r) === true, 'prvni popisek se ma vejit');
+  placed.push(r);
+  assert(G.lodLabelFits(placed, { x: 10, y: 5, w: 40, h: 15 }) === false, 'prekryvajici popisek se ma zahodit');
+  assert(G.lodLabelFits(placed, { x: 60, y: 0, w: 40, h: 15 }) === true, 'vzdaleny popisek se ma vejit');
+  assert(G.lodLabelFits(placed, { x: 0, y: 20, w: 40, h: 15 }) === true, 'popisek pod jinym se ma vejit');
+});
+check('LOD: prehled ma co psat (jmena, frakce, role)', () => {
+  for (const s of G.WORLD.settlements) {
+    assert(!!s.name, 'sidlo bez nazvu: ' + s.id);
+    const fid = G.SETTLEMENT_FACTION[s.id];
+    assert(!!fid && !!(G.FACTIONS[fid] || {}).color, 'sidlo bez barvy frakce: ' + s.id);
+    assert(!!(G.SETTLEMENT_SIZE[s.size] || {}).icon, 'velikost sidla bez ikony: ' + s.size);
+  }
+  for (const k in G.NODE_KINDS) assert(!!G.NODE_KINDS[k].name && !!G.NODE_KINDS[k].icon, 'druh uzlu bez nazvu nebo ikony: ' + k);
+  for (const rid in G.ROLES) assert(!!G.ROLES[rid].color, 'role bez barvy pro tecku: ' + rid);
+});
+check('LOD: prekresleni mapy ve vsech urovnich nespadne', () => {
+  assert(typeof G.drawWorldFrame === 'function', 'chybi G.drawWorldFrame');
+  const z0 = G.state.camera.zoom;
+  G.state.camera.zoom = 1;
+  G.drawWorldFrame();
+  const det = G.lodFrameStats();
+  assert(det.level === 'detail', 'pri zoomu 1 ma byt detail (' + det.level + ')');
+  assert(det.symbols === 0 && det.dots === 0, 'detail nema kreslit symboly a tecky (' + det.symbols + '/' + det.dots + ')');
+  G.state.camera.zoom = G.LOD_LABEL_PX / G.getTileBase();   // presne na prahu prehledu
+  G.drawWorldFrame();
+  const ov = G.lodFrameStats();
+  assert(ov.level === 'overview', 'na prahu ma byt prehled (' + ov.level + ')');
+  assert(ov.symbols > 0, 'prehled ma kreslit symboly uzlu (' + ov.symbols + ')');
+  assert(ov.settlementIcons > 0, 'prehled ma kreslit ikony sidel (' + ov.settlementIcons + ')');
+  assert(ov.dots > 0, 'prehled ma kreslit postavy jako tecky (' + ov.dots + ')');
+  assert(ov.labels > 0, 'prehled ma psat jmena (' + ov.labels + ')');
+  assert(ov.labels <= ov.symbols + ov.settlementIcons, 'jmen je vic nez symbolu (' + ov.labels + ' > ' + (ov.symbols + ov.settlementIcons) + ')');
+  G.state.camera.zoom = 0.3;
+  G.drawWorldFrame();
+  const far = G.lodFrameStats();
+  assert(far.level === 'far', 'pri zoomu 0,3 uz ma byt jen symboly (' + far.level + ')');
+  assert(far.dots > 0 && far.labels === 0, 'nejvzdalenejsi uroven ma kreslit tecky a zadne texty');
+  G.state.camera.zoom = z0;
+});
+check('LOD: tlacitko prehledu prepne detail a zpet', () => {
+  assert(typeof G.toggleMapOverview === 'function', 'chybi G.toggleMapOverview');
+  const z0 = G.state.camera.zoom;
+  G.state.camera.zoom = 1;
+  const first = G.toggleMapOverview();
+  assert(first !== 'detail', 'po zapnuti prehledu ma byt mapa oddalena (' + first + ')');
+  assert(G.state.camera.zoom >= 0.28, 'zoom ma zustat v rozsahu (' + G.state.camera.zoom + ')');
+  const second = G.toggleMapOverview();
+  assert(second === 'detail', 'druhe stisknuti ma vratit detail (' + second + ')');
+  G.state.camera.zoom = z0;
+});
 check('krajinne prvky uzlu: kresleni a determinismus', () => {
   const noop = () => {};
   const stub = new Proxy({}, {

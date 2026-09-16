@@ -4,12 +4,12 @@
   G.setGroupIdSeq = function (v) { groupIdSeq = v; };
 
   G.ROLES = {
-    leader:   { id:'leader',   name:'Vůdce',      icon:'👑', desc:'+10 % produktivita skupiny' },
-    quarter:  { id:'quarter',  name:'Zásobovač',  icon:'📦', desc:'−30 % spotřeba jídla' },
-    medic:    { id:'medic',    name:'Ranhojič',   icon:'⚕️', desc:'Rychlejší hojení' },
-    scout:    { id:'scout',    name:'Průzkumník', icon:'🧭', desc:'−25 % nebezpečí' },
-    fighter:  { id:'fighter',  name:'Bojovník',   icon:'⚔️', desc:'+30 % bojová síla' },
-    trader:   { id:'trader',   name:'Obchodník',  icon:'⚖️', desc:'Vede karavany' }
+    leader:   { id:'leader',   name:'Vůdce',      icon:'👑', color:'#d8b45a', desc:'+10 % produktivita skupiny' },
+    quarter:  { id:'quarter',  name:'Zásobovač',  icon:'📦', color:'#c2a06a', desc:'−30 % spotřeba jídla' },
+    medic:    { id:'medic',    name:'Ranhojič',   icon:'⚕️', color:'#7fc4a8', desc:'Rychlejší hojení' },
+    scout:    { id:'scout',    name:'Průzkumník', icon:'🧭', color:'#7aa8e0', desc:'−25 % nebezpečí' },
+    fighter:  { id:'fighter',  name:'Bojovník',   icon:'⚔️', color:'#c05a45', desc:'+30 % bojová síla' },
+    trader:   { id:'trader',   name:'Obchodník',  icon:'⚖️', color:'#b58fd0', desc:'Vede karavany' }
   };
 
   G.createGroup = function (name) {

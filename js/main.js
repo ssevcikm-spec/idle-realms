@@ -181,7 +181,7 @@
     if (!s.story.choices) s.story.choices = {};
     s.achievements = s.achievements || { unlocked: [] };
     s.camera = s.camera || { x: 7, y: 22, zoom: 1 };
-    s.camera.zoom = G.clamp(s.camera.zoom || 1, 0.55, 2.0);
+    s.camera.zoom = G.clampZoom ? G.clampZoom(s.camera.zoom || 1) : G.clamp(s.camera.zoom || 1, 0.55, 2.0);
     s.camera.x = G.clamp(s.camera.x || 7, 0, 40);
     s.camera.y = G.clamp(s.camera.y || 22, 0, 30);
     s.selected = s.selected || null;

@@ -134,7 +134,10 @@
     if (note) {
       const t = G.getTileBase ? G.getTileBase() : 64;
       const f = G.getFigureHeight ? G.getFigureHeight() : 0.94;
-      note.textContent = `dlaždice ${t} px • postava ${Math.round(t * f)} px`;
+      const px = t * ((G.state && G.state.camera && G.state.camera.zoom) || 1);
+      const lv = G.lodLevel ? G.lodLevel(px) : 'detail';
+      const lvName = lv === 'detail' ? 'detail' : lv === 'overview' ? 'přehled' : 'jen symboly';
+      note.textContent = `dlaždice ${t} px • postava ${Math.round(t * f)} px • ${lvName} (${Math.round(px)} px/dlaždice)`;
     }
   }
 

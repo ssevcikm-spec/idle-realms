@@ -4,10 +4,55 @@
   let tileBase = 64;
   /** Výška postavy ve zlomcích dlaždice (1 = přesně jedna dlaždice). */
   let figureHeight = 0.94;
-  const MIN_ZOOM = 0.7, MAX_ZOOM = 2.0;
+  const MIN_ZOOM = 0.28, MAX_ZOOM = 2.0;
   const UNIT_SPEED = 2.4;
+  /**
+   * LOD (úrovně detailu) podle velikosti dlaždice na obrazovce:
+   *  - `detail`   (>= 34 px) — krajina, domky, figurky s pruhy (plné kreslení),
+   *  - `overview` (>= 22 px) — symboly + jména, sídla jako ikona s barvou frakce,
+   *    postavy jako tečka v barvě role,
+   *  - `far`      (< 22 px)  — jen symboly a tečky, žádné texty.
+   * Prahy drží `G.LOD_DETAIL_PX` / `G.LOD_LABEL_PX`, aby se daly testovat.
+   */
+  const LOD_DETAIL_PX = 34, LOD_LABEL_PX = 22;
+  const OVERVIEW_PX = 26;                     // na kolik px se srovná tlačítko 🔭
+  let lod = 'detail';
+  let labelQueue = [], placedLabels = [];
+  /** Co se v posledním snímku vykreslilo (debug panel + testy). */
+  let frameStats = { level:'detail', labels:0, symbols:0, settlementIcons:0, dots:0, features:0 };
   let canvas, ctx, dpr = 1, cw = 0, ch = 0, lastTs = 0;
   let dragging = false, dragged = false, lastX = 0, lastY = 0;
+
+  G.LOD_DETAIL_PX = LOD_DETAIL_PX;
+  G.LOD_LABEL_PX = LOD_LABEL_PX;
+  /** Úroveň detailu pro velikost dlaždice (bez argumentu vezme aktuální zoom). */
+  G.lodLevel = function (tilePx) {
+    const px = isFinite(tilePx) ? tilePx : tileSize();
+    if (px >= LOD_DETAIL_PX) return 'detail';
+    return px >= LOD_LABEL_PX ? 'overview' : 'far';
+  };
+  /** Vejde se obdélník jmenovky mezi už umístěné? (čistá funkce kvůli testům) */
+  G.lodLabelFits = function (placed, rect) {
+    for (const r of placed) {
+      if (rect.x < r.x + r.w && rect.x + rect.w > r.x && rect.y < r.y + r.h && rect.y + rect.h > r.y) return false;
+    }
+    return true;
+  };
+  /** Uložený zoom projde stejným rozsahem jako kolečko myši. */
+  G.clampZoom = function (z) { return G.clamp(isFinite(z) ? z : 1, MIN_ZOOM, MAX_ZOOM); };
+  /** Počty prvků z posledního snímku — čitelné ověření, že LOD opravdu přepnul. */
+  G.lodFrameStats = function () {
+    return { level:frameStats.level, labels:frameStats.labels, symbols:frameStats.symbols,
+             settlementIcons:frameStats.settlementIcons, dots:frameStats.dots, features:frameStats.features };
+  };
+  /** Přepne mapu mezi detailem a přehledem (tlačítko 🔭). Vrací novou úroveň. */
+  G.toggleMapOverview = function () {
+    if (!G.state || !G.state.camera) return 'detail';
+    const c = G.state.camera;
+    c.zoom = tileSize() >= LOD_DETAIL_PX ? G.clampZoom(OVERVIEW_PX / tileBase) : 1;
+    clampCamera();
+    return G.lodLevel(tileSize());
+  };
 
   G.setTileBase = function (v) {
     const n = parseFloat(v);
@@ -88,6 +133,7 @@
   function mapButton(cmd) {
     if (cmd === 'zoom-in') return zoomBy(1.2);
     if (cmd === 'zoom-out') return zoomBy(1/1.2);
+    if (cmd === 'overview') return G.toggleMapOverview();
     if (cmd === 'toggle-panel') return setPanelCollapsed(!isPanelCollapsed());
     if (cmd === 'toggle-fullscreen') return setFullscreen(!isFullscreen());
     if (cmd === 'base') return baseButton();
@@ -163,7 +209,10 @@
     if (btn) btn.textContent = full ? '✕' : '⛶';
   }
   G.setFullscreen = setFullscreen;
-  function zoomBy(mult) { G.state.camera.zoom = G.clamp(G.state.camera.zoom * mult, MIN_ZOOM, MAX_ZOOM); clampCamera(); }
+  function zoomBy(mult) {
+    G.state.camera.zoom = G.clampZoom(G.state.camera.zoom * mult);
+    clampCamera();
+  }
   function clampCamera() {
     const c = G.state.camera;
     c.x = G.clamp(c.x, 0, G.WORLD.w);
@@ -294,6 +343,9 @@
     if (!G.state || !ctx) return;
     ctx.clearRect(0, 0, cw, ch);
     const cam = G.state.camera, tilePx = tileSize(), w = G.WORLD;
+    const mode = lod = G.lodLevel(tilePx);
+    labelQueue = []; placedLabels = [];
+    frameStats = { level:mode, labels:0, symbols:0, settlementIcons:0, dots:0, features:0 };
     const halfW = cw/2/tilePx, halfH = ch/2/tilePx;
     const x0 = Math.floor(cam.x - halfW) - 1;
     const x1 = Math.ceil(cam.x + halfW) + 1;
@@ -315,19 +367,37 @@
       const s = G.baseSuggestion ? G.baseSuggestion() : null;
       if (s) drawGhostBase(ox, oy, tilePx, s.x, s.y);
     }
+    // uzly, na kterých se pracuje — jejich jméno má v přehledu přednost
+    const taskNodes = new Set();
+    for (const t of (G.state.tasks || [])) if (!t.done && t.nodeId) taskNodes.add(t.nodeId);
     for (const n of w.nodes) {
       if (n.x < x0-1 || n.x > x1+1 || n.y < y0-1 || n.y > y1+1) continue;
       const kind = G.NODE_KINDS[n.kind];
       const cx = ox + (n.x + 0.5)*tilePx, cy = oy + (n.y + 0.5)*tilePx;
       const r = tilePx * 0.34;
-      // Uzel je skutečný kus krajiny (les, jezero, pole…). Když je mapa hodně
-      // oddálená, prvek by se slil s terénem — pak se přepne na symbol.
-      const asFeature = tilePx >= 34 && G.drawNodeFeature && G.drawNodeFeature(ctx, n, ox, oy, tilePx);
-      if (!asFeature) G.drawBadge(ctx, cx, cy, r, G.NODE_TINT[n.kind] || '#5a5347', kind.icon, r*1.15);
       const danger = G.nodeDanger ? G.nodeDanger(n.kind) : 0;
+      if (mode === 'detail') {
+        // Uzel je skutečný kus krajiny (les, jezero, pole…).
+        const asFeature = G.drawNodeFeature && G.drawNodeFeature(ctx, n, ox, oy, tilePx);
+        if (asFeature) frameStats.features++;
+        else G.drawBadge(ctx, cx, cy, r, G.NODE_TINT[n.kind] || '#5a5347', kind.icon, r*1.15);
+      } else {
+        // Přehled: symbol, u kterého je čitelné, co to je — a jméno.
+        const br = Math.max(8, r);
+        G.drawBadge(ctx, cx, cy, br, G.NODE_TINT[n.kind] || '#5a5347', kind.icon, Math.max(11, r*1.2));
+        frameStats.symbols++;
+        addObstacle(cx - br, cy - br, br*2, br*2);
+        if (mode === 'overview') {
+          const sel = G.state.selected;
+          const prio = (sel && sel.type === 'node' && sel.id === n.id) ? 40
+                     : (taskNodes.has(n.id) ? 20 : danger >= 2 ? 10 : 0);
+          queueLabel(kind.name, cx, cy, br,
+            danger >= 2 ? (G.DANGER_LABEL[danger] || {}).color || '#e8ddc4' : '#e8ddc4', prio);
+        }
+      }
       if (danger >= 2) {
         const d = G.DANGER_LABEL[danger];
-        ctx.font = (tilePx*0.24) + 'px serif';
+        ctx.font = Math.max(10, tilePx*0.24) + 'px serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillStyle = d.color;
         ctx.fillText('⚠', cx + tilePx*0.30, cy - tilePx*0.30);
@@ -335,7 +405,8 @@
     }
     for (const s of w.settlements) {
       if (s.x < x0-3 || s.x > x1+3 || s.y < y0-3 || s.y > y1+3) continue;
-      drawSettlement(s, ox, oy, tilePx);
+      if (mode === 'detail') drawSettlement(s, ox, oy, tilePx);
+      else drawSettlementIcon(s, ox, oy, tilePx, mode);
     }
     drawCaravans(ox, oy, tilePx, x0, x1, y0, y1);
     drawSelection(ox, oy, tilePx);
@@ -343,6 +414,7 @@
     for (const u of sorted) {
       if (u.pos.x < x0-1 || u.pos.x > x1+1 || u.pos.y < y0-1 || u.pos.y > y1+1) continue;
       const sx = ox + u.pos.x*tilePx, sy = oy + u.pos.y*tilePx;
+      if (mode !== 'detail') { drawUnitDot(u, sx, sy, tilePx, mode); continue; }
       if (u.resting) ctx.globalAlpha = 0.55;
       G.drawFigure(ctx, u, sx, sy, figScale(tilePx));
       ctx.globalAlpha = 1;
@@ -360,6 +432,7 @@
       drawStaminaBar(sx, sy + tilePx*0.24, tilePx*0.55, u.stamina / u.maxStamina);
       drawMoodBar(sx, sy + tilePx*0.32, tilePx*0.55, (u.mood || 70) / 100);
     }
+    flushLabels();
     if (!vignetteCache || vigW !== cw || vigH !== ch) {
       const g = ctx.createRadialGradient(cw/2, ch/2, Math.min(cw,ch)*0.35, cw/2, ch/2, Math.max(cw,ch)*0.75);
       g.addColorStop(0, 'rgba(0,0,0,0)');
@@ -367,6 +440,109 @@
       vignetteCache = g; vigW = cw; vigH = ch;
     }
     ctx.fillStyle = vignetteCache; ctx.fillRect(0, 0, cw, ch);
+  }
+  /** Vykreslení jednoho snímku mapy zvenčí (debug panel, testy). */
+  G.drawWorldFrame = draw;
+
+  /* ---------- přehled (LOD): symboly, jména, tečky ---------- */
+
+  /** Naplánuje jmenovku k symbolu (střed `ax,ay`, poloměr `r`) — kreslí se nakonec. */
+  function queueLabel(text, ax, ay, r, color, priority) {
+    if (!text) return;
+    labelQueue.push({ text: text, ax: ax, ay: ay, r: r || 8, color: color, priority: priority || 0 });
+  }
+
+  /** Už nakreslený symbol/tečka — jmenovka se mu vyhne, aby text nezakryl mapu. */
+  function addObstacle(x, y, w, h) { placedLabels.push({ x: x, y: y, w: w, h: h }); }
+
+  /**
+   * Vykreslí naplánované jmenovky a zahodí ty, které by se překryly s jinou
+   * (jméno sídla má přednost před jménem uzlu). Ke každému symbolu zkusí čtyři
+   * polohy — pod, nad, vpravo, vlevo — takže jméno najde místo, i když je
+   * okolo hustě.
+   */
+  function flushLabels() {
+    labelQueue.sort((a, b) => b.priority - a.priority);
+    for (const L of labelQueue) {
+      ctx.font = 'bold 11px sans-serif';
+      const w = ctx.measureText(L.text).width + 10, h = 15, gap = L.r + 3;
+      const cands = [
+        { x: L.ax, y: L.ay + gap },                         // pod symbolem
+        { x: L.ax, y: L.ay - gap - h },                     // nad symbolem
+        { x: L.ax + gap + w/2, y: L.ay - h/2 },             // vpravo
+        { x: L.ax - gap - w/2, y: L.ay - h/2 },             // vlevo
+        { x: L.ax + gap*0.6 + w/2, y: L.ay + gap },         // diagonály — v hustém shluku
+        { x: L.ax - gap*0.6 - w/2, y: L.ay + gap },
+        { x: L.ax + gap*0.6 + w/2, y: L.ay - gap - h },
+        { x: L.ax - gap*0.6 - w/2, y: L.ay - gap - h }
+      ];
+      let rect = null;
+      for (const c of cands) {
+        const r2 = { x: c.x - w/2, y: c.y, w: w, h: h };
+        if (G.lodLabelFits(placedLabels, r2)) { rect = r2; break; }
+      }
+      if (!rect) continue;
+      placedLabels.push(rect);
+      frameStats.labels++;
+      ctx.fillStyle = 'rgba(16,15,12,0.72)';
+      ctx.fillRect(rect.x, rect.y, w, h);
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, w - 1, h - 1);
+      ctx.fillStyle = L.color || '#e8ddc4';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(L.text, rect.x + w/2, rect.y + h/2 + 0.5);
+    }
+    labelQueue = [];
+  }
+
+  /** Sídlo v přehledu: ikona podle velikosti, prstenec v barvě frakce, jméno. */
+  function drawSettlementIcon(s, ox, oy, tilePx, mode) {
+    const px = ox + (s.x + 0.5)*tilePx, py = oy + (s.y + 0.5)*tilePx;
+    const sizeDef = G.SETTLEMENT_SIZE[s.size] || G.SETTLEMENT_SIZE.village;
+    const facId = G.SETTLEMENT_FACTION && G.SETTLEMENT_FACTION[s.id];
+    const fac = facId ? G.FACTIONS[facId] : null;
+    const col = (fac && fac.color) || '#9c937c';
+    const r = Math.max(9, tilePx * (s.size === 'city' ? 0.62 : s.size === 'town' ? 0.52 : 0.44));
+    ctx.globalAlpha = 0.32; ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(px, py + r*0.45, r*0.95, r*0.38, 0, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 0.9; ctx.fillStyle = 'rgba(16,15,12,0.85)';
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(2, r*0.2);
+    ctx.beginPath(); ctx.arc(px, py, r*0.82, 0, Math.PI*2); ctx.stroke();
+    ctx.font = (r*1.05) + 'px serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(sizeDef.icon, px, py + 1);
+    frameStats.settlementIcons++;
+    addObstacle(px - r, py - r, r*2, r*2);
+    if (mode === 'overview') {
+      const sel = G.state.selected;
+      const prio = (sel && sel.type === 'settlement' && sel.id === s.id) ? 60 : 50;
+      queueLabel(s.name, px, py, r, '#f0e2bd', prio);
+    }
+  }
+
+  /** Postava v přehledu: tečka v barvě role místo figurky. */
+  function drawUnitDot(u, sx, sy, tilePx, mode) {
+    const r = Math.max(3.5, tilePx * (mode === 'far' ? 0.14 : 0.18));
+    const role = u.role && G.ROLES ? G.ROLES[u.role] : null;
+    const col = (role && role.color) || '#cfc3a8';
+    frameStats.dots++;
+    addObstacle(sx - r, sy - r, r*2, r*2);
+    ctx.globalAlpha = 0.32; ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(sx, sy + r*0.5, r*0.85, r*0.35, 0, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = u.resting ? 0.55 : 1;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'rgba(16,15,12,0.85)';
+    ctx.lineWidth = Math.max(1, r*0.32);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    // v přehledu ještě ikona role, ať je vidět, kdo co dělá
+    if (mode === 'overview' && role) {
+      drawFloatIcon(ctx, role.icon, sx, sy - r - Math.max(6, tilePx*0.22), Math.max(10, tilePx*0.34));
+    }
   }
 
   /* ---------- cesty ---------- */
@@ -430,7 +606,7 @@
     ctx.fillStyle = '#e8c56a'; ctx.globalAlpha = 0.5 + 0.4*flick;
     ctx.beginPath(); ctx.arc(bx + tilePx*0.6, by + tilePx*0.25, tilePx*0.13, 0, Math.PI*2); ctx.fill();
     ctx.globalAlpha = 1;
-    ctx.font = (tilePx*0.22) + 'px serif';
+    ctx.font = Math.max(11, tilePx*0.22) + 'px serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = 'rgba(232,197,106,0.9)';
     ctx.fillText('🏕️', bx, by - tilePx*0.8);
@@ -469,7 +645,7 @@
       ctx.globalAlpha = 0.3; ctx.fillStyle = '#000';
       ctx.beginPath(); ctx.ellipse(sx, sy + tilePx*0.12, tilePx*0.22, tilePx*0.08, 0, 0, Math.PI*2); ctx.fill();
       ctx.globalAlpha = 1;
-      ctx.font = (tilePx*0.5) + 'px serif';
+      ctx.font = Math.max(10, tilePx*0.5) + 'px serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(type.icon, sx, sy - tilePx*0.05);
     }
