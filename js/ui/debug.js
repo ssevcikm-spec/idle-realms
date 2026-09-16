@@ -58,6 +58,14 @@
           <div class="dbg-note">vzhled postav je nezávislý na mapě (foundry + malované postavy jde kombinovat)</div>
           <div class="dbg-row" id="dbg-figstyles"></div>
           <div class="dbg-note">sjednocené = jeden model + erb role, bez zbraně (koncept); klasické = původní figurky se zbraněmi</div>
+          <div class="dbg-row" id="dbg-foundry-daub"></div>
+          <div class="dbg-row" id="dbg-foundry-deco"></div>
+          <div class="dbg-row" id="dbg-foundry-quality"></div>
+          <div class="dbg-row">
+            <button class="dbg-btn" data-dbg="foundry-edge" id="dbg-foundry-edge">přechody</button>
+            <button class="dbg-btn" data-dbg="foundry-reset">výchozí</button>
+          </div>
+          <div class="dbg-note" id="dbg-foundry-note"></div>
         </div>
         <div class="dbg-section"><div class="dbg-label">Svět</div>
           <div class="dbg-row" id="dbg-events"></div>
@@ -149,6 +157,29 @@
         `<button class="dbg-btn ${v === fCur ? 'active' : ''}" data-dbg="figstyle" data-v="${v}">${name}</button>`
       ).join('');
     }
+    buildFoundryButtons();
+  }
+
+  /** Ladění foundry: štětce, dekorace, hustota a přechody (ukládá se). */
+  const FOUNDRY_STEPS = { daub:[0.7, 1.0, 1.4, 1.8], deco:[1.6, 2.2, 3.0, 4.0], quality:[0.4, 0.7, 1] };
+  function buildFoundryButtons() {
+    if (!G.FOUNDRY) return;
+    for (const key of ['daub', 'deco', 'quality']) {
+      const el = document.getElementById('dbg-foundry-' + key);
+      if (!el) continue;
+      const cur = G.FOUNDRY[key];
+      el.innerHTML = FOUNDRY_STEPS[key].map(v =>
+        `<button class="dbg-btn ${Math.abs(v - cur) < 0.001 ? 'active' : ''}" ` +
+        `data-dbg="foundry" data-k="${key}" data-v="${v}" title="${key} ${v}">${v}</button>`
+      ).join('');
+    }
+    const eEl = document.getElementById('dbg-foundry-edge');
+    if (eEl) eEl.className = 'dbg-btn' + (G.FOUNDRY.edge ? ' active' : '');
+    const note = document.getElementById('dbg-foundry-note');
+    if (note) {
+      note.textContent = 'štětce ' + G.FOUNDRY.daub + ' dlaždice • dekorace ' + G.FOUNDRY.deco +
+        ' • hustota ' + G.FOUNDRY.quality + ' • přechody ' + (G.FOUNDRY.edge ? 'zap' : 'vyp');
+    }
   }
   function buildScaleButtons() {
     const tEl = document.getElementById('dbg-tiles');
@@ -201,6 +232,20 @@
     else if (a === 'figstyle') {
       if (G.setFigureStyle) G.setFigureStyle(el.dataset.v);
       buildStyleButtons();
+    }
+    else if (a === 'foundry') {
+      if (G.setFoundry) G.setFoundry(el.dataset.k, parseFloat(el.dataset.v));
+      buildFoundryButtons();
+    }
+    else if (a === 'foundry-edge') {
+      if (G.setFoundry) G.setFoundry('edge', G.FOUNDRY.edge ? 0 : 1);
+      buildFoundryButtons();
+    }
+    else if (a === 'foundry-reset') {
+      for (const [k, v] of [['daub', 1.0], ['deco', 2.2], ['quality', 1], ['edge', 1]]) {
+        if (G.setFoundry) G.setFoundry(k, v);
+      }
+      buildFoundryButtons();
     }
     else if (a === 'speed') { speed = parseFloat(el.dataset.speed); buildSpeedButtons(); }
     else if (a === 'gold') G.state.resources.gold += 500;

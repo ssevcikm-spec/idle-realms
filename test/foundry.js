@@ -229,6 +229,54 @@ check('kresleni vraci alfu zpet na 1', () => {
   assert(base.globalAlpha === 1, 'po kreslení zůstala alpha ' + base.globalAlpha);
 });
 
+check('ladeni foundry se uklada a meni plan', () => {
+  G.state = { settings: {} };
+  const wide = { x0: 0, x1: 30, y0: 0, y1: 20, terrainAt: mapOf(64, 64, () => 'grass') };
+  const before = plan(view(wide)).filter(o => o[0] === 0).length;
+  assert(G.setFoundry('daub', 1.6) === true, 'setFoundry neprošlo');
+  assert(Math.abs(G.FOUNDRY.daub - 1.6) < 1e-9, 'hodnota se nenastavila: ' + G.FOUNDRY.daub);
+  assert(G.state.settings.foundry && G.state.settings.foundry.daub === 1.6,
+    'ladění se neuložilo do settings.foundry');
+  const after = plan(view(wide)).filter(o => o[0] === 0).length;
+  assert(after < before, 'větší štětce nemají zmenšit počet štětců (' + after + ' vs ' + before + ')');
+});
+
+check('ladeni foundry drzi rozumne meze', () => {
+  G.setFoundry('daub', 99);
+  assert(G.FOUNDRY.daub === 2.6, 'horní mez neplatí: ' + G.FOUNDRY.daub);
+  G.setFoundry('daub', 0.01);
+  assert(G.FOUNDRY.daub === 0.6, 'dolní mez neplatí: ' + G.FOUNDRY.daub);
+  G.setFoundry('quality', 5);
+  assert(G.FOUNDRY.quality === 1, 'hustota má strop 1: ' + G.FOUNDRY.quality);
+  assert(G.setFoundry('nesmysl', 1) === false, 'neznámý klíč má vrátit false');
+});
+
+check('vypnuti prechodu opravdu vynecha hrany', () => {
+  const m = mapOf(20, 20, (x) => (x < 10 ? 'water' : 'grass'));
+  const v = view({ x0: 2, x1: 18, y0: 2, y1: 18, terrainAt: m });
+  G.setFoundry('edge', 1);
+  assert(plan(v).filter(o => o[0] === 1).length > 0, 'se zapnutými přechody žádná hrana není');
+  G.setFoundry('edge', 0);
+  assert(plan(v).filter(o => o[0] === 1).length === 0, 's vypnutými přechody se hrany pořád plánují');
+  G.setFoundry('edge', 1);
+});
+
+check('ulozene ladeni se promitne zpet do G.FOUNDRY', () => {
+  G.state.settings.foundry = { daub: 1.8, deco: 3.0, quality: 0.4 };
+  G.FOUNDRY.daub = 1.0; G.FOUNDRY.deco = 2.2; G.FOUNDRY.quality = 1;
+  G.applyFoundrySettings();
+  assert(G.FOUNDRY.daub === 1.8 && G.FOUNDRY.deco === 3.0 && G.FOUNDRY.quality === 0.4,
+    'uložené ladění se nepromítlo: ' + JSON.stringify(G.FOUNDRY));
+});
+
+check('vychozi hodnoty foundry se vrati', () => {
+  for (const [k, v] of [['daub', 1.0], ['deco', 2.2], ['quality', 1], ['edge', 1]]) {
+    G.setFoundry(k, v);
+  }
+  assert(G.FOUNDRY.daub === 1.0 && G.FOUNDRY.deco === 2.2 &&
+         G.FOUNDRY.quality === 1 && G.FOUNDRY.edge === 1, 'návrat k výchozím hodnotám selhal');
+});
+
 console.log('');
 if (failed) {
   console.log('VYSLEDEK: CHYBA — ' + failed + ' testu selhalo');

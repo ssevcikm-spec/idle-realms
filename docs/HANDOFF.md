@@ -182,10 +182,10 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 ## 4. Stav kódu (co je hotové)
 
 ### Čísla
-- 59 JS souborů, **695** definovaných/used globálů `G.*` (check-globals čisté;
+- 59 JS souborů, **697** definovaných/used globálů `G.*` (check-globals čisté;
   část přírůstku je z paralelní práce na výbavě postav).
 - Testy: headless-smoke **77** + tile-window **10** + tiles-preview **4** +
-  foundry **13** + foundry-game **13** + figures **12** kontrol, deterministicky.
+  foundry **18** + foundry-game **13** + figures **12** kontrol, deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
 - Dlaždice: assety jsou **torusy** (`wrap` 1,87), kreslí se jako **okno do
   textury** ve světových souřadnicích — `seam/zrno` 0,78, perioda 6 dlaždic.
@@ -196,7 +196,9 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 - **Foundry** (nový vzhled mapy, Stage 1): krajina jako funkce světa — plochý
   podklad + světové štětce + přechody terénů + dekorace. Plán **0,15 ms/snímek**,
   na obrazovku ~224 štětců / 176 přechodů / 36 dekorací, **žádné opakování**
-  (autokorelace hashe < 0,5 pro posuny 1–24 dlaždic). Detail: `docs/STYL_GRAFIKY.md` §11.
+  (autokorelace hashe < 0,5 pro posuny 1–24 dlaždic). Ladí se **přímo ve hře**
+  (debug panel **D** → štětce / dekorace / hustota / přechody; `G.setFoundry`,
+  ukládá se do `settings.foundry`). Detail: `docs/STYL_GRAFIKY.md` §11.
 - Grafika: dlaždice lze přepnout mezi **kreslenou (kód)**, **malovanou (AI
   bitmapy v `assets/tiles`)** a **foundry** — `settings.tileStyle`, přepínač
   v menu ☰ (kód/malovaný) a v debug panelu **D** (i foundry).
@@ -354,10 +356,11 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 
 1. **Foundry** — ✅ **hotové** (`tileStyle = 'foundry'`, debug panel **D**,
    `docs/STYL_GRAFIKY.md` §11, testy `test/foundry.js` + `test/foundry-game.js`).
-   Zbývá k němu jen **doladit vzhled okem** — hustota a velikost štětců
-   (`G.FOUNDRY.daub`, `deco`), síla přechodů, barvy. Náhled:
-   `tools/tiles/preview.html`. Volitelně přesunout kód z `js/render/art.js` do
-   `js/render/foundry.js` (teď tam je, protože `index.html` držela paralelní práce).
+   **Doladění vzhledu je teď na uživateli ve hře** — debug panel **D** → štětce /
+   dekorace / hustota / přechody (ukládá se do `settings.foundry`); co vybere,
+   se má přepsat do výchozích hodnot v `G.FOUNDRY`. Volitelně přesunout kód
+   z `js/render/art.js` do `js/render/foundry.js` (teď tam je, protože
+   `index.html` držela paralelní práce).
 2. **Paleta a vzhled postav** — ✅ **hotové** (§12): jeden zdroj barev
    (`G.PAL` + `scripts/tile_palette.py`), rozestup terénů 8,3 → **33,1**,
    assety přegradované, `settings.units` odděluje vzhled postav od mapy.

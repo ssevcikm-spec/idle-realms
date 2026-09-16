@@ -443,8 +443,13 @@ V přehledovém LOD se štětce i přechody ředí (`quality`), v `far` se kresl
 plochý podklad.
 
 **Ladění:** `G.FOUNDRY = { daub, deco, edge, quality }` — velikost mřížky
-štětců/dekorace, zapnutí přechodů a hustota. Vzhled se ladí **okem v náhledu**,
-čísla hlídá `test/foundry.js`.
+štětců/dekorace, zapnutí přechodů a hustota. Dá se ladit **přímo ve hře**:
+debug panel **D** → „Mapa — vzhled" → řádky *štětce / dekorace / hustota /
+přechody* (`G.setFoundry`, meze v `FOUNDRY_LIMITS`). Vyladěné hodnoty se ukládají
+do `settings.foundry` (přežijí reload) a `G.applyFoundrySettings()` je promítá
+zpět — volá se na začátku plánu, takže je změna vidět okamžitě. Čísla hlídá
+`test/foundry.js` (18 kontrol, včetně toho, že větší štětce opravdu znamenají
+méně štětců a že vypnuté přechody opravdu vynechají hrany).
 
 **Otevřené (do dalšího kroku):**
 

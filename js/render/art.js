@@ -697,12 +697,47 @@
   const TER_IDX = {};
   for (let i = 0; i < TER.length; i++) TER_IDX[TER[i]] = i;
 
-  /** Laditelné hodnoty foundry (náhled je umí měnit). */
+  /** Laditelné hodnoty foundry (debug panel je umí měnit, ukládají se). */
   G.FOUNDRY = {
     daub: 1.0,      // dlaždic na jeden štětec podkladu
     deco: 2.2,      // dlaždic na jednu dekoraci
     edge: 1,        // 1 = kreslit přechody terénů
     quality: 1      // <1 = řidší štětce (přehledový LOD)
+  };
+  /** Meze pro ladění — z panelu se nedá dostat mimo rozumný rozsah. */
+  const FOUNDRY_LIMITS = { daub:[0.6, 2.6], deco:[1.2, 6.0], quality:[0.25, 1] };
+
+  /**
+   * Nastaví jednu hodnotu foundry a **uloží ji do `settings.foundry`**, takže
+   * vyladěný vzhled přežije reload. Vrací true, když se něco změnilo.
+   */
+  G.setFoundry = function (key, value) {
+    if (G.FOUNDRY[key] === undefined) return false;
+    if (key === 'edge') G.FOUNDRY.edge = value ? 1 : 0;
+    else {
+      const lim = FOUNDRY_LIMITS[key];
+      let v = parseFloat(value);
+      if (isNaN(v)) return false;
+      if (lim) v = Math.max(lim[0], Math.min(lim[1], v));
+      G.FOUNDRY[key] = v;
+    }
+    if (G.state && G.state.settings) {
+      const f = G.state.settings.foundry || (G.state.settings.foundry = {});
+      f[key] = G.FOUNDRY[key];
+    }
+    if (G.drawWorldFrame) G.drawWorldFrame();
+    return true;
+  };
+
+  /** Promítne uložené `settings.foundry` do G.FOUNDRY (volá se při kreslení). */
+  G.applyFoundrySettings = function () {
+    const s = (G.state && G.state.settings && G.state.settings.foundry) || null;
+    if (s) {
+      for (const k of ['daub', 'deco', 'edge', 'quality']) {
+        if (s[k] !== undefined) G.FOUNDRY[k] = s[k];
+      }
+    }
+    return G.FOUNDRY;
   };
 
   /** 32bitový hash dvou celých souřadnic -> [0,1). Bez periody. */
@@ -786,10 +821,15 @@
    * dekorace, 2 = obojí (používá se i pro test plánu).
    */
   function foundryPlan(view, emit, what) {
+    // Uložené ladění (debug panel) se promítne před každým plánem — je to pár
+    // čtení vlastností, tedy zdarma, a vyladěný vzhled tak přežije reload.
+    G.applyFoundrySettings();
     const px = view.tilePx, ox = view.ox, oy = view.oy;
     const tAt = view.terrainAt;
     const detail = view.mode === 'detail';
-    const q = view.quality === undefined ? G.FOUNDRY.quality : view.quality;
+    // `view.quality` = jak ředit v tomhle LOD; G.FOUNDRY.quality je globální
+    // hustota z ladění (násobí se, takže se obojí respektuje).
+    const q = (view.quality === undefined ? 1 : view.quality) * G.FOUNDRY.quality;
 
     // --- štětce podkladu -------------------------------------------------
     if (what !== 1) {
