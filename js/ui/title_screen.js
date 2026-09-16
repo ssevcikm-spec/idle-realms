@@ -144,6 +144,10 @@
           <option value="deliver" ${G.autoQuestMode() === 'deliver' ? 'selected' : ''}>jen doručovací</option>
           <option value="all" ${G.autoQuestMode() === 'all' ? 'selected' : ''}>všechny</option>
         </select></label>` : ''}
+        ${opts.fromGame ? `<label class="title-toggle">🎨 Vzhled mapy: <select id="tile-toggle">
+          <option value="code" ${(G.tileStyle && G.tileStyle() === 'code') ? 'selected' : ''}>kreslený (kód)</option>
+          <option value="ai" ${(G.tileStyle && G.tileStyle() === 'ai') ? 'selected' : ''}>malovaný (AI dlaždice)</option>
+        </select></label>` : ''}
         <div class="title-footer">
           Verze savu ${G.SAVE_VERSION} • klávesa <span class="title-key">D</span> = debug
         </div>
@@ -165,6 +169,14 @@
       if (questToggle) questToggle.addEventListener('change', () => {
         if (G.setAutoQuestMode) G.setAutoQuestMode(questToggle.value);
         G.log(`🤖 Automatické zakázky: ${questToggle.value === 'off' ? 'vypnuty' : questToggle.value === 'deliver' ? 'jen doručovací' : 'všechny'}.`, 'info');
+      });
+
+      const tileToggle = root.querySelector('#tile-toggle');
+      if (tileToggle) tileToggle.addEventListener('change', () => {
+        const v = G.setTileStyle ? G.setTileStyle(tileToggle.value) : 'code';
+        G.log(v === 'ai'
+          ? '🎨 Zapnutý malovaný vzhled mapy (AI dlaždice se načítají).'
+          : '🎨 Zapnutý kreslený vzhled mapy.', 'info');
       });
 
       root.querySelectorAll('[data-ts]').forEach(btn => {

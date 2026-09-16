@@ -89,6 +89,8 @@
     G.initWorld(document.getElementById('world'));
     G.initUI();
     G.initDebug();
+    // když má hráč uložený malovaný vzhled, dotáhni dlaždice
+    if (G.loadAiTiles && G.tileStyle && G.tileStyle() === 'ai') G.loadAiTiles();
     G.startLoop();
     window.addEventListener('beforeunload', () => G.save());
     document.addEventListener('visibilitychange', () => { if (document.hidden) G.save(); });

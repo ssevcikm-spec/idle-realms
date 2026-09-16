@@ -546,6 +546,19 @@ check('skalovani mapy: dlazdice, postavy, pudorys sidel', () => {
   const tile = G.getTileArt('forest', 0);
   assert(tile && tile.width === 192, 'dlazdice se negeneruje v rozliseni 192 (' + (tile && tile.width) + ')');
 });
+check('dlazdice: prepinac kresleny/AI a bezpecny fallback', () => {
+  assert(typeof G.tileArt === 'function', 'chybi G.tileArt');
+  assert(G.tileStyle() === 'code', 'vychozi vzhled mapy neni kresleny: ' + G.tileStyle());
+  assert(!!G.tileArt('grass', 0), 'tileArt nevratil dlazdici');
+  G.setTileStyle('ai');
+  assert(G.tileStyle() === 'ai', 'setTileStyle nezapnul AI vzhled');
+  // v headless se obrazky nenactou -> musi se kreslit proceduralne (fallback)
+  assert(G.AI_TILES.ready === false, 'AI dlazdice nemely byt v headless nactene');
+  assert(!!G.tileArt('grass', 0), 'tileArt nema fallback, kdyz AI dlazdice nejsou nactene');
+  G.drawWorldFrame();   // s nezapnutymi AI dlazdicemi nesmi spadnout
+  G.setTileStyle('code');
+  assert(G.tileStyle() === 'code', 'setTileStyle nevratil zpet kresleny vzhled');
+});
 check('LOD: uroven detailu podle zoomu dlazdice', () => {
   assert(typeof G.lodLevel === 'function', 'chybi G.lodLevel');
   assert(G.lodLevel(G.LOD_DETAIL_PX) === 'detail', 'na prahu ma byt detail');

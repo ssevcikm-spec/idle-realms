@@ -356,8 +356,8 @@
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       if (x < 0 || y < 0 || x >= w.w || y >= w.h) continue;
       const name = w.terrainAt(x, y);
-      const v = ((x*7 + y*13) % 4 + 4) % 4;
-      const art = G.getTileArt(name, v);
+      const v = ((x*7 + y*13) % 8 + 8) % 8;
+      const art = (G.tileArt || G.getTileArt)(name, v);
       ctx.drawImage(art, ox + x*tilePx, oy + y*tilePx, tilePx + 0.5, tilePx + 0.5);
     }
     // Cesty se kreslí zvlášť a spojitě — dlaždice sama neví, kterým směrem cesta vede.
