@@ -39,6 +39,9 @@ node test/foundry-game.js                                                # found
 node test/figures.js                                                     # postavy: jeden model + erb role
 # dlaždice (potřebuje python s pillow+numpy — viz past č. 13):
 python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSLEDEK: OK"
+# vrstva 3 (ilustrace) — pipeline si ověří sama sebe:
+python scripts/check-art.py --selftest                                   # "selftest OK"
+python scripts/check-art.py                                              # assets/art (zatím prázdné = OK)
 ```
 
 - **Commit + push po každé fázi**, Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`).
@@ -182,6 +185,13 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
     `base`, světlo/stín z `pal.light`/`pal.dark`, a **měř to** přes
     `G.foundryTerrainColor` (test „foundry zachova barvu a rozestup terenu").
     Stejná past číhá u každé další vrstvy (přechody, dekorace, sezónní tint).
+26. **Sytost v HSV se lineárním mísením snížit nedá.** Krácení chromy (`max-min`)
+    ani mísení k šedé o stejném jasu sytost nezmění — zmenší se i maximum.
+    Správně se u pixelů nad stropem **zvedne minimum** na `max*(1-cap)`
+    (`scripts/grade_art.py`, past zjištěná selftestem).
+27. **Statistiky obrázků musí ignorovat průhledné pixely.** U spritů s alfou má
+    průhledné pozadí nesmyslné RGB a vychýlí průměr (vyšly „špatné" i slušné
+    sprity). Vzor: `visible()` + `alpha` parametr v `scripts/grade_art.py`.
 
 ---
 
@@ -203,6 +213,11 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 - **Foundry drží paletu**: `G.foundryTerrainColor(terén)` spočítá z plánu
   výslednou barvu krajiny — naměřeno nejbližší dvojice **33,3** (paleta 33,1),
   největší posun barvy **5,2**. Hlídá `test/foundry.js`.
+- **Vrstva 3 (ilustrace) má pipeline**: `scripts/grade_art.py` srovná vygenerovaný
+  obrázek do tónu projektu (nádech + jas + strop sytosti), `scripts/check-art.py`
+  ho změří (nádech ≥ 0,45; neon ≤ 10 %; mimo paletu ≤ 25 %; kontrast ≥ 12) a
+  `--selftest` ověří celou pipeline na syntetickém obrázku. Naměřeno na spritech:
+  nádech 0,61–0,73 → 0,80–0,82, neon 5,4 % → 0 %. Detail: `docs/STYL_GRAFIKY.md` §14.
 - **Foundry** (nový vzhled mapy, Stage 1): krajina jako funkce světa — plochý
   podklad + světové štětce + přechody terénů + dekorace. Plán **0,15 ms/snímek**,
   na obrazovku ~224 štětců / 176 přechodů / 36 dekorací, **žádné opakování**
@@ -354,7 +369,7 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 | `docs/PRIBEHOVE_POPUPY.md` | příběhové popupy (efekty, trvalé vlajky, přepínač) | aktuální |
 | `docs/UKOLY_A_VYROBA.md` | zakázky, escort, automatika, výroba, dílny na základně | aktuální |
 | `docs/BOJ.md` | boj (automatický, kill questy, explore) | aktuální |
-| `docs/STYL_GRAFIKY.md` | **rozhodnutí cesty C (hybrid)**; §8 dlaždice (bezešvá mapa), §9 lokální ComfyUI, §10 malované postavy, §11 foundry, §12 jedna paleta, §13 sjednocený model postavy | aktuální (2026-09-16) |
+| `docs/STYL_GRAFIKY.md` | **rozhodnutí cesty C (hybrid)**; §8 dlaždice (bezešvá mapa), §9 lokální ComfyUI, §10 malované postavy, §11 foundry, §12 jedna paleta, §13 sjednocený model postavy, §14 vrstva 3 (ilustrace) | aktuální (2026-09-16) |
 
 ---
 
@@ -388,7 +403,12 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
      (`scripts/gen_units_local.py` + `process_units.py`), pak se přes něj kreslí
      erb (už hotové) a zbroj řeší tón. Potřebuje volbu vzhledu (§6 bod 3)
      a běžící ComfyUI.
-5. **Drobné budoucí rozšíření**: vlastní sklad a obrana základny (karavany na
+5. **Vrstva 3 (ilustrace)** — ✅ **pipeline hotová** (§14): `scripts/grade_art.py`
+   srovná vygenerovaný obrázek do palety, `scripts/check-art.py` ho změří
+   (a `--selftest` ověří sám sebe). **Zbývá vygenerovat samotné ilustrace**
+   (titul, 7 scén, portréty) — to potřebuje volbu vzhledu (§6 bod 3) — a napojit
+   je do hry (kde se vykreslí + fallback, když chybí).
+6. **Drobné budoucí rozšíření**: vlastní sklad a obrana základny (karavany na
    základně už jezdí), dosah dílen jako kruh na mapě, posuvník výšky mapy.
 
 ---
@@ -407,11 +427,12 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 
 ## 8. Git — jak je to teď
 
-- Poslední commit: **jedna paleta + nezávislý vzhled postav** (rozestup terénů
-  8,3 → 33,1, `settings.units`). Před ním **foundry** (světová vrstva mapy) a
-  **Stage 0 dlaždic** (torusy + okno do textury, měření). Viz `git log`.
+- Poslední commit: **vrstva 3 — pipeline pro ilustrace** (`grade_art.py` +
+  `check-art.py` se selftestem). Před ním **foundry drží paletu** (štětce
+  centrované na základ), **sjednocený model postavy**, **ladění foundry**,
+  **jedna paleta**, **foundry** a **Stage 0 dlaždic**. Viz `git log`.
 - **Pracovní strom NENÍ čistý** — běží v něm paralelní práce na **výbavě postav
-  a skupinách/expedicích** (`js/main.js`, `js/systems/{misc,combat,economy,expeditions}.js`,
+  a skupinách/expedicích** (`js/main.js`, `js/systems/{misc,combat,economy,expeditions,groups,units}.js`,
   `js/ui/{panels,trade,ui,title_screen,combat_modal}.js`, `css/style.css`,
   `index.html`, `README.md`, `docs/{BOJ,TECHNICKY_DOKUMENT}.md`, část
   `docs/HANDOFF.md`). Ta není moje; při commitu stage **jen svoje soubory**
@@ -428,10 +449,11 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
    (a co je cizí rozdělaná práce — viz §8).
 2. **Hotové:** svět (64×48), LOD, backlog, audit menu, AI dlaždice (bezešvé
    a měřené), AI postavy, **foundry (světová vrstva mapy)**, **jedna paleta**,
-   **nezávislý vzhled postav**, **sjednocený model postavy s erbem role**.
+   **nezávislý vzhled postav**, **sjednocený model postavy s erbem role**,
+   **pipeline pro ilustrace vrstvy 3**.
    **Další v řadě:** doladit foundry a paletu **okem** (§6 body 1–2),
-   **regenerovat malované sprity** v novém konceptu (jeden model bez zbraně,
-   §6 bod 4), **volba vzhledu** a AI ilustrace pro vrstvu 3 (§6 bod 3).
+   **vybrat vzhled** (§6 bod 3) a podle něj **regenerovat sprity** (§6 bod 4)
+   a **vygenerovat ilustrace** (§6 bod 5).
 3. Než začneš měnit vzhled mapy nebo postav, otevři `tools/tiles/preview.html`
    (náhled z reálného kódu: dlaždice, švy, foundry, paleta, postavy) a spusť
    `python scripts/check-tiles.py` — čísla jsou v `docs/STYL_GRAFIKY.md` §8,

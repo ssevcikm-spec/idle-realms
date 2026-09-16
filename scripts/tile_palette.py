@@ -75,9 +75,50 @@ def min_distance():
     return best
 
 
+def mean_base():
+    """Průměrná barva palety — referenční TÓN PROJEKTU pro ilustrace (vrstva 3)."""
+    n = len(TERRAINS)
+    return [sum(BASES[t][i] for t in TERRAINS) / n for i in range(3)]
+
+
+def all_colors():
+    """Všechny barvy palety (základ, tmavá, světlá, štětce) — pro kontrolu gamutu."""
+    out = []
+    for t in TERRAINS:
+        e = PALETTE[t]
+        out += [e['base'], e['dark'], e['light']] + list(e['daubs'])
+    return out
+
+
+def saturation(rgb):
+    """Saturace barvy 0..1 (HSV, jen pro poměry — nezáleží na přesném modelu)."""
+    r, g, b = [v / 255.0 for v in rgb]
+    mx, mn = max(r, g, b), min(r, g, b)
+    return 0.0 if mx <= 0 else (mx - mn) / mx
+
+
+def tone():
+    """Tón projektu: průměrná barva, saturace a rozsah jasu základních barev.
+
+    Ilustrace (titul, příběhové scény, portréty) se do tohohle tónu srovnávají,
+    aby hra držela jednu paletu i mimo mapu.
+    """
+    lum = [0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] for c in BASES.values()]
+    sats = [saturation(c) for c in BASES.values()]
+    return {
+        'mean': mean_base(),
+        'saturation': sum(sats) / len(sats),
+        'lum_min': min(lum),
+        'lum_max': max(lum),
+    }
+
+
 if __name__ == '__main__':
     print('paleta z js/render/art.js:')
     for t in TERRAINS:
         print('  %-12s %s' % (t, BASES[t]))
     d, a, b = min_distance()
     print('\nnejblizsi dvojice: %s vs %s = %.1f (L2)' % (a, b, d))
+    tn = tone()
+    print('ton projektu: mean %s, saturace %.2f, jas %.0f..%.0f' % (
+        [round(v) for v in tn['mean']], tn['saturation'], tn['lum_min'], tn['lum_max']))

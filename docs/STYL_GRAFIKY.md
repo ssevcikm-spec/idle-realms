@@ -609,3 +609,65 @@ dvou vzhledech + heraldika všech rolí zvětšená).
 - **Frakce se v erbu neprojevují** — erb nese roli (nebo profesi), ne frakci.
   Až bude jasné, čí jsou to postavy (měšťan vs. družina), může přibýt lem
   v barvě frakce.
+
+---
+
+## 14. Vrstva 3 — ilustrace v jedné paletě *(pipeline hotová 2026-09-16)*
+
+Titul, příběhové scény a portréty jsou jediná vrstva, kterou má dělat AI. Jenže
+generátor dodá obrázek ve **svém** barevném světě (světlejší, sytější, často
+s barvami, které ve hře nejsou) — položený vedle mapy vypadá jako z jiné hry.
+Proto je mezi generátor a hru vložená harmonizace:
+
+```
+vygenerovat (ComfyUI / Pollinations)
+  -> python scripts/grade_art.py --in <obrazek> --out assets/art/<nazev>.png
+  -> python scripts/check-art.py
+```
+
+### 14.1 Co harmonizace dělá
+
+| krok | co se děje |
+|---|---|
+| **nádech** | posune průměrnou barvu k průměru palety (`tone()` z `tile_palette.py`) |
+| **jas** | jen mírně přiměří rozsah jasu k rozsahu palety (kompozice zůstává) |
+| **sytost** | měkký **strop sytosti** — neonové barvy stáhne, ostatní nechá |
+
+Síla se řídí `--strength` (výchozí 0,5 — ilustrace má být bohatší než dlaždice,
+jen nesmí utéct z palety). Průhlednost se nemění.
+
+### 14.2 Dvě pasti, které stály za měření
+
+- **Sytost v HSV se lineárním mísením snížit nedá.** Krácení chromy (`max-min`)
+  ani mísení k šedé o stejném jasu sytost nezmění, protože se zmenší i maximum
+  (naměřeno: 0,74 -> 0,70, resp. beze změny). Správně se pro pixely nad stropem
+  **zvedne minimum** na `max*(1-cap)` — pak sytost spadne přesně na strop.
+- **Do statistik nepatří průhledné pixely.** Sprity postav mají průhledné
+  pozadí a jeho RGB je nesmysl; když se počítalo i ono, vyšly „špatně" i slušné
+  sprity (odchylka tónu 95–134 místo 36–102).
+
+### 14.3 Jak se to ověřuje (bez očí)
+
+| metrika | co znamená | limit |
+|---|---|---|
+| `nadech` | kosinus směru odchylky od šedé proti nádechu palety | >= 0,45 |
+| `neon` | podíl pixelů se saturací > 0,6 | <= 10 % |
+| `mimo` | podíl pixelů dál než 120 od nejbližší barvy palety | <= 25 % |
+| `kontrast` | směrodatná odchylka jasu (ilustrace nesmí být plochá) | >= 12 |
+
+`python scripts/check-art.py --selftest` ověří celou pipeline na syntetickém
+obrázku (modrý nádech + malá neonová skvrna + průhledný okraj): poloviční síla
+musí zlepšit nádech, tón i sytost a nechat kompozici, plná síla musí splnit
+limity. Tím je pipeline ověřená i ve chvíli, kdy kresby ještě nejsou.
+
+Naměřeno na skutečných spritech postav (jako testovací vstup):
+nádech **0,61–0,73 -> 0,80–0,82**, neon **5,4 % -> 0 %**, tón (vzdálenost od tónu
+projektu) **36–102 -> 26–48**, kontrast zůstal.
+
+### 14.4 Co ještě chybí
+
+- **Samotné ilustrace** — titul, 7 příběhových scén, portréty. Generují se až po
+  volbě vzhledu (§7); pipeline je připravená, stačí je nasypat do `assets/art`
+  a prohnat `grade_art.py` + `check-art.py`.
+- **Napojení do hry** — kde přesně se titul a scény vykreslí (a jak vypadá
+  fallback, když obrázek chybí), se má dodělat spolu s prvními ilustracemi.
