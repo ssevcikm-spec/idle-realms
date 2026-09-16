@@ -99,10 +99,52 @@ chce vidět. Zatím to řeší tlačítko ▾ (sbalit panel) a ⛶ (celá obrazo
 
 ---
 
-## 5. Testy
+## 5. Krajinné prvky místo ikon *(doplněno)*
 
-`test/headless-smoke.js` (celkem 38 kontrol) nově ověřuje:
+Dosud byl každý uzel (les, jezero, pole…) nakreslený jako **emoji v kroužku**
+(`G.drawBadge`) — tedy „ikona na kliknutí". Nově se uzel kreslí jako **skutečný
+kus krajiny**: `G.drawNodeFeature` (`js/render/art.js`).
+
+| Uzel | Co je na mapě vidět |
+|---|---|
+| Les | hustý shluk stromů a borovic se stínem |
+| Hluboký les | tmavší, hustší porost |
+| Hájek | světlé stromy s jarními květy |
+| Louka | **obdělávané pole** s řádky a snopy |
+| Močál | tůňky, rákosí a ztrouchnivělý kmen |
+| Kamenolom | stupňovitá skalní stěna a balvany |
+| Důl | horský hřbet, tmavý vstup s dřevěnou výztuhou a hromadou rudy |
+| Jeskyně | skalní výchoz s tmavým ústím a zábleskem krystalu |
+| Jezero | **jezírko** s vlnkami, rákosím a dřevěným molem |
+
+Jak to funguje:
+- Rozvržení prvku je **deterministické podle id uzlu** (`G.nodeFeatureProps`,
+  seedovaný RNG) a drží se v `node._feat` — nekreslí se tedy každý snímek jinak
+  a nic nebliká.
+- Prvky se kreslí ve starých jednotkách dlaždice (46) a škálují se podle aktuální
+  velikosti dlaždice, takže sedí s `tileBase` i zoomem.
+- **Rychlé přiblížení:** pod `tilePx < 34` by se prvek slil s terénem, a tak se
+  automaticky přepne zpět na symbol. To je zárodek LOD z kroku 2 — přepíná se
+  podle velikosti, ne ručně.
+- Oblast kliknutí u uzlu se zvětšila z 0,9 na 1,15 dlaždice, aby se trefilo
+  i na okraj nakresleného porostu.
+
+### Cesty jsou nyní spojité
+Dřív byla cesta zapečená v dlaždici jako pevná křivka, takže na sebe dlaždice
+nenavazovaly a cesta vypadala přerušovaně. Teď dlaždice obsahuje jen **podklad**
+(vyšlapaná hlína) a vlastní pruh cesty kreslí `drawRoads` podle **sousedů**
+(`G.roadLinks`) — pruh se táhne od středu k hranám, takže je plynulý v zatáčkách,
+v křižovatkách i na konci u sídla. Má tmavý lem, světlejší násep a kamínky.
+
+---
+
+## 6. Testy
+
+`test/headless-smoke.js` (celkem 40 kontrol) nově ověřuje:
 - `G.setTileBase` / `G.getTileBase` včetně podlazení (32) a zastropování (96),
 - `G.setFigureHeight` / `G.getFigureHeight`,
 - `G.settlementSpread`: vesnice 1,0 < město < metropole,
-- dlaždice se generuje v rozlišení **192 px**.
+- dlaždice se generuje v rozlišení **192 px**,
+- **všech 9 druhů uzlů** se vykreslí jako krajinný prvek a rozvržení je stabilní
+  pro stejný uzel (a různé pro různé uzly),
+- každá dlaždice cesty má alespoň jedno spojení (`G.roadLinks`).

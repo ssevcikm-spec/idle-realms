@@ -482,6 +482,40 @@ check('skalovani mapy: dlazdice, postavy, pudorys sidel', () => {
   const tile = G.getTileArt('forest', 0);
   assert(tile && tile.width === 192, 'dlazdice se negeneruje v rozliseni 192 (' + (tile && tile.width) + ')');
 });
+check('krajinne prvky uzlu: kresleni a determinismus', () => {
+  const noop = () => {};
+  const stub = new Proxy({}, {
+    get(t, p) {
+      if (p === 'createLinearGradient' || p === 'createRadialGradient') return () => ({ addColorStop: noop });
+      return noop;
+    },
+    set() { return true; }
+  });
+  const kinds = Object.keys(G.NODE_KINDS);
+  const fake = { id: 'nX', kind: kinds[0], x: 1, y: 1 };
+  let drawn = 0;
+  for (const k of kinds) {
+    fake.kind = k; delete fake._feat;
+    if (G.drawNodeFeature(stub, fake, 100, 100, 64)) drawn++;
+  }
+  assert(drawn === kinds.length, 'nevykreslily se vsechny druhy uzlu (' + drawn + '/' + kinds.length + ')');
+  const a = G.nodeFeatureProps({ id: 'node-A', kind: 'forest' });
+  const b = G.nodeFeatureProps({ id: 'node-A', kind: 'forest' });
+  assert(JSON.stringify(a.list) === JSON.stringify(b.list), 'stejny uzel ma nestabilni rozvrzeni prvku');
+  const c = G.nodeFeatureProps({ id: 'node-B', kind: 'forest' });
+  assert(JSON.stringify(a.list) !== JSON.stringify(c.list), 'dva uzly maji stejne rozvrzeni');
+});
+check('cesty: spojitost mezi dlazdicemi', () => {
+  let tested = 0;
+  for (const key of G.WORLD.roads) {
+    const parts = key.split(',');
+    const links = G.roadLinks(Number(parts[0]), Number(parts[1]));
+    assert(links.length >= 1, 'dlazdice cesty bez spojeni: ' + key);
+    tested++;
+    if (tested >= 5) break;
+  }
+  assert(tested >= 5, 've svete nejsou zadne cesty (' + tested + ')');
+});
 check('auto-pokracovani: se savem se nezastavi na menu', () => {
   G.save();
   assert(!!localStorageStub.getItem(G.SAVE_KEY), 'save se neulozil');

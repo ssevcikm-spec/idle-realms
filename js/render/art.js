@@ -177,16 +177,9 @@
       daubs(ctx, rnd, ['#ffffff'], 22, 2, 6, 0.10, 0.20);
     },
     road(ctx, rnd) {
-      ground(ctx, rnd, G.PAL.grass);
-      ctx.globalAlpha = 0.92; ctx.fillStyle = G.PAL.road.base;
-      ctx.beginPath();
-      ctx.moveTo(-6, SIZE*0.30);
-      ctx.quadraticCurveTo(SIZE*0.5, SIZE*0.18, SIZE + 6, SIZE*0.62);
-      ctx.lineTo(SIZE + 6, SIZE*0.92);
-      ctx.quadraticCurveTo(SIZE*0.5, SIZE*0.48, -6, SIZE*0.60);
-      ctx.closePath(); ctx.fill();
-      ctx.globalAlpha = 1;
-      daubs(ctx, rnd, ['#8d7f61','#6f6249','#a2926f'], 50, 2, 6, 0.14, 0.30);
+      // podklad cesty — vlastní pruh cesty kreslí world.js spojitě podle sousedů
+      ground(ctx, rnd, G.PAL.dirt);
+      daubs(ctx, rnd, G.PAL.grass.daubs, 34, 3, 9, 0.10, 0.22);
     },
     dirt(ctx, rnd) {
       ctx.fillStyle = G.PAL.dirt.base; ctx.fillRect(0, 0, SIZE, SIZE);
@@ -311,5 +304,192 @@
     ctx.font = (size || r*1.25) + 'px serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(icon, x, y + 1);
+  };
+
+  /* ================= krajinné prvky uzlů =================
+     Uzel (les, jezero, pole…) se nekreslí jako ikona, ale jako skutečný kus
+     krajiny. Kreslí se v jednotkách staré dlaždice (46), takže se dá použít
+     stávající tree/pine/boulder/ripple a výsledek se jen přeškáluje. */
+
+  const FEATURE_PROP_COUNT = {
+    forest: 6, deep_forest: 8, grove: 4, meadow: 7, marsh: 5,
+    quarry: 5, mine: 4, cave: 4, lake: 5
+  };
+  /** Deterministické rozvržení prvku — počítá se jednou na uzel a drží se. */
+  function nodeProps(node) {
+    if (node._feat) return node._feat;
+    const rnd = rndFrom(hash(node.id) * 7717 + 31);
+    const n = FEATURE_PROP_COUNT[node.kind] || 4;
+    const list = [];
+    for (let i = 0; i < n; i++) {
+      const a = rnd() * Math.PI * 2;
+      const r = 6 + rnd() * 17;                 // vzdálenost od středu (v jednotkách 46)
+      list.push({
+        x: Math.cos(a) * r,
+        y: Math.sin(a) * r * 0.62,
+        s: 0.68 + rnd() * 0.55,
+        v: (rnd() * 3) | 0
+      });
+    }
+    list.sort((p, q) => p.y - q.y);
+    node._feat = { list, seed: (rnd() * 1000) | 0 };
+    return node._feat;
+  }
+  G.nodeFeatureProps = nodeProps;
+
+  const FEATURES = {
+    forest(ctx, rnd, props) {
+      shadow(ctx, 0, 7, 19, 6);
+      for (const p of props.list) {
+        if ((p.v + 1) % 2) pine(ctx, rnd, p.x, p.y + 8, p.s, '#243019', '#33421f', '#5c6f42');
+        else tree(ctx, rnd, p.x, p.y + 8, p.s, '#26301c', '#39472a', '#6a7a4a');
+      }
+    },
+    deep_forest(ctx, rnd, props) {
+      shadow(ctx, 0, 7, 21, 7);
+      for (const p of props.list) pine(ctx, rnd, p.x, p.y + 8, p.s * 1.08, '#161d10', '#212b16', '#3d4c2b');
+    },
+    grove(ctx, rnd, props) {
+      shadow(ctx, 0, 8, 18, 6);
+      for (const p of props.list) {
+        tree(ctx, rnd, p.x, p.y + 8, p.s * 0.9, '#2f3d22', '#48592f', '#7d8f57');
+        for (let i = 0; i < 5; i++) {                       // jarní květy
+          ctx.fillStyle = i % 2 ? 'rgba(240,225,235,.55)' : 'rgba(245,215,225,.45)';
+          ctx.beginPath();
+          ctx.arc(p.x + (rnd() - 0.5) * 13 * p.s, p.y - 2 + (rnd() - 0.5) * 10 * p.s, 1.1, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    },
+    meadow(ctx, rnd, props) {
+      // obdělávané pole s řádky
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = '#6d6a3c';
+      ctx.beginPath(); ctx.ellipse(0, 1, 20, 13, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#8f8a4a'; ctx.lineWidth = 1.4;
+      for (let i = -4; i <= 4; i++) {
+        ctx.beginPath();
+        ctx.moveTo(-18, i * 2.7);
+        ctx.quadraticCurveTo(0, i * 2.7 + 3, 18, i * 2.7);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      for (const p of props.list.slice(0, 3)) {             // snopy
+        ctx.fillStyle = '#c9a94e';
+        ctx.beginPath(); ctx.ellipse(p.x, p.y, 2.6 * p.s, 3.4 * p.s, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#8a7332'; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y + 3 * p.s); ctx.lineTo(p.x, p.y + 5 * p.s); ctx.stroke();
+      }
+    },
+    marsh(ctx, rnd, props) {
+      for (let i = 0; i < 4; i++) {
+        ctx.globalAlpha = 0.5; ctx.fillStyle = '#2f3f3a';
+        const p = props.list[i % props.list.length];
+        ctx.beginPath(); ctx.ellipse(p.x, p.y, 6.5 * p.s, 3.2 * p.s, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      for (let i = 0; i < 22; i++) {                        // rákosí
+        const x = (rnd() - 0.5) * 34, y = (rnd() - 0.5) * 18;
+        ctx.strokeStyle = i % 3 ? '#6d7a4e' : '#57623c'; ctx.lineWidth = 1.1;
+        ctx.beginPath(); ctx.moveTo(x, y + 6); ctx.lineTo(x + (rnd() - 0.5) * 3, y - 3 - rnd() * 7); ctx.stroke();
+      }
+      ctx.fillStyle = '#4a3a28';                            // ztrouchnivělý kmen
+      ctx.save(); ctx.rotate(-0.28);
+      ctx.fillRect(-17, -1.4, 15, 2.8); ctx.restore();
+    },
+    quarry(ctx, rnd, props) {
+      shadow(ctx, 0, 6, 19, 7);
+      ctx.fillStyle = '#6b6350';                            // stupňovitá stěna
+      ctx.beginPath();
+      ctx.moveTo(-20, 8); ctx.lineTo(-13, -6); ctx.lineTo(-4, -9);
+      ctx.lineTo(6, -4); ctx.lineTo(17, 7); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#7d7663';
+      ctx.beginPath();
+      ctx.moveTo(-16, 6); ctx.lineTo(-10, -3); ctx.lineTo(-2, -5);
+      ctx.lineTo(4, -1); ctx.lineTo(12, 6); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#4e4838'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-13, -1); ctx.lineTo(9, 1); ctx.moveTo(-9, 4); ctx.lineTo(4, 5); ctx.stroke();
+      for (const p of props.list) boulder(ctx, rnd, p.x, p.y + 7, 3.2 + p.s * 2.4, '#8a8272', '#665f4e', '#413c31');
+    },
+    mine(ctx, rnd, props) {
+      shadow(ctx, 0, 7, 20, 7);
+      ctx.fillStyle = '#544e44';                            // horský hřbet
+      ctx.beginPath();
+      ctx.moveTo(-21, 8); ctx.lineTo(-6, -13); ctx.lineTo(9, -9); ctx.lineTo(21, 8); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#6b6353';
+      ctx.beginPath(); ctx.moveTo(-21, 8); ctx.lineTo(-8, -9); ctx.lineTo(-1, 8); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#15130f';                            // vstup do dolu
+      ctx.beginPath();
+      ctx.moveTo(-6, 8); ctx.lineTo(-6, -1); ctx.quadraticCurveTo(0, -7, 6, -1); ctx.lineTo(6, 8);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = G.PAL_WOOD; ctx.lineWidth = 2.2;    // výztuha
+      ctx.beginPath();
+      ctx.moveTo(-6.5, 8); ctx.lineTo(-6.5, -2); ctx.moveTo(6.5, 8); ctx.lineTo(6.5, -2);
+      ctx.moveTo(-8, -2); ctx.lineTo(8, -2); ctx.stroke();
+      for (const p of props.list.slice(0, 2)) {
+        ctx.fillStyle = '#6f6a60';                          // hromada rudy
+        ctx.beginPath(); ctx.ellipse(p.x + 10, p.y + 9, 4.2, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    },
+    cave(ctx, rnd, props) {
+      shadow(ctx, 0, 7, 18, 6);
+      for (const p of props.list) boulder(ctx, rnd, p.x, p.y + 7, 4.2 + p.s * 3, '#6d675d', '#4e4a44', '#332f2b');
+      ctx.fillStyle = '#3a3730';                            // skalní výchoz
+      ctx.beginPath();
+      ctx.moveTo(-14, 8); ctx.lineTo(-10, -9); ctx.lineTo(3, -12); ctx.lineTo(14, 8);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#0f0e0c';                            // ústí jeskyně
+      ctx.beginPath();
+      ctx.moveTo(-5, 8); ctx.lineTo(-5, -1); ctx.quadraticCurveTo(0, -8, 5, -1); ctx.lineTo(5, 8);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(122,198,216,.5)';               // záblesk krystalu
+      ctx.beginPath(); ctx.moveTo(-9, -2); ctx.lineTo(-7, -7); ctx.lineTo(-5.5, -2); ctx.closePath(); ctx.fill();
+    },
+    lake(ctx, rnd, props) {
+      ctx.fillStyle = '#3d5a68';                            // jezírko
+      ctx.beginPath(); ctx.ellipse(0, 2, 21, 13, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#4f7183';
+      ctx.beginPath(); ctx.ellipse(-3, 0, 15, 9, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(220,235,240,.28)'; ctx.lineWidth = 1.2;
+      for (let i = 0; i < 6; i++) {                         // vlnky
+        const x = -14 + rnd() * 28, y = -7 + rnd() * 16;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 5, y - 2, x + 10, y); ctx.stroke();
+      }
+      ctx.strokeStyle = '#6a523a'; ctx.lineWidth = 2;       // molo
+      ctx.beginPath(); ctx.moveTo(6, 8); ctx.lineTo(16, 3); ctx.stroke();
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(9, 10.5); ctx.lineTo(19, 5.5); ctx.stroke();
+      for (const p of props.list) {                         // rákosí u břehu
+        ctx.strokeStyle = '#5d6b3e'; ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.moveTo(p.x - 12, p.y + 9);
+        ctx.lineTo(p.x - 12 + (rnd() - 0.5) * 3, p.y + 2 - rnd() * 6);
+        ctx.stroke();
+      }
+    }
+  };
+
+  function shadow(ctx, x, y, rx, ry) {
+    ctx.globalAlpha = 0.20; ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Vykreslí uzel jako krajinný prvek. Kreslí se ve starých jednotkách
+   * dlaždice (46), takže se škáluje podle aktuální velikosti dlaždice.
+   */
+  G.drawNodeFeature = function (ctx, node, x, y, tilePx) {
+    const painter = FEATURES[node.kind];
+    if (!painter) return false;
+    const props = nodeProps(node);
+    const rnd = rndFrom(props.seed + 13);
+    ctx.save();
+    ctx.translate(x, y + tilePx * 0.10);
+    ctx.scale(tilePx / 46, tilePx / 46);
+    try { painter(ctx, rnd, props); } finally { ctx.restore(); }
+    return true;
   };
 })();

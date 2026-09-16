@@ -208,7 +208,7 @@
       }
     }
     for (const n of G.WORLD.nodes) {
-      if (Math.hypot(n.x + 0.5 - tx, n.y + 0.5 - ty) < 0.9) {
+      if (Math.hypot(n.x + 0.5 - tx, n.y + 0.5 - ty) < 1.15) {   // prvek je větší než dlaždice
         G.state.selected = { type: 'node', id: n.id };
         if (G.selectTab) G.selectTab('place');
         return;
@@ -303,6 +303,8 @@
       const art = G.getTileArt(name, v);
       ctx.drawImage(art, ox + x*tilePx, oy + y*tilePx, tilePx + 0.5, tilePx + 0.5);
     }
+    // Cesty se kreslí zvlášť a spojitě — dlaždice sama neví, kterým směrem cesta vede.
+    drawRoads(ox, oy, tilePx, x0, x1, y0, y1);
     if (G.state.base && G.state.base.unlocked) drawBase(ox, oy, tilePx);
     if (G.isBasePlacing && G.isBasePlacing()) {
       const s = G.baseSuggestion ? G.baseSuggestion() : null;
@@ -313,14 +315,17 @@
       const kind = G.NODE_KINDS[n.kind];
       const cx = ox + (n.x + 0.5)*tilePx, cy = oy + (n.y + 0.5)*tilePx;
       const r = tilePx * 0.34;
-      G.drawBadge(ctx, cx, cy, r, G.NODE_TINT[n.kind] || '#5a5347', kind.icon, r*1.15);
+      // Uzel je skutečný kus krajiny (les, jezero, pole…). Když je mapa hodně
+      // oddálená, prvek by se slil s terénem — pak se přepne na symbol.
+      const asFeature = tilePx >= 34 && G.drawNodeFeature && G.drawNodeFeature(ctx, n, cx, cy, tilePx);
+      if (!asFeature) G.drawBadge(ctx, cx, cy, r, G.NODE_TINT[n.kind] || '#5a5347', kind.icon, r*1.15);
       const danger = G.nodeDanger ? G.nodeDanger(n.kind) : 0;
       if (danger >= 2) {
         const d = G.DANGER_LABEL[danger];
         ctx.font = (tilePx*0.24) + 'px serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillStyle = d.color;
-        ctx.fillText('⚠', cx + r*0.85, cy - r*0.85);
+        ctx.fillText('⚠', cx + tilePx*0.30, cy - tilePx*0.30);
       }
     }
     for (const s of w.settlements) {
@@ -357,6 +362,62 @@
       vignetteCache = g; vigW = cw; vigH = ch;
     }
     ctx.fillStyle = vignetteCache; ctx.fillRect(0, 0, cw, ch);
+  }
+
+  /* ---------- cesty ---------- */
+
+  /** Je na dlaždici cesta? */
+  function roadAt(x, y) {
+    const r = G.WORLD && G.WORLD.roads;
+    if (!r) return false;
+    return r.has(x + ',' + y) || G.WORLD.terrainAt(x, y) === 'road';
+  }
+  /** Do kterých stran z dlaždice cesta pokračuje (pro spojité kreslení). */
+  G.roadLinks = function (x, y) {
+    const out = [];
+    if (roadAt(x + 1, y)) out.push([1, 0]);
+    if (roadAt(x - 1, y)) out.push([-1, 0]);
+    if (roadAt(x, y + 1)) out.push([0, 1]);
+    if (roadAt(x, y - 1)) out.push([0, -1]);
+    if (roadAt(x + 1, y + 1) && (roadAt(x + 1, y) || roadAt(x, y + 1))) out.push([0.75, 0.75]);
+    if (roadAt(x - 1, y + 1) && (roadAt(x - 1, y) || roadAt(x, y + 1))) out.push([-0.75, 0.75]);
+    if (roadAt(x + 1, y - 1) && (roadAt(x + 1, y) || roadAt(x, y - 1))) out.push([0.75, -0.75]);
+    if (roadAt(x - 1, y - 1) && (roadAt(x - 1, y) || roadAt(x, y - 1))) out.push([-0.75, -0.75]);
+    return out;
+  };
+
+  function drawRoads(ox, oy, tilePx, x0, x1, y0, y1) {
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (x < 0 || y < 0 || x >= G.WORLD.w || y >= G.WORLD.h) continue;
+        if (!roadAt(x, y)) continue;
+        const links = G.roadLinks(x, y);
+        const cx = ox + (x + 0.5)*tilePx, cy = oy + (y + 0.5)*tilePx;
+        const st = Math.max(1, tilePx*0.10);          // kamínky
+        ctx.save();
+        ctx.lineCap = 'round';
+        if (!links.length) {
+          ctx.fillStyle = G.PAL.road.base;
+          ctx.beginPath(); ctx.arc(cx, cy, tilePx*0.22, 0, Math.PI*2); ctx.fill();
+        } else {
+          const path = () => {
+            ctx.beginPath(); ctx.moveTo(cx, cy);
+            for (const [dx, dy] of links) ctx.lineTo(cx + dx*tilePx*0.62, cy + dy*tilePx*0.62);
+          };
+          ctx.strokeStyle = '#4a4335'; ctx.lineWidth = tilePx*0.44; path(); ctx.stroke();
+          ctx.strokeStyle = G.PAL.road.base; ctx.lineWidth = tilePx*0.34; path(); ctx.stroke();
+          ctx.strokeStyle = 'rgba(190,175,140,.30)'; ctx.lineWidth = tilePx*0.10; path(); ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(90,80,62,.55)';
+        for (let i = 0; i < 3; i++) {
+          const h = hashStr(x + ':' + y + ':' + i);
+          const px = cx + (((h >>> 3) % 100) / 100 - 0.5) * tilePx * 0.5;
+          const py = cy + (((h >>> 9) % 100) / 100 - 0.5) * tilePx * 0.5;
+          ctx.beginPath(); ctx.arc(px, py, st*0.30, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
   }
 
   function drawBase(ox, oy, tilePx) {
