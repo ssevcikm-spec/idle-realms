@@ -93,6 +93,49 @@
 
   function rid2name(recipeId) { return G.RECIPES[recipeId] ? G.RECIPES[recipeId].name : recipeId; }
 
+  /* ---------- automatická výroba (udržovat zásobu) ---------- */
+
+  /** Materiál → recept, který ho vyrobí. Hra ho pak umí dělat sama. */
+  G.PRODUCTION_RECIPES = {
+    plank: 'plank', cloth: 'cloth', iron_ingot: 'iron_ingot',
+    flour: 'flour', bread: 'bread', potion: 'potion',
+    bow: 'bow', sword: 'sword', armor: 'armor', longbow: 'longbow'
+  };
+
+  /** Kolik kusů materiálu má hra držet (0 = vypnuto). */
+  G.productionOrder = function (material) {
+    const o = (G.state.productionOrders || []).find(x => x.material === material);
+    return o ? o.qty : 0;
+  };
+  /** Nastaví cíl „držet alespoň N kusů" (0 = vypnout). */
+  G.setProductionOrder = function (material, qty) {
+    if (!G.state.productionOrders) G.state.productionOrders = [];
+    qty = Math.max(0, Math.floor(qty || 0));
+    const i = G.state.productionOrders.findIndex(x => x.material === material);
+    if (qty <= 0) { if (i >= 0) G.state.productionOrders.splice(i, 1); return; }
+    if (i >= 0) G.state.productionOrders[i] = { material: material, qty: qty };
+    else G.state.productionOrders.push({ material: material, qty: qty });
+  };
+
+  /** Automaticky vyrobí chybějící kusy podle cílů. Volá se periodicky. */
+  G.tickProduction = function () {
+    const orders = G.state.productionOrders || [];
+    if (!orders.length) return;
+    for (const o of orders.slice()) {
+      if (!o.material || o.qty <= 0) continue;
+      if (G.matCount(o.material) >= o.qty) continue;
+      const rid = G.PRODUCTION_RECIPES[o.material];
+      if (!rid) continue;
+      const check = G.canCraft(rid);
+      if (!check.ok) continue;   // chybí dílna / postava u ní / materiál
+      const deficit = o.qty - G.matCount(o.material);
+      const r = G.RECIPES[rid];
+      const perCraft = (r.output && r.output.qty) || 1;
+      const n = Math.max(1, Math.min(5, Math.ceil(deficit / perCraft)));
+      G.craft(rid, n);
+    }
+  };
+
   G.rollCraftQuality = function (skillLevel, bonus) {
     const score = (skillLevel || 1) * 1.1 + (bonus || 0) + G.rand() * 100 - 50;
     if (score >= 100) return 'masterwork';

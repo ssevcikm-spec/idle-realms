@@ -139,6 +139,11 @@
 
       html += `</div>
         ${opts.fromGame ? `<label class="title-toggle"><input type="checkbox" id="story-toggle" ${(G.storyPopupsEnabled && G.storyPopupsEnabled()) ? 'checked' : ''}> Příběhové popupy (volby s trvalými efekty)</label>` : ''}
+        ${opts.fromGame ? `<label class="title-toggle">🤖 Zakázky sama: <select id="quest-toggle">
+          <option value="off" ${G.autoQuestMode() === 'off' ? 'selected' : ''}>vypnuto</option>
+          <option value="deliver" ${G.autoQuestMode() === 'deliver' ? 'selected' : ''}>jen doručovací</option>
+          <option value="all" ${G.autoQuestMode() === 'all' ? 'selected' : ''}>všechny</option>
+        </select></label>` : ''}
         <div class="title-footer">
           Verze savu ${G.SAVE_VERSION} • klávesa <span class="title-key">D</span> = debug
         </div>
@@ -154,6 +159,12 @@
         G.log(storyToggle.checked
           ? '📖 Příběhové popupy zapnuty.'
           : '📖 Příběhové popupy vypnuty — příběh se přeskočí (můžeš je vrátit v menu ☰).', 'info');
+      });
+
+      const questToggle = root.querySelector('#quest-toggle');
+      if (questToggle) questToggle.addEventListener('change', () => {
+        if (G.setAutoQuestMode) G.setAutoQuestMode(questToggle.value);
+        G.log(`🤖 Automatické zakázky: ${questToggle.value === 'off' ? 'vypnuty' : questToggle.value === 'deliver' ? 'jen doručovací' : 'všechny'}.`, 'info');
       });
 
       root.querySelectorAll('[data-ts]').forEach(btn => {

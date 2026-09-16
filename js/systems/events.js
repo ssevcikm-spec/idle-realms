@@ -266,6 +266,14 @@
   /* ---------- zakázky ---------- */
   let questSeq = 1;
   G.setQuestSeq = function (v) { questSeq = v; };
+
+  // Doprovod je skrytá aktivita — postavy ji plní jako úkol, ale v panelech se neukazuje.
+  if (G.ACTIVITIES && !G.ACTIVITIES.escort) {
+    G.ACTIVITIES.escort = {
+      id: 'escort', name: 'Doprovod', icon: '🚶', nodeKinds: [], hidden: true,
+      skill: 'combat', attr: 'agi', mode: 'timed', workRequired: 1, xpReward: 30, output: []
+    };
+  }
   G.generateQuest = function (settlementId) {
     const def = G.WORLD.settlementById[settlementId];
     if (!def) return null;
@@ -307,11 +315,67 @@
     const q = list.find(x => x.id === questId);
     if (!q || q.status !== 'available') return { ok:false, reason:'Zakázka není dostupná.' };
     if (G.activeQuestCount() >= G.MAX_ACTIVE_QUESTS) return { ok:false, reason:`Max ${G.MAX_ACTIVE_QUESTS} aktivních.` };
+    // Doprovod skutečně zaměstná postavy — bez volné postavy to nejde.
+    if (q.kind === 'escort') {
+      const s = G.WORLD.settlementById[settlementId];
+      const site = s ? { x: s.x + 0.5, y: s.y + 0.5, name: s.name } : null;
+      const esc = escortCandidates(site);
+      if (!esc.length) return { ok:false, reason:'Doprovod potřebuje volnou postavu — teď nikdo nemůže jít.' };
+      for (const u of esc) {
+        if (u.assignedTaskId) G.cancelTask(u.assignedTaskId);
+        if (u.resting && G.wakeUnit) G.wakeUnit(u);
+      }
+      const t = G.startTask('escort', esc.map(u => u.id), {
+        nodeId: 'site:escort:' + q.id,
+        workRequired: Math.max(1, Math.round((q.escortDays || 1) * G.TIME.dayLength)),
+        site: site ? { x: site.x, y: site.y } : undefined,
+        siteName: site ? site.name : undefined,
+        quiet: true
+      });
+      q.taskId = t ? t.id : null;
+      q.escortUnitIds = esc.map(u => u.id);
+      G.log(`🚶 Doprovod: ${esc.map(u => u.name.split(' ')[0]).join(', ')} vyrazili (${q.escortDays} dní).`, 'work');
+    }
     q.status = 'active'; q.acceptedAt = G.state.time; q.expiresAt = G.state.time + q.deadline;
     q.killCountAtAccept = (G.state.killCounts && G.state.killCounts[q.killType]) || 0;
     q.visitedAtAccept = (G.state.stats.settlementsVisited || []).length;
     G.log(`📜 Přijata zakázka: ${q.text}`);
     return { ok:true };
+  };
+  /** Volné schopné postavy pro doprovod (až 2, nejbližší k místu). */
+  function escortCandidates(site) {
+    const out = [];
+    for (const u of G.state.units) {
+      if (u.dead || u.isChild || u.onExpedition) continue;
+      if (G.workBlockReason && G.workBlockReason(u)) continue;
+      if (!u.pos) continue;
+      const d = site ? Math.hypot(u.pos.x - site.x, u.pos.y - site.y) : 0;
+      out.push({ u, d });
+    }
+    out.sort((a, b) => (a.d - b.d) || (G.unitSkill(b.u, 'combat') - G.unitSkill(a.u, 'combat')));
+    return out.slice(0, 2).map(x => x.u);
+  }
+  /** Uvolní postavy z doprovodu (při odevzdání i propadnutí). */
+  function clearEscort(q) {
+    if (!q.taskId) { q.escortUnitIds = null; return; }
+    const t = G.state.tasks.find(x => x.id === q.taskId);
+    if (t) G.cancelTask(t.id);
+    q.taskId = null; q.escortUnitIds = null;
+  }
+  /** Může se zakázka odevzdat? (jediné místo s logikou per-kind) */
+  G.canTurnInQuest = function (q) {
+    if (!q || q.status !== 'active') return false;
+    if (q.kind === 'deliver') return (q.need || []).every(n => !n.material || G.matCount(n.material) >= n.qty);
+    if (q.kind === 'kill') {
+      const have = ((G.state.killCounts && G.state.killCounts[q.killType]) || 0) - (q.killCountAtAccept || 0);
+      return have >= (q.killCount || 0);
+    }
+    if (q.kind === 'explore') {
+      const have = (G.state.stats.settlementsVisited || []).length - (q.visitedAtAccept || 0);
+      return have >= (q.exploreCount || 0);
+    }
+    if (q.kind === 'escort') return G.state.time >= (q.acceptedAt || 0) + (q.escortDays || 0) * G.TIME.dayLength;
+    return false;
   };
   G.activeQuestCount = function () {
     if (!G.state.quests) return 0;
@@ -337,6 +401,7 @@
     G.addSettlementRep(settlementId, 8);
     for (const u of G.state.units) G.addSkillXp(u, 'crafting', 3 + (q.reward.renown || 0));
     q.status = 'done';
+    clearEscort(q);
     if (!G.state.stats.questsCompleted) G.state.stats.questsCompleted = 0;
     G.state.stats.questsCompleted++;
     G.log(`✅ Zakázka splněna: +${gold} 🪙, +${renown} ⭐, +${rep} rep.`);
@@ -362,6 +427,7 @@
       for (const q of list) {
         if (q.status === 'active' && G.state.time > q.expiresAt) {
           q.status = 'failed';
+          clearEscort(q);
           if (q.factionId) G.addRep(q.factionId, G.REP_QUEST_FAIL);
           G.addSettlementRep(sid, -3);
           G.log(`❌ Zakázka propadla: ${q.text}`);
@@ -370,8 +436,49 @@
       }
       G.state.quests[sid] = list.filter(x => x.status === 'available' || x.status === 'active');
       G.ensureQuests(sid);
+      if (G.autoQuestMode() !== 'off') tryAutoQuest(sid);
     }
+    if (G.autoQuestMode() !== 'off') tryAutoTurnIn();
   };
+
+  /** Jak se hra chová k zakázkám sama: 'off' | 'deliver' | 'all'. */
+  G.autoQuestMode = function () {
+    const s = G.state.settings || {};
+    return s.autoQuests || 'off';
+  };
+  G.setAutoQuestMode = function (mode) {
+    if (!G.state.settings) G.state.settings = {};
+    G.state.settings.autoQuests = (mode === 'deliver' || mode === 'all') ? mode : 'off';
+  };
+
+  /** Automaticky vezme dostupnou zakázku, kterou jde rozumně splnit. */
+  function tryAutoQuest(sid) {
+    if (G.activeQuestCount() >= G.MAX_ACTIVE_QUESTS) return;
+    const mode = G.autoQuestMode();
+    const list = (G.state.quests[sid] || []).filter(q => q.status === 'available');
+    list.sort((a, b) => (b.reward.renown || 0) - (a.reward.renown || 0));
+    for (const q of list) {
+      if (mode === 'deliver' && q.kind !== 'deliver') continue;
+      if (q.kind === 'deliver') {
+        const have = (q.need || []).every(n => !n.material || G.matCount(n.material) >= n.qty);
+        if (!have) continue;   // nepřebírej, co nejde splnit
+      }
+      const res = G.acceptQuest(sid, q.id);
+      if (res.ok) { G.log(`🤖 Automaticky přijata zakázka: ${q.text}`, 'info'); return; }
+      if (res.reason && res.reason.indexOf('postav') !== -1) return;   // doprovod bez postav — zkus až příště
+    }
+  }
+  /** Odevzdá splněné aktivní zakázky (když je automatika zapnutá). */
+  function tryAutoTurnIn() {
+    for (const sid in G.state.quests) {
+      for (const q of G.state.quests[sid]) {
+        if (q.status !== 'active') continue;
+        if (!G.canTurnInQuest(q)) continue;
+        const res = G.turnInQuest(sid, q.id);
+        if (res.ok) G.log(`🤖 Zakázka odevzdána automaticky: ${q.text}`, 'info');
+      }
+    }
+  }
   G.activeQuests = function () {
     const out = [];
     if (!G.state.quests) return out;

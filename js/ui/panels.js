@@ -821,6 +821,17 @@
         </div>
       </div>`;
     }
+    // Automatická výroba — hra si sama doplní zásobu, když je pod cílem
+    html += `<div class="panel-title">Udržovat zásobu</div>
+      <div class="hint" style="text-align:left">Hra bude tyhle výrobky <b>vyrábět sama</b>, dokud jich nebudeš mít tolik, kolik nastavíš. Potřebuje k tomu dílnu (v sídle nebo na základně) a postavu v jejím dosahu.</div>`;
+    const prodOpts = [0, 5, 10, 25, 50];
+    for (const mid in G.PRODUCTION_RECIPES) {
+      const target = G.productionOrder(mid);
+      const m = G.MATERIALS[mid];
+      html += `<div class="prod-row"><span class="prod-name">${m.icon} ${esc(m.name)} <small style="color:#8d8570">(máš ${G.matCount(mid)})</small></span>
+        <select data-change="prod-order" data-material="${mid}">${prodOpts.map(v => `<option value="${v}" ${target === v ? 'selected' : ''}>${v === 0 ? 'vypnuto' : 'držet ' + v + '×'}</option>`).join('')}</select>
+      </div>`;
+    }
     return html;
   };
 

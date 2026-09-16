@@ -12,6 +12,8 @@
     if (G.tickOrders) G.tickOrders();
     // Rozestavěné stavby bez stavitelů zkusí získat nové
     if (G.tickConstruction) G.tickConstruction();
+    // Automatická výroba (udržovat zásobu prken, chleba, …)
+    if (G.tickProduction) G.tickProduction();
 
     if (G.tickProfessions) G.tickProfessions(INTERVAL);
     if (G.tickRestCheck) G.tickRestCheck();

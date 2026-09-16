@@ -18,7 +18,7 @@
       buildings: {}, units: [], groups: [], tasks: [],
       economy: {}, reputation: {}, settlementRep: {}, quests: {},
       caravans: [], worldEvents: [],
-      expeditions: [], masterworks: [], orders: [], construction: [],
+      expeditions: [], masterworks: [], orders: [], construction: [], productionOrders: [],
       prestige: { level: 0, totalPrestige: 0, unlocks: [], lastUnlock: null },
       base: { unlocked: false, buildings: {}, accum: {}, x: 14, y: 18, placing: false, placementOffered: false, suggested: null, moving: false },
       story: { completed: [], flags: {}, choices: {} },
@@ -86,6 +86,7 @@
     save.expeditions = save.expeditions || [];
     save.masterworks = save.masterworks || [];
     save.orders = save.orders || [];
+    save.productionOrders = save.productionOrders || [];
     save.construction = save.construction || [];
     save.construction.forEach(j => { if (j.site == null) j.site = j.kind === 'base' ? 'base' : j.settlementId; });
     // rozestavěné stavby bez odpovídajícího úkolu se mají zkusit znovu rozjet

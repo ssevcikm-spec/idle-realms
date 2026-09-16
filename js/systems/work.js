@@ -28,6 +28,7 @@
       startedAt: G.state.time, _dangerAccum:0
     };
     if (opts.buildJobId) t.buildJobId = opts.buildJobId;
+    if (opts.quiet) t.quiet = true;
     if (opts.site) { t.site = { x: opts.site.x, y: opts.site.y }; t.siteName = opts.siteName || null; }
     G.state.tasks.push(t);
     for (const uid of t.unitIds) { const u = G.getUnit(uid); if (u) { u.assignedTaskId = t.id; u.status = 'working'; } }
@@ -238,17 +239,17 @@
     G.state.stats.tasksDone++;
     const active = t.unitIds.map(id => G.getUnit(id)).filter(u => u && !u.dead);
     // Osobní momenty postav po dokončení úkolu (auto + deník, bez hráčských promptů)
-    if (G.maybeCharacterEvent && !t.buildJobId) {
+    if (G.maybeCharacterEvent && !t.buildJobId && !t.quiet) {
       const node = G.WORLD.nodes.find(n => n.id === t.nodeId);
       for (const u of active) G.maybeCharacterEvent(u, { nodeKind: node ? node.kind : null, activityId: t.activityId });
     }
-    if (G.onGroupSuccess && active.length && !t.buildJobId) G.onGroupSuccess(active, 3);
+    if (G.onGroupSuccess && active.length && !t.buildJobId && !t.quiet) G.onGroupSuccess(active, 3);
     if (t.buildJobId) {
       const built = G.finishConstruction ? G.finishConstruction(t.buildJobId) : false;
       G.state.tasks = G.state.tasks.filter(x => x.id !== t.id);
       return built;
     }
-    G.log(t.mode === 'quantity' ? `✔ ${act.name} — hotovo (${t.producedQty}×).` : `✔ ${act.name} — dokončeno.`);
+    if (!t.quiet) G.log(t.mode === 'quantity' ? `✔ ${act.name} — hotovo (${t.producedQty}×).` : `✔ ${act.name} — dokončeno.`);
     G.state.tasks = G.state.tasks.filter(x => x.id !== t.id);
   }
   G.grantOutput = grantOutput;

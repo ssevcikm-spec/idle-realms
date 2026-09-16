@@ -536,6 +536,65 @@ check('skupiny: prejmenovani', () => {
   assert(!G.renameGroup(g.id, '   ').ok, 'prazdny nazev mel byt zamitnut');
   assert(!G.renameGroup('neexistuje', 'x').ok, 'neznamou skupinu mel zamitnout');
 });
+check('escort: doprovod zamestna postavy', () => {
+  const sid = G.WORLD.settlements[0].id;
+  G.state.quests = G.state.quests || {};
+  G.state.quests[sid] = G.state.quests[sid] || [];
+  for (const t of G.state.tasks.slice()) G.cancelTask(t.id);
+  for (const u of G.state.units) {
+    if (G.wakeUnit) G.wakeUnit(u);
+    u.resting = false; u.assignedTaskId = null; u._refuseUntil = null; u.mood = Math.max(u.mood || 70, 70);
+  }
+  const q = { id:'qEsc', kind:'escort', templateId:'escort_merchant', settlementId:sid, factionId:G.SETTLEMENT_FACTION[sid], deadline:2000, expiresAt:G.state.time+2000, status:'available', acceptedAt:null, escortDays:2, reward:{gold:10, renown:1, rep:0}, text:'Test doprovod' };
+  G.state.quests[sid].push(q);
+  const res = G.acceptQuest(sid, 'qEsc');
+  assert(res.ok, 'prijeti doprovodu selhalo: ' + (res.reason || '?'));
+  assert(!!q.taskId && (q.escortUnitIds || []).length > 0, 'doprovod neobsadil postavy');
+  const t = G.state.tasks.find(x => x.id === q.taskId);
+  assert(!!t && t.activityId === 'escort', 'ukol doprovodu neexistuje nebo neni escort');
+  assert(!G.canTurnInQuest(q), 'doprovod jde odevzdat hned');
+  G.state.time += 2 * G.TIME.dayLength + 1;
+  assert(G.canTurnInQuest(q) === true, 'doprovod po uplynuti casu nejde odevzdat');
+  const tr = G.turnInQuest(sid, 'qEsc');
+  assert(tr.ok, 'odevzdani doprovodu selhalo');
+  assert(!G.state.tasks.some(x => x.id === q.taskId), 'ukol doprovodu zustal po odevzdani');
+});
+check('automaticka vyroba: udrzuje zasobu', () => {
+  G.state.productionOrders = [];
+  delete G.state.materials.plank;   // test začíná bez prken
+  G.setProductionOrder('plank', 3);
+  assert(G.productionOrder('plank') === 3, 'cil vyroby se neulozil');
+  const town = G.WORLD.settlements.find(s => s.size === 'town');
+  const u = G.state.units.find(x => !x.dead && !x.isChild && !x.onExpedition && !(x.merchantState && x.merchantState.active));
+  if (G.wakeUnit) G.wakeUnit(u);
+  u.resting = false;
+  u.pos = { x: town.x + 0.5, y: town.y + 0.5 };
+  G.matAdd('wood', 20, 'common');
+  const before = G.matCount('plank');
+  G.tickProduction();
+  assert(G.matCount('plank') > before, 'automaticka vyroba prken nezabrala');
+  G.setProductionOrder('plank', 0);
+  assert(G.productionOrder('plank') === 0, 'vypnuti vyroby se neulozilo');
+});
+check('automaticke zakazky: rezim + prijeti a odevzdani', () => {
+  G.setAutoQuestMode('deliver');
+  assert(G.autoQuestMode() === 'deliver', 'rezim se nenastavil');
+  G.setAutoQuestMode('off');
+  assert(G.autoQuestMode() === 'off', 'vypnuti se nepovedlo');
+  G.setAutoQuestMode('nonsense');
+  assert(G.autoQuestMode() === 'off', 'neznamy rezim mel byt off');
+  // dorucovaci quest, ktery jde splnit hned -> hra ho sama vezme a odevzda
+  const sid = G.WORLD.settlements[0].id;
+  G.state.quests = {};
+  G.state.quests[sid] = [];
+  G.matAdd('wood', 50, 'common');
+  const q = { id:'qAuto', kind:'deliver', templateId:'deliver_wood', settlementId:sid, factionId:G.SETTLEMENT_FACTION[sid], deadline:2000, createdAt:G.state.time, expiresAt:G.state.time+2000, status:'available', acceptedAt:null, need:[{material:'wood', qty:10}], reward:{gold:50, renown:999, rep:0}, text:'Test drevo' };
+  G.state.quests[sid].push(q);
+  G.setAutoQuestMode('deliver');
+  G.tickQuests(30);
+  assert(q.status === 'done', 'doruceni se samo neprijalo/neodevzdalo: ' + q.status);
+  G.setAutoQuestMode('off');
+});
 check('auto-pokracovani: se savem se nezastavi na menu', () => {
   G.save();
   assert(!!localStorageStub.getItem(G.SAVE_KEY), 'save se neulozil');

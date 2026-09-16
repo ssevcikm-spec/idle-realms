@@ -262,32 +262,22 @@
       }
       return '';
     }).join(' ');
-    const extraInfo = q.kind === 'kill' ? `<div class="act-sub">⚔️ Poraz ${q.killCount} (${q.killType})</div>` : q.kind === 'escort' ? `<div class="act-sub">🚶 Doprovod ${q.escortDays} dní</div>` : q.kind === 'explore' ? `<div class="act-sub">🗺️ Prozkoumej ${q.exploreCount || ''}</div>` : '';
+    const extraInfo = q.kind === 'kill' ? `<div class="act-sub">⚔️ Poraz ${q.killCount} (${q.killType})</div>` : q.kind === 'escort' ? `<div class="act-sub">🚶 Doprovod ${q.escortDays} dní — postavy vyrazí a cestou nemůžou dělat nic jiného</div>` : q.kind === 'explore' ? `<div class="act-sub">🗺️ Prozkoumej ${q.exploreCount || ''}</div>` : '';
     const r = q.reward;
     const rewardTxt = `+${r.gold} 🪙 • +${r.renown} ⭐${r.rep ? ` • +${r.rep} rep` : ''}`;
     let timeInfo;
     if (mode === 'active') {
       const left = G.questTimeLeft(q);
       const urgent = left < 120;
-      timeInfo = `<div class="quest-time ${urgent ? 'urgent' : ''}">⏱ zbývá ${formatSec(left)}</div>
+      const escortNote = (q.kind === 'escort' && q.escortUnitIds && q.escortUnitIds.length)
+        ? `<div class="act-sub" style="color:#b3a4e8">Doprovází: ${q.escortUnitIds.map(id => { const u = G.getUnit(id); return u ? G.esc(u.name.split(' ')[0]) : '?'; }).join(', ')}</div>`
+        : '';
+      timeInfo = `<div class="quest-time ${urgent ? 'urgent' : ''}">⏱ zbývá ${formatSec(left)}</div>${escortNote}
         <div class="progress"><div class="progress-bar" style="width:${Math.min(100, left/q.deadline*100).toFixed(1)}%;background:${urgent?'#c05a45':'#d8b45a'}"></div></div>`;
     } else {
       timeInfo = `<div class="quest-time">⏱ deadline ${formatSec(q.deadline)}</div>`;
     }
-    let canTurnIn = false;
-    if (mode === 'active') {
-      if (q.kind === 'deliver') {
-        canTurnIn = (q.need || []).every(n => !n.material || G.matCount(n.material) >= n.qty);
-      } else if (q.kind === 'kill') {
-        const have = ((G.state.killCounts && G.state.killCounts[q.killType]) || 0) - (q.killCountAtAccept || 0);
-        canTurnIn = have >= (q.killCount || 0);
-      } else if (q.kind === 'explore') {
-        const have = (G.state.stats.settlementsVisited || []).length - (q.visitedAtAccept || 0);
-        canTurnIn = have >= (q.exploreCount || 0);
-      } else if (q.kind === 'escort') {
-        canTurnIn = G.state.time >= (q.acceptedAt || 0) + (q.escortDays || 0) * G.TIME.dayLength;
-      }
-    }
+    const canTurnIn = mode === 'active' && (G.canTurnInQuest ? G.canTurnInQuest(q) : false);
     let action;
     if (mode === 'available') {
       const canAccept = G.activeQuestCount() < G.MAX_ACTIVE_QUESTS;

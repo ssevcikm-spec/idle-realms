@@ -140,6 +140,7 @@
     s.expeditions = s.expeditions || [];
     s.masterworks = s.masterworks || [];
     s.orders = s.orders || [];
+    s.productionOrders = s.productionOrders || [];
     s.dayTime = s.dayTime || 0;
     s.day = s.day || 0;
     s.season = s.season || 'spring';

@@ -12,7 +12,7 @@
     carpenter: { id:'carpenter', name:'Tesařská dílna', icon:'🪚',
       desc:'Výroba prken, luků a dřevěných předmětů.',
       settlements: { village:false, town:true, city:true },
-      baseRequirement: null },
+      baseRequirement: 'woodcutter_camp' },
     smithy:    { id:'smithy',    name:'Kovárna',         icon:'🔨',
       desc:'Výroba ingotů, zbraní a zbrojí.',
       settlements: { village:false, town:true, city:true },
@@ -24,11 +24,11 @@
     alchemy:   { id:'alchemy',   name:'Alchymistická laboratoř', icon:'⚗️',
       desc:'Výroba lektvarů a jedů.',
       settlements: { village:false, town:true, city:true },
-      baseRequirement: null },
+      baseRequirement: 'herb_garden' },
     kitchen:   { id:'kitchen',   name:'Kuchyně',         icon:'🍳',
       desc:'Výroba jídla.',
       settlements: { village:true, town:true, city:true },
-      baseRequirement: null }
+      baseRequirement: 'grain_field' }
   };
 
   /** Vrátí seznam dílen dostupných v daném sídle. */

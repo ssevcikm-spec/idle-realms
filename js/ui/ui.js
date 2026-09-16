@@ -675,6 +675,9 @@
         if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
         render();
       }
+    } else if (change === 'prod-order') {
+      if (G.setProductionOrder) G.setProductionOrder(ds.material, parseInt(value, 10) || 0);
+      render();
     } else if (change === 'unit-task') {
       if (value) { doUnitTask(ds.unit, value); return; }
       render();
