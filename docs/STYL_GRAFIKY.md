@@ -179,22 +179,21 @@ Styl se nastaví příkazem `--set-style` a **platí i pro bota v telefonu**.
 
 ## 7. Další krok
 
-**Stav 2026-09-16: rozhodnuto.** Uživatel zvolil **cestu C (hybrid)** — podklad
-a přechody mapy z kódu, AI jen na alfa sprity a ilustrace (§8). Stage 0 (bezešvá
-mapa + měření) je hotový; tím se i rozhodování o *stylu* zlevnilo, protože
-varianta se teď vygeneruje za sekundu a změří čísly.
+**Stav 2026-09-16: balíček VYBRÁN — „Žoldnéřská kronika" (A + D).** Uživatel
+zvolil pergamenovou mapu s inkoustem (D) a odsáté zemitě postavy (A). Paleta je
+nasazená (§17), dlaždice i sprity přegradované, mapa je čitelnější než předtím.
 
-Zbývá:
+Zbývá doladit:
 
-1. **Vybrat balíček vzhledu** — doporučení pořád platí (**1 — Žoldnéřská
-   kronika**: pergamenová mapa + Battle Brothers postavy). Volba se ale nově
-   projeví hlavně **paletou a štětci jednoho souboru**, ne přepisem pipeline.
-2. Uložit styl k projektu (`--set-style`) pro generátor ilustrací.
-3. Vygenerovat **testovací trojici** (1 dlaždice lesa, 1 postava, 1 příběhová
-   ilustrace) a porovnat vedle sebe.
-4. **Stage 1 — „foundry"** — ✅ **hotovo** (§11): světová vrstva mapy (podklad,
-   přechody terénů, dekorace), měřená a bez opakování. Zbývá doladit vzhled
-   okem a připojit k tomu malované jednotky (§11 „Otevřené").
+1. **Linky a šrafování** — na nich pergamen stojí; paleta sama čitelnost drží
+   (rozestup 40,5), ale „inkoustový" ráz dodá teprve linka.
+2. **Přegenerovat dlaždice a sprity v pergamenovém stylu** (teď jsou jen
+   barevně srovnané): `gen_props.py` / `gen_unit_base.py` s promptem v duchu
+   balíčku, pak `grade_tiles.py` + `seamless_tiles.py` a kontroly.
+3. **Ilustrace vrstvy 3** (titul, 7 příběhových scén, portréty) — pipeline
+   hotová (§14), stačí vygenerovat a napojit do hry (§14.4).
+4. **Foundry doladit okem** (debug panel **D**) a přesunout jeho kód z `art.js`
+   do `js/render/foundry.js`.
 
 ---
 
@@ -774,6 +773,41 @@ srovnání: odchylka od tónu projektu **88 → 43,5**, neon např. u koleje **9
 1,4 %**, `mimo paletu` 0,0–0,1 % u všech deseti.
 
 **Zatím nenapojeno:** vstupy do dolů a jeskyní (`mine`, `cave`) mají vlastní
-kresbu a sprite druh nemají — dodá se s dalšími sprity. Sprity jsou vygenerované
-pro **současnou** paletu; po volbě balíčku (§7) se přegenerují (stačí znovu
-pustit tři příkazy výše).
+kresbu a sprite druh nemají — dodá se s dalšími sprity. Sprity jsou **barevně
+srovnané** na zvolený balíček (§17); jejich úplné přegenerování v pergamenovém
+stylu je další krok (tři příkazy výše).
+
+---
+
+## 17. Nasazení balíčku „Žoldnéřská kronika" *(2026-09-16)*
+
+Uživatel vybral balíček A+D. Nasazení znamenalo:
+
+1. **Paleta do `G.PAL`** (`js/render/art.js`) — odvozená **kódem z náhledu**
+   (`derivePalette` bere barvy balíčku z §2), se dvěma ručními korekcemi:
+   - **sníh** se odvozením vybílil do čisté bílé (`#ffffff`) a ztratil texturu →
+     `#f2efe6`,
+   - **hora** dostala mauve nádech (šedá + teplý posun) → `#8d8177` (šedohnědá).
+   `daubs` u obou se dopočítaly tak, aby jejich průměr = základ (pravidlo §12).
+2. **Dlaždice** — obnoveny ze stavu před healem, přegradované na novou paletu
+   (`grade_tiles.py`) a znovu zacelené (`seamless_tiles.py`).
+3. **Sprity** — `assets/props/*` (10) a `assets/units/base.png` srovnané
+   `grade_art.py` jedním průchodem (síla 0,7; rákosí 1,0 — při 0,7 mu zůstalo
+   14 % neonu).
+
+**Naměřeno po nasazení:**
+
+| | před | po |
+|---|---|---|
+| rozestup terénů v paletě | 33,1 | **40,5** |
+| rozestup terénů v assetech (`check-tiles`) | 31,8 | **39,7** |
+| wrap dlaždic / seam-zrno | 1,87 / 0,78 | 1,85 / 0,78 (beze změny) |
+| sprity: nádech palety | 0,61–0,83 | **0,85–0,96** |
+
+Kontroly po nasazení: check-globals 0 problémů, check-actions OK, 8 testovacích
+sad zelených, `check-tiles` OK, `check-art --mode props` OK (10 + 1 sprit).
+
+**Co tím ještě není hotové:** „kronika" stojí na **lince a šrafování** — paleta
+drží čitelnost, ale inkoustový ráz dodá teprve kresba linek (další krok, §7).
+Dlaždice a sprity jsou zatím jen *barevně* srovnané, ne přegenerované
+v pergamenovém motivu.

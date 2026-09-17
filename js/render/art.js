@@ -3,24 +3,32 @@
   // JEDINÝ ZDROJ BAREV TERÉNŮ. Odsud je bere kresba dlaždic, foundry, a
   // `scripts/tile_palette.py` z toho stejné hodnoty čte pro barevné srovnání
   // malovaných (AI) dlaždic — aby obě cesty hrály stejnou paletou.
-  // Rozestupy: nejbližší dvojice (grass vs swamp) je 33,1 (L2 v RGB), dřív
-  // bylo 8,3 (hills vs dirt se na 46 px nedaly rozeznat). Při změně barvy
-  // spusť `python scripts/check-tiles.py` — hlídá odchylku assetů od palety.
+  //
+  // PALETA = zvolený balíček „Žoldnéřská kronika" (A+D: pergamen a inkoust +
+  // odsáté zemitě barvy). Odvozená kódem z náhledu (`tools/tiles/preview.html`
+  // → derivePalette, který barvy balíčku bere z docs/STYL_GRAFIKY.md §2), se
+  // dvěma ručními korekcemi: sníh se vybílil do čisté bílé (ztratil by
+  // texturu) a hora dostala mauve nádech místo šedohnědé.
+  // Rozestupy: nejbližší dvojice (grass vs swamp) je 40,5 (L2 v RGB) — lepší
+  // než původních 33,1 a mnohem lepší než 8,3 (hills vs dirt se slévaly).
+  // Při změně barvy spusť `python scripts/check-tiles.py` — hlídá odchylku
+  // assetů od palety.
+  //
   // `daubs` (barvy štětců) jsou VYCENTROVANÉ na `base`: jejich průměr se rovná
   // základu, takže štětce nemění barvu terénu, jen ho texturují. Bez toho byla
   // krajina v průměru o ~8 tmavší než paleta a rozestup terénů padal z 33 na
   // 25 (naměřeno `G.foundryTerrainColor`, hlídá `test/foundry.js`).
   G.PAL = {
-    grass:       { base:'#5e7042', dark:'#47572f', light:'#7a8d55', daubs:['#637648','#526437','#6d804d','#4a5b32','#687b4e'] },
-    forest:      { base:'#304828', dark:'#1a2f18', light:'#466036', daubs:['#36502b','#294124','#3f5934','#22381e'] },
-    deep_forest: { base:'#1e281a', dark:'#0c130c', light:'#303d25', daubs:['#202a1b','#182115','#2c3825','#141d13'] },
-    hills:       { base:'#86794e', dark:'#6a5f38', light:'#9f9160', daubs:['#8d8053','#7f7349','#9b8d5e','#71663f'] },
-    mountain:    { base:'#686870', dark:'#484952', light:'#8a878b', daubs:['#6e6d75','#5f5f68','#7e7d84','#565660'] },
-    water:       { base:'#305474', dark:'#1d3d5a', light:'#4a7396', daubs:['#335877','#2a4d6b','#3f668c','#254663'] },
-    swamp:       { base:'#4c5834', dark:'#354120', light:'#616f47', daubs:['#525d39','#475430','#5d6b42','#394524'] },
-    snow:        { base:'#ced5dc', dark:'#aab3bd', light:'#eff4f9', daubs:['#d3d9df','#c6cdd5','#e3e8ed','#bdc5ce'] },
-    road:        { base:'#a69c84', dark:'#88816e', light:'#c2b79a', daubs:['#ada288','#a0967e','#bcb194','#8f8777'] },
-    dirt:        { base:'#6d523a', dark:'#523927', light:'#896c4e', daubs:['#73573e','#674c35','#816448','#5a402e'] }
+    grass:       { base:'#82803f', dark:'#666128', light:'#a5a455', daubs:['#898846','#747131','#96944b','#6a662b','#8f8e4d'] },
+    forest:      { base:'#484e21', dark:'#2d2f0e', light:'#636c31', daubs:['#4f5824','#3f451c','#5b632f','#373915'] },
+    deep_forest: { base:'#332611', dark:'#1d0c01', light:'#49401e', daubs:['#362912','#2c1d0b','#443a1e','#271808'] },
+    hills:       { base:'#b78a4e', dark:'#946a33', light:'#d6a863', daubs:['#c09254','#ae8248','#d1a262','#9d723c'] },
+    mountain:    { base:'#8d8177', dark:'#685e55', light:'#b5a99c', daubs:['#8b7f77','#897e76','#918378','#8c8077','#928479'] },
+    water:       { base:'#465d88', dark:'#2f4067', light:'#6684b3', daubs:['#4a628b','#3f547c','#5873a6','#394c72'] },
+    swamp:       { base:'#6c622f', dark:'#504516', light:'#867f46', daubs:['#746836','#665d2b','#817a41','#554a1c'] },
+    snow:        { base:'#f2efe6', dark:'#d9d2c2', light:'#fffdf6', daubs:['#f0ede6','#eeece5','#f6f1e7','#f1eee6','#f7f2e8'] },
+    road:        { base:'#deb693', dark:'#b99479', light:'#ffd7ae', daubs:['#e7bd98','#d7ae8c','#fad0a6','#c29c84'] },
+    dirt:        { base:'#9a5937', dark:'#783a20', light:'#bd7a4f', daubs:['#a15f3c','#925231','#b37048','#824329'] }
   };
   G.PAL_BUILDING = {
     village: { wall:'#8a7a5e', wallDark:'#6a5d47', roof:'#7a3f32', roofDark:'#5b2d24' },
