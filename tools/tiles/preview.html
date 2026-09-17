@@ -98,6 +98,20 @@
 </p>
 <div class="grid" id="figures"></div>
 
+<h2>Balíčky vzhledu — jak by mapa vypadala</h2>
+<p class="note">
+  Rozhodovací pomůcka k <code>docs/STYL_GRAFIKY.md</code> §2 a §7: barvy
+  jednotlivých balíčků (vypsané v dokumentu) se přenesou na paletu terénů a
+  vykreslí se <b>skutečným foundry</b>. Je vidět dvě věci: jak by krajina
+  vypadala a hlavně <b>jestli zůstanou terény rozlišitelné</b> (číslo
+  <i>rozestup</i> pod panelem — musí být ≥ 26, jinak se na 46 px slévají).
+  Je to orientační: hotová grafika by měla i jiné linky a textury, ale paleta
+  a čitelnost se podle toho rozhodnout dají. Vybraný balíček se pak zapíše do
+  <code>G.PAL</code> a zbytek pipeline (dlaždice, foundry, ilustrace) ho bere
+  automaticky.
+</p>
+<div class="grid" id="packages"></div>
+
 <h2>Kontaktní list terénů</h2>
 <div class="list" id="sheet"></div>
 
@@ -322,6 +336,199 @@
     }
   }
 
+  // ---------- balíčky vzhledu (docs/STYL_GRAFIKY.md §2) ----------
+  // Barvy jsou opsané z dokumentu. Všechno ostatní (průměr, sytost, rozestup,
+  // rozsah jasu) se z nich POČÍTÁ — dřív jsem si `sat`/`contrast` vymyslel
+  // a model tím lhal: pergamen pak terény slil, protože jsem ho zbytečně
+  // odbarvoval a zplošťoval.
+  const STYLE_PACKAGES = [
+    { id:'current', name:'současná', note:'co je ve hře teď (žádný balíček)' },
+    { id:'kronika', name:'Žoldnéřská kronika (A+D)', warm:4, posterize:0,
+      note:'pergamen a inkoust (D) + odsáté zemitě barvy (A)',
+      colors:['#efe3c8','#d9c7a1','#8a6f45','#4a3a24','#7a2f26','#3e5641','#5b6f7d'] },
+    { id:'akvarel', name:'Akvarel (B)', warm:0, posterize:0,
+      note:'světlá a vzdušná — dokument ji pro MAPU nedoporučuje, ať je vidět proč',
+      colors:['#f2ece0','#8fa9b8','#9db08a','#d9b98a','#b8836a','#6b6a58'] },
+    { id:'pixel', name:'Pixel art (C)', warm:0, posterize:24,
+      note:'sytější, posterizace (24 barev na kanál)',
+      colors:['#2b2033','#4a3b52','#6d7f4e','#8fae5e','#c2a05a','#b0603f','#4a7f8c','#e8e0c8'] },
+    { id:'deskovka', name:'Dřevěná deskovka (E)', warm:8, posterize:0,
+      note:'teplé dřevo a ploché barvy',
+      colors:['#2e2721','#8a6a44','#b58c58','#6d4b2f','#a8503f','#3f6d8a','#6d8a4a','#c2a05a'] }
+  ];
+
+  function hexToRgb(h) {
+    return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  }
+  function rgbToHex(c) {
+    return '#' + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+  }
+  function lumaOf(c) { return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+  function satOf(c) {
+    const mx = Math.max(c[0], c[1], c[2]), mn = Math.min(c[0], c[1], c[2]);
+    return mx > 0 ? (mx - mn) / mx : 0;
+  }
+  function meanOf(list) { return [0, 1, 2].map(i => list.reduce((s, c) => s + c[i], 0) / list.length); }
+  /** Průměr čísel (pozor: `meanOf` je pro trojice barev, tenhle pro skaláry). */
+  function avg(list) { return list.reduce((s, v) => s + v, 0) / Math.max(1, list.length); }
+  function distOf(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]); }
+  function curBases() { return TERRAINS.map(t => hexToRgb(G.PAL[t].base)); }
+
+  /** Parametry balíčku odvozené z jeho barev — nic vymyšleného. */
+  function packageParams(pkg) {
+    const cur = curBases();
+    if (!pkg.colors) {
+      return { mean: meanOf(cur), sat: 1, contrast: 1, lum: [0, 1], warm: 0, posterize: 0 };
+    }
+    const cols = pkg.colors.map(hexToRgb);
+    const mean = meanOf(cols);
+    const lum = cols.map(lumaOf);
+    const curMean = meanOf(cur);
+    return {
+      mean: mean,
+      // kolik sytosti a rozestupu má balíček proti současné paletě
+      sat: avg(cols.map(satOf)) / Math.max(0.01, avg(cur.map(satOf))),
+      contrast: avg(cols.map(c => distOf(c, mean))) /
+                Math.max(0.01, avg(cur.map(c => distOf(c, curMean)))),
+      lum: [Math.min.apply(null, lum) / 255, Math.max.apply(null, lum) / 255],
+      warm: pkg.warm || 0,
+      posterize: pkg.posterize || 0
+    };
+  }
+
+  /** Přeloží barvu do balíčku (re-anchor na jeho průměr + sytost + teplota + jas). */
+  function mapColor(hex, p, base0) {
+    const src = hexToRgb(hex);
+    let out = [0, 1, 2].map(i => p.mean[i] + (src[i] - base0[i]) * p.contrast);
+    const l = lumaOf(out);
+    out = out.map(v => l + (v - l) * p.sat);
+    out[0] += p.warm; out[2] -= p.warm;
+    // Jas: posun k průměrnému jasu balíčku + JEN mírné zploštění. Mapovat terény
+    // do úzkého rozsahu balíčku (akvarel je celý světlý) je slilo do jedné barvy.
+    const mid = ((p.lum[0] + p.lum[1]) / 2) * 255;
+    const k = 0.78 + 0.22 * (p.lum[1] - p.lum[0]);
+    out = out.map(v => v * k + mid * (1 - k));
+    if (p.posterize) out = out.map(v => Math.round(v / p.posterize) * p.posterize);
+    return rgbToHex(out);
+  }
+
+  /**
+   * Odvozená paleta balíčku. `daubs` se znovu VYCENTRUJÍ na základ (pravidlo
+   * z §12: průměr štětců = základ, jinak krajina ztmavne a terény se slijí).
+   */
+  function mapPalette(pkg, p) {
+    const base0 = meanOf(curBases());
+    const pal = {};
+    for (const t of TERRAINS) {
+      const e = G.PAL[t];
+      const base = mapColor(e.base, p, base0);
+      const daubs = (e.daubs || []).map(d => hexToRgb(mapColor(d, p, base0)));
+      const mean = [0, 1, 2].map(i => daubs.reduce((s, c) => s + c[i], 0) / (daubs.length || 1));
+      const b = hexToRgb(base);
+      pal[t] = {
+        base: base,
+        dark: mapColor(e.dark, p, base0),
+        light: mapColor(e.light, p, base0),
+        daubs: daubs.map(c => rgbToHex([0, 1, 2].map(i => c[i] + (b[i] - mean[i]))))
+      };
+    }
+    return pal;
+  }
+
+  function scalePalette(pal, center, k) {
+    const out = {};
+    const sc = (hex) => rgbToHex(hexToRgb(hex).map((v, i) => center[i] + (v - center[i]) * k));
+    for (const t of TERRAINS) {
+      const e = pal[t];
+      out[t] = { base: sc(e.base), dark: sc(e.dark), light: sc(e.light), daubs: e.daubs.map(sc) };
+    }
+    // štětce znovu vycentrovat na (nový) základ
+    for (const t of TERRAINS) {
+      const b = hexToRgb(out[t].base);
+      const ds = out[t].daubs.map(hexToRgb);
+      const m = [0, 1, 2].map(i => ds.reduce((s, c) => s + c[i], 0) / ds.length);
+      out[t].daubs = ds.map(c => rgbToHex([0, 1, 2].map(i => c[i] + (b[i] - m[i]))));
+    }
+    return out;
+  }
+
+  /**
+   * Roztáhne paletu od průměru balíčku tak, aby terény zůstaly čitelné.
+   * Model je záměrně poctivý: nejdřív se ukáže, co udělá pouhé přenesení barev
+   * (`mapPalette`) — u pergamenu a akvarelu tím terény splynou, protože ty
+   * balíčky stojí na LINKÁCH a šrafování, ne na barvě. Teprve pak se rozdíly
+   * roztáhnou, aby se s nimi dalo vůbec pracovat.
+   */
+  function derivePalette(pkg, target) {
+    const p = packageParams(pkg);
+    if (!pkg.colors) return { pal: G.PAL, rawDist: minDistanceOf(G.PAL).d, k: 1, params: p };
+    const raw = mapPalette(pkg, p);
+    const rawDist = minDistanceOf(raw).d;
+    const want = target || 30;
+    let pal = raw, k = 1;
+    for (let i = 0; i < 4; i++) {
+      const md = minDistanceOf(pal).d;
+      if (md >= want - 0.5 || md <= 0.5) break;
+      k = Math.min(3.0, k * Math.min(1.8, want / md));
+      pal = scalePalette(raw, p.mean, k);
+    }
+    return { pal: pal, rawDist: rawDist, k: k, params: p };
+  }
+
+  /** Nejbližší dvojice základních barev dané palety (čitelnost). */
+  function minDistanceOf(pal) {
+    let best = { d: 1e9, a: '', b: '' };
+    for (let i = 0; i < TERRAINS.length; i++) {
+      for (let j = i + 1; j < TERRAINS.length; j++) {
+        const A = hexToRgb(pal[TERRAINS[i]].base), B = hexToRgb(pal[TERRAINS[j]].base);
+        const d = Math.sqrt((A[0]-B[0])**2 + (A[1]-B[1])**2 + (A[2]-B[2])**2);
+        if (d < best.d) best = { d: d, a: TERRAINS[i], b: TERRAINS[j] };
+      }
+    }
+    return best;
+  }
+
+  /** Vykreslí balíčky: demo krajina skutečným foundry + pruh palety + rozestup. */
+  function renderPackages() {
+    const box = document.getElementById('packages');
+    if (!box) return;
+    box.innerHTML = '';
+    window.__preview = { packages: STYLE_PACKAGES, derivePalette: derivePalette,
+                         minDistance: minDistanceOf, palettes: {}, rawDistances: {}, fitK: {} };
+    for (const pkg of STYLE_PACKAGES) {
+      const d = derivePalette(pkg, 30);
+      window.__preview.palettes[pkg.id] = d.pal;
+      window.__preview.rawDistances[pkg.id] = d.rawDist;
+      window.__preview.fitK[pkg.id] = d.k;
+      const md = minDistanceOf(d.pal);
+      const fig = document.createElement('figure');
+      const c = document.createElement('canvas');
+      const saved = G.PAL;
+      G.PAL = d.pal;                     // foundry kreslí odvozenou paletou
+      try { drawFoundry(c, 44, 16, 10, 8, 12); }
+      finally { G.PAL = saved; }
+      fig.appendChild(c);
+      const strip = document.createElement('div');
+      strip.style.cssText = 'display:flex;width:' + c.width + 'px;height:12px;margin-top:3px';
+      for (const t of TERRAINS) {
+        const sw = document.createElement('div');
+        sw.style.cssText = 'flex:1;background:' + d.pal[t].base;
+        strip.appendChild(sw);
+      }
+      fig.appendChild(strip);
+      const cap = document.createElement('figcaption');
+      const fit = (pkg.mean && d.rawDist < 29)
+        ? '<br>syrové barvy balíčku: rozestup <b class="bad">' + d.rawDist.toFixed(1) +
+          '</b> → roztaženo ×' + d.k.toFixed(1) + ' na <b class="good">' + md.d.toFixed(1) + '</b>'
+        : '<br>rozestup terénů <b class="' + (md.d >= 26 ? 'good' : 'bad') + '">' +
+          md.d.toFixed(1) + '</b>';
+      cap.innerHTML = '<b>' + pkg.name + '</b><br>' + pkg.note + fit +
+        '<br><span style="opacity:.7">' + md.a + ' / ' + md.b + ', limit 26</span>';
+      fig.appendChild(cap);
+      box.appendChild(fig);
+    }
+  }
+
   /** Vykreslí paletu: základní barva + tmavá/světlá/daubs (vše z G.PAL). */
   function renderPalette() {
     const box = document.getElementById('palette');
@@ -450,6 +657,7 @@
     renderFoundry();
     renderPalette();
     renderFigures();
+    renderPackages();
   }
 
   // ---------- měření (stejná matematika jako scripts/check-tiles.py) ----------
@@ -592,6 +800,19 @@
     if (fd) {
       log('foundry barvy:   nejbližší dvojice ' + fd.a + ' vs ' + fd.b + ' = ' +
           fd.d.toFixed(1) + '  (má se držet palety — štětce jen texturují)');
+    }
+    if (window.__preview) {
+      log('');
+      log('balíčky vzhledu — rozestup terénů (limit 26):');
+      for (const pkg of window.__preview.packages) {
+        const md = window.__preview.minDistance(window.__preview.palettes[pkg.id]);
+        const raw = window.__preview.rawDistances[pkg.id];
+        const k = window.__preview.fitK[pkg.id];
+        log('  ' + pkg.name.padEnd(26) + ' syrové ' + raw.toFixed(1).padStart(5) +
+            '  ->  po roztažení ' + md.d.toFixed(1).padStart(5) +
+            (k > 1.01 ? '  (x' + k.toFixed(1) + ')' : '') +
+            '   ' + (md.d >= 26 ? 'čitelná' : 'SLÉVÁ SE'));
+      }
     }
     } catch (e) {
       log('foundry: CHYBA ' + e.message);

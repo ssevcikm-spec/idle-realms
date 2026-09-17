@@ -671,3 +671,37 @@ projektu) **36–102 -> 26–48**, kontrast zůstal.
   a prohnat `grade_art.py` + `check-art.py`.
 - **Napojení do hry** — kde přesně se titul a scény vykreslí (a jak vypadá
   fallback, když obrázek chybí), se má dodělat spolu s prvními ilustracemi.
+
+---
+
+## 15. Srovnání balíčků vzhledu *(rozhodovací pomůcka, 2026-09-16)*
+
+Volba balíčku (§7) blokovala zbytek práce (sprity, ilustrace), takže je v náhledu
+sekce **Balíčky vzhledu**: pro každý balíček se z barev vypsaných v §2 odvodí
+paleta terénů a vykreslí se **skutečným foundry**, takže je vidět, jak by krajina
+vypadala — a hlavně **jestli zůstanou terény rozlišitelné**.
+
+Odvození je záměrně bez vymyšlených parametrů: z barev balíčku se spočítá jeho
+průměr, sytost, rozestup a rozsah jasu, a teprve podle nich se současná paleta
+přeloží (re-anchor na průměr + sytost + teplota + posun k průměrnému jasu).
+Sekce ukazuje i **syrový** výsledek (pouhé přenesení barev) — u balíčků, které
+stojí na linkách a šrafování, terény splynou, a to je informace, ne chyba.
+
+Naměřeno (rozestup terénů L2, limit 26):
+
+| balíček | syrové přenesení | po roztažení | poznámka |
+|---|---|---|---|
+| současná paleta | 33,1 | — | reference |
+| **Žoldnéřská kronika (A+D)** | **40,5** | — | doporučený balíček; jeho vlastní barvy mají **větší** rozestup než současná paleta, takže čitelnost netrpí |
+| Akvarel (B) | 21,8 | 30,1 (×1,4) | potřebuje roztažení — dokument ji pro mapu nedoporučuje a čísla to potvrzují |
+| Pixel art (C) | 24,0 | 30,0 (×1,3) | posterizace separaci mírně ukusuje |
+| Dřevěná deskovka (E) | 23,9 | 30,0 (×1,3) | teplé dřevo terény sbližuje |
+
+**Co z toho plyne:** doporučení ze §7 (kronika) drží i měřitelně. Dvě věci, které
+náhled neukáže a je potřeba dodělat po volbě: **linky a šrafování** (na nich
+stojí pergamen i dřevořez) a **textury dlaždic** (`scripts/grade_tiles.py` +
+`seamless_tiles.py` na novou paletu).
+
+Test (`node test/tiles-preview.js`) hlídá, že každý balíček má platnou paletu a po
+roztažení rozestup **≥ 26** — kdyby někdo paletu balíčku upravil do nečitelna,
+spadne to.

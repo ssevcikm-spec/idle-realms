@@ -134,10 +134,38 @@ check('postavily se vsechny panely', () => {
 check('spocitala se diagnostika', () => {
   const diag = byId['diag'] ? byId['diag'].textContent : '';
   assert(diag && diag.length > 200, 'diagnostika je prazdna');
-  for (const must of ['navazování assetu', 'seam', 'perioda', 'kontrast', 'foundry']) {
+  for (const must of ['navazování assetu', 'seam', 'perioda', 'kontrast', 'foundry', 'balíčky']) {
     assert(diag.indexOf(must) >= 0, 'v diagnostice chybi "' + must + '"');
   }
   assert(diag.indexOf('NaN') < 0, 'diagnostika obsahuje NaN');
+});
+
+check('balicky vzhledu maji platnou a citelnou paletu', () => {
+  const pv = global.window.__preview;
+  assert(pv && pv.packages && pv.packages.length >= 4, 'chybí definice balíčků');
+  const boxes = byId['packages'] ? byId['packages'].children.length : 0;
+  assert(boxes === pv.packages.length,
+    'panelu balíčků: ' + boxes + ' (ceka se ' + pv.packages.length + ')');
+  const ter = ['grass','forest','deep_forest','hills','mountain','water','swamp','snow','road','dirt'];
+  const hex = /^#[0-9a-f]{6}$/;
+  const info = [];
+  for (const pkg of pv.packages) {
+    const pal = pv.palettes[pkg.id];
+    assert(pal, 'balíček ' + pkg.id + ' nemá paletu');
+    for (const t of ter) {
+      const e = pal[t];
+      assert(e && hex.test(e.base) && hex.test(e.dark) && hex.test(e.light),
+        'balíček ' + pkg.id + '/' + t + ' nemá platné barvy: ' + JSON.stringify(e));
+      assert(e.daubs && e.daubs.length >= 3, 'balíček ' + pkg.id + '/' + t + ' nemá štětce');
+      for (const d of e.daubs) assert(hex.test(d), 'neplatná barva štětce: ' + d);
+    }
+    const md = pv.minDistance(pal);
+    // po roztažení musí být každý balíček čitelný (limit 26)
+    assert(md.d >= 26, 'balíček ' + pkg.id + ' není čitelný: rozestup ' + md.d.toFixed(1));
+    info.push(pkg.id + ' ' + pv.rawDistances[pkg.id].toFixed(1) + '->' + md.d.toFixed(1) +
+      (pv.fitK[pkg.id] > 1.01 ? ' (x' + pv.fitK[pkg.id].toFixed(1) + ')' : ''));
+  }
+  console.log('       (syrové -> roztažené: ' + info.join(', ') + ')');
 });
 
 console.log('');

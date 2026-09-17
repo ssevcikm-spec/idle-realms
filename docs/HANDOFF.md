@@ -369,7 +369,7 @@ python scripts/check-art.py                                              # asset
 | `docs/PRIBEHOVE_POPUPY.md` | příběhové popupy (efekty, trvalé vlajky, přepínač) | aktuální |
 | `docs/UKOLY_A_VYROBA.md` | zakázky, escort, automatika, výroba, dílny na základně | aktuální |
 | `docs/BOJ.md` | boj (automatický, kill questy, explore) | aktuální |
-| `docs/STYL_GRAFIKY.md` | **rozhodnutí cesty C (hybrid)**; §8 dlaždice (bezešvá mapa), §9 lokální ComfyUI, §10 malované postavy, §11 foundry, §12 jedna paleta, §13 sjednocený model postavy, §14 vrstva 3 (ilustrace) | aktuální (2026-09-16) |
+| `docs/STYL_GRAFIKY.md` | **rozhodnutí cesty C (hybrid)**; §8 dlaždice (bezešvá mapa), §9 lokální ComfyUI, §10 malované postavy, §11 foundry, §12 jedna paleta, §13 sjednocený model postavy, §14 vrstva 3 (ilustrace), §15 srovnání balíčků | aktuální (2026-09-16) |
 
 ---
 
@@ -390,8 +390,11 @@ python scripts/check-art.py                                              # asset
    (`G.PAL` + `scripts/tile_palette.py`), rozestup terénů 8,3 → **33,1**,
    assety přegradované, `settings.units` odděluje vzhled postav od mapy.
 3. **Volba vzhledu** — doporučení platí (**1 — Žoldnéřská kronika**: pergamenová
-   mapa + Battle Brothers postavy). Projeví se hlavně paletou a štětci, ne
-   přepisem pipeline. Volitelně i volba „kód: varianty náhodně vs. zrcadlení
+   mapa + Battle Brothers postavy) a je teď i **měřitelné**: náhled má sekci
+   „Balíčky vzhledu", která vykreslí krajinu v paletě každého balíčku a vypíše
+   rozestup terénů (§15). Kronika 40,5, akvarel 21,8, pixel 24,0, deskovka 23,9
+   (limit 26) — doporučení tedy drží. Volba se projeví hlavně paletou a štětci,
+   ne přepisem pipeline. Volitelně i volba „kód: varianty náhodně vs. zrcadlení
    podle parity" — čísla i vzhled jsou v `tools/tiles/preview.html`.
 4. **Sjednocení postav (koncept od uživatele).**
    - **Kreslený vzhled — ✅ hotové** (§13): `G.figurePlan`, jeden základní model,
