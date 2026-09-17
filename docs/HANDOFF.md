@@ -47,6 +47,8 @@ python scripts/tile_sharpness.py assets/tiles                            # bez "
 python scripts/tile_sharpness.py assets/tiles --ref <graded-raw>         # smerodatne cislo
 python scripts/compare_tiles.py --old assets/tiles --new <kandidati>      # srovnani okem (moziky 4x4)
 python scripts/tile_flatness.py <kandidati>                              # neni to omylem obrazek sceny?
+#   kdyz scena je, odeber kompozici (poradi: flatten -> grade -> heal):
+python scripts/flatten_tiles.py <kandidati>/raw <kandidati>/flat --radius 48
 # vrstva 3 (ilustrace) — pipeline si ověří sama sebe:
 python scripts/check-art.py --selftest                                   # "selftest OK"
 python scripts/check-art.py                                              # assets/art (zatím prázdné = OK)
@@ -227,6 +229,14 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
     co bylo zrovna ve středu. Směrodatné je srovnat pás se **stejným místem
     v raw dlaždici** (posunuté o polovinu), mediánem pásu (ve středu raw dlaždice
     je jednopixelový schod, ten by průměr vychýlil).
+32. **Kompozice v dlaždici je nízká frekvence — dá se odečíst.** Generátor obrázků
+    občas místo ploché textury vyrobí scénu (horizont, obloha, ústřední motiv).
+    **Promptem se to řídit nedá**: přepsání stylu na „no horizon, no sky, no
+    central object" výsledek nezměnilo (13/20 scén → **14/20**). Co pomůže, je
+    `scripts/flatten_tiles.py` (odečte silně rozmazanou kopii): 13/20 → **0/20**
+    a sada zůstane v paletě (odchylka 1,14). Cena: klesne kontrast v 46 px
+    (5,8–6,6, limit 5,0) — velké plochy pak musí nést foundry ve světových
+    souřadnicích. Hlídej `tile_flatness.py` (limity kalibrované na přijaté sadě).
 
 ---
 

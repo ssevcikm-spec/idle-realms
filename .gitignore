@@ -43,6 +43,7 @@ assets/props_kronika/
 
 # === Kandidáti dlaždic v jiném motivu (srovnává se okem, nasadí se po výběru) ===
 assets/tiles_kronika/
+assets/tiles_kronika_tex/
 
 # === Python cache (skripty v scripts/ si dělají __pycache__) ===
 __pycache__/
