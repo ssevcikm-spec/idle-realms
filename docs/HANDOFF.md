@@ -38,6 +38,7 @@ node test/foundry.js                                                     # svět
 node test/foundry-game.js                                                # foundry v běžící hře
 node test/figures.js                                                     # postavy: jeden model + erb role
 node test/props.js                                                       # krajinné prvky jako alfa sprity
+node test/units-ai.js                                                    # malované postavy: jeden základní model
 # dlaždice (potřebuje python s pillow+numpy — viz past č. 13):
 python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSLEDEK: OK"
 # vrstva 3 (ilustrace) — pipeline si ověří sama sebe:
@@ -203,8 +204,8 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
 - 59 JS souborů, **704** definovaných/used globálů `G.*` (check-globals čisté;
   část přírůstku je z paralelní práce na výbavě postav).
 - Testy: headless-smoke **77** + tile-window **10** + tiles-preview **5** +
-  foundry **19** + foundry-game **13** + figures **12** + props **11** kontrol,
-  deterministicky.
+  foundry **19** + foundry-game **13** + figures **12** + props **11** +
+  units-ai **5** kontrol, deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
 - Dlaždice: assety jsou **torusy** (`wrap` 1,87), kreslí se jako **okno do
   textury** ve světových souřadnicích — `seam/zrno` 0,78, perioda 6 dlaždic.
@@ -245,7 +246,10 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
   plán `G.figurePlan`): jeden základní model pro všechny, **erb role kreslený
   v kódu** (6 rolí = 6 heraldik) a zbroj jako tón + odznak, **bez zbraně**.
   Erb se kreslí i přes malované sprity, aby role zůstala čitelná v obou
-  vzhledech. Detail a naměřené hodnoty: `docs/STYL_GRAFIKY.md` §13.
+  vzhledech. **Malované postavy mají základní sprite** `assets/units/base.png`
+  (bez zbraně) a `units_ai.js` ho preferuje pro všechny profese; staré archetypy
+  zůstávají jako záloha. Generuje ho `scripts/gen_unit_base.py`.
+  Detail: `docs/STYL_GRAFIKY.md` §13.
 
 ### Klíčové soubory
 | Oblast | Soubor |
@@ -412,11 +416,10 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
      erb role kreslený v kódu, zbroj jako tón + odznak, bez zbraně; erb se kreslí
      i přes malované sprity; přepínač `settings.figureStyle`, testy
      `test/figures.js`.
-   - **Zbývá: regenerovat sadu malovaných spritů** — dnes 6 archetypů, každý
-     **se zbraní**. Nový koncept chce **jeden základní sprite bez zbraně**
-     (`scripts/gen_units_local.py` + `process_units.py`), pak se přes něj kreslí
-     erb (už hotové) a zbroj řeší tón. Potřebuje volbu vzhledu (§6 bod 3)
-     a běžící ComfyUI.
+   - **Malované postavy — ✅ hotové** (§13.3): `assets/units/base.png` (jeden
+     základní model bez zbraně, `scripts/gen_unit_base.py`) se používá pro
+     všechny profese, staré archetypy jsou záloha (`test/units-ai.js`).
+     **Zbývá**: přegenerovat základní sprite po volbě balíčku (§6 bod 3).
 5. **Vrstva 3 (ilustrace)** — ✅ **pipeline hotová** (§14): `scripts/grade_art.py`
    srovná vygenerovaný obrázek do palety, `scripts/check-art.py` ho změří
    (a `--selftest` ověří sám sebe). **Zbývá vygenerovat samotné ilustrace**

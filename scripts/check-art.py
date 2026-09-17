@@ -156,6 +156,8 @@ def main():
     if os.path.isdir(args.dir):
         files = sorted(f for f in glob.glob(os.path.join(args.dir, '*.*'))
                        if f.lower().endswith(EXTS))
+    elif os.path.isfile(args.dir) and args.dir.lower().endswith(EXTS):
+        files = [args.dir]      # kontrola jednoho souboru
     if not files:
         # prázdný adresář není chyba: ilustrace se přidají, až se vybere vzhled
         print('zadne ilustrace v', args.dir, '- kontrola nema co merit (OK)')

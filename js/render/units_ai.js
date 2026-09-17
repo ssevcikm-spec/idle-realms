@@ -17,6 +17,9 @@
   const G = window.Game;
 
   const ARCHETYPES = ['mercenary','villager','blacksmith','hunter','scout','merchant'];
+  // `base` = jeden základní model (nový koncept); archetypy zůstávají jako
+  // záložní sada, kdyby base.png chyběl.
+  const UNIT_FILES = ['base'].concat(ARCHETYPES);
   const SRC = 'assets/units/';
 
   G.AI_UNITS = { ready:false, loading:false, sprites:{}, loaded:0, failed:0 };
@@ -56,10 +59,16 @@
   /**
    * Sprite pro postavu (Image), nebo null když není načtený NEBO je vypnutý
    * kreslený vzhled — volající pak kreslí `G.drawFigure`.
+   *
+   * Preferuje se **jeden základní model** (`assets/units/base.png`, bez zbraně),
+   * protože roli nese erb kreslený v kódu (`G.drawFigureHeraldry`) a postava je
+   * na mapě vysoká ~26 px — šest archetypů se zbraněmi se v tom měřítku stejně
+   * nerozezná. Když `base.png` chybí, padá se zpět na staré archetypy.
    */
   G.aiUnitSprite = function (u) {
     if (G.unitStyle() !== 'ai') return null;
-    return G.AI_UNITS.sprites[G.aiUnitArchetype(u)] || null;
+    const S = G.AI_UNITS.sprites;
+    return S.base || S[G.aiUnitArchetype(u)] || null;
   };
 
   /** Načte sprity postav (jednorázově). */
@@ -70,7 +79,7 @@
     A.loading = true;
     A.tried = true;
     let finished = 0;
-    for (const a of ARCHETYPES) {
+    for (const a of UNIT_FILES) {
       const img = new Image();
       img.onload = () => { A.sprites[a] = img; A.loaded++; step(); };
       img.onerror = () => { A.failed++; step(); };
@@ -78,7 +87,7 @@
     }
     function step() {
       finished++;
-      if (finished < ARCHETYPES.length) return;
+      if (finished < UNIT_FILES.length) return;
       A.ready = A.loaded > 0;
       A.loading = false;
       if (G.drawWorldFrame) G.drawWorldFrame();

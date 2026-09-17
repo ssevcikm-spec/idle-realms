@@ -110,9 +110,11 @@ def score(sprite, size):
                                               'odstred': round(float(off), 2)}
 
 
-def fetch(prompt, seed, tries=3):
+def fetch(prompt, seed, tries=3, w=512, h=512):
+    """Stáhne jeden obrázek z Pollinations. `w`/`h` mění poměr stran (postava
+    potřebuje na výšku orientované plátno, jinak model vyrobí širokou scénu)."""
     url = ('https://image.pollinations.ai/prompt/' + urllib.parse.quote(prompt) +
-           '?width=512&height=512&nologo=true&model=flux&seed=%d' % seed)
+           '?width=%d&height=%d&nologo=true&model=flux&seed=%d' % (w, h, seed))
     for t in range(tries):
         try:
             with urllib.request.urlopen(url, timeout=120) as r:

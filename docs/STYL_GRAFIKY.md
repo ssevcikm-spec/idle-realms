@@ -601,11 +601,16 @@ dvou vzhledech + heraldika všech rolí zvětšená).
 
 ### 13.3 Otevřené
 
-- **Sada malovaných spritů je pořád stará** — 6 archetypů, každý **se zbraní**
-  (`assets/units/*.png`, `scripts/gen_units_local.py`). Nový koncept chce
-  **jeden základní sprite bez zbraně**; regenerace potřebuje volbu vzhledu
-  (§7) a běžící ComfyUI. Do té doby platí: kreslené figurky = nový koncept,
-  malované sprity = starý (erb se přes ně kreslí, zbraň zůstává zapečená).
+- **Základní sprite postavy je vygenerovaný** — `assets/units/base.png` (bez
+  zbraně, 48×96, srovnaný do palety) a `units_ai.js` ho **preferuje pro všechny
+  profese**; staré archetypy zůstávají jako záložní sada, kdyby soubor chyběl.
+  Generuje ho `scripts/gen_unit_base.py` (Pollinations → vyříznutí → výběr
+  kandidáta → `grade_art.py` → `check-art.py --mode props`). Past: na **čtvercové
+  plátno** model vyrobí širokou scénu (poměr 1,0–1,3) — proto se žádá
+  `width=384&height=768` a prompt zdůrazňuje „full body, one person only".
+  Naměřeno: vybraný kandidát poměr 0,50, `podil` 0,57, `okraj` 0,00; po srovnání
+  odchylka od tónu projektu 119,5 → 33,5 a kontrola: nádech 0,81, neon 0 %,
+  mimo paletu 0 %.
 - **Frakce se v erbu neprojevují** — erb nese roli (nebo profesi), ne frakci.
   Až bude jasné, čí jsou to postavy (měšťan vs. družina), může přibýt lem
   v barvě frakce.
