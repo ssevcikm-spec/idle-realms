@@ -58,6 +58,8 @@
           <div class="dbg-note">vzhled postav je nezávislý na mapě (foundry + malované postavy jde kombinovat)</div>
           <div class="dbg-row" id="dbg-figstyles"></div>
           <div class="dbg-note">sjednocené = jeden model + erb role, bez zbraně (koncept); klasické = původní figurky se zbraněmi</div>
+          <div class="dbg-row" id="dbg-propstyles"></div>
+          <div class="dbg-note">krajinné prvky (stromy, skály, trsy) — sprity z <code>assets/props/</code>, bez nich se kreslí kódem</div>
           <div class="dbg-row" id="dbg-foundry-daub"></div>
           <div class="dbg-row" id="dbg-foundry-deco"></div>
           <div class="dbg-row" id="dbg-foundry-quality"></div>
@@ -157,6 +159,13 @@
         `<button class="dbg-btn ${v === fCur ? 'active' : ''}" data-dbg="figstyle" data-v="${v}">${name}</button>`
       ).join('');
     }
+    const pEl = document.getElementById('dbg-propstyles');
+    if (pEl) {
+      const pCur = G.propStyle ? G.propStyle() : 'code';
+      pEl.innerHTML = [['code', 'prvky kreslené'], ['ai', 'prvky malované']].map(([v, name]) =>
+        `<button class="dbg-btn ${v === pCur ? 'active' : ''}" data-dbg="propstyle" data-v="${v}">${name}</button>`
+      ).join('');
+    }
     buildFoundryButtons();
   }
 
@@ -231,6 +240,10 @@
     }
     else if (a === 'figstyle') {
       if (G.setFigureStyle) G.setFigureStyle(el.dataset.v);
+      buildStyleButtons();
+    }
+    else if (a === 'propstyle') {
+      if (G.setPropStyle) G.setPropStyle(el.dataset.v);
       buildStyleButtons();
     }
     else if (a === 'foundry') {

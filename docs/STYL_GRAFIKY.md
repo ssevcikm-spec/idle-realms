@@ -705,3 +705,38 @@ stojí pergamen i dřevořez) a **textury dlaždic** (`scripts/grade_tiles.py` +
 Test (`node test/tiles-preview.js`) hlídá, že každý balíček má platnou paletu a po
 roztažení rozestup **≥ 26** — kdyby někdo paletu balíčku upravil do nečitelna,
 spadne to.
+
+---
+
+## 16. Props — krajinné prvky jako alfa sprity *(hotová plumbing, 2026-09-16)*
+
+Poslední vrstva, kterou má dělat AI („AI jen na alfa sprity“): **krajinné prvky**
+(strom, skála, trs, rákosí, závěj…). Hra je umí nakreslit kódem a když je
+v `assets/props/<druh>.png` hotový průhledný sprite, použije se místo kresby.
+
+| Druh | Kde se používá | Kotva |
+|---|---|---|
+| `tree`, `pine` | lesy, háje (uzly) | střed základny kmene |
+| `boulder` | kamenolom, kopce, hory, hlína | střed prvku |
+| `tuft` | louka (dekorace foundry) | střed základny |
+| `bush` | les a hluboký les | střed |
+| `pebble` | kopce, hory, hlína | střed |
+| `reed` | močál | střed základny |
+| `drift` | sníh | střed |
+| `ripple` | voda | střed |
+| `rut` | cesta | střed |
+
+**Přepínač:** `settings.props` (`G.propStyle`/`G.setPropStyle`), v debug panelu
+**D** → „Mapa — vzhled" → *prvky kreslené / malované*. Je **nezávislý** na vzhledu
+mapy i postav, a když sprity nejsou, kreslí se kódem (fallback je vždy funkční).
+Výchozí je `code`, protože soubory zatím neexistují — jakmile budou, stačí
+přepnout (a `assets/props` prohnat `scripts/grade_art.py`, aby sprity držely
+paletu).
+
+**Footprinty jsou změřené z kódové kresby** (např. strom 28×26 jednotek, kotva na
+základně), takže výměna sprite za kresbu nic neposune — hlídá to `test/props.js`
+(10 kontrol, mimo jiné že **těžiště kresby se posune o 0,0 px**) a že chybějící
+soubory se nezkoušejí znovu každý snímek (`tried`).
+
+**Zatím nenapojeno:** vstupy do dolů a jeskyní (`mine`, `cave`) mají vlastní
+kresbu a sprite druh nemají — dodá se spolu s prvními sprity, až bude styl.

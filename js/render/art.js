@@ -59,7 +59,22 @@
     daubs(ctx, rnd, [pal.dark], 26, 4, 13, 0.08, 0.18);
     daubs(ctx, rnd, [pal.light], 20, 2, 8, 0.06, 0.16);
   }
+  /**
+   * Zkusí nakreslit krajinný prvek jako AI sprite (alfa PNG) místo kresby.
+   * Vrací true, když kreslil. Kotva je stejná jako u kódové kresby:
+   * `bottom` = (x, y) je střed základny (strom, rákosí), jinak střed prvku.
+   * Footprint je změřený z kódové kresby, aby výměna nic neposunula ani
+   * nezvětšila.
+   */
+  function propSprite(ctx, kind, x, y, w, h, bottom) {
+    const spr = G.aiPropSprite && G.aiPropSprite(kind);
+    if (!spr) return false;
+    ctx.drawImage(spr, x - w / 2, bottom ? y - h : y - h / 2, w, h);
+    return true;
+  }
+
   function tree(ctx, rnd, x, y, s, dark, mid, light) {
+    if (propSprite(ctx, 'tree', x, y, 28*s, 26*s, true)) return;
     ctx.fillStyle = G.PAL_WOOD;
     ctx.beginPath(); ctx.moveTo(x-1.6*s, y); ctx.lineTo(x-0.9*s, y-9*s); ctx.lineTo(x+0.9*s, y-9*s); ctx.lineTo(x+1.6*s, y); ctx.closePath(); ctx.fill();
     for (let i = 0; i < 6; i++) {
@@ -74,6 +89,7 @@
     ctx.globalAlpha = 1;
   }
   function pine(ctx, rnd, x, y, s, dark, mid, light) {
+    if (propSprite(ctx, 'pine', x, y, 18*s, 32*s, true)) return;
     ctx.fillStyle = G.PAL_WOOD;
     ctx.fillRect(x - 1.3*s, y - 6*s, 2.6*s, 7*s);
     for (let i = 0; i < 4; i++) {
@@ -86,6 +102,7 @@
     }
   }
   function boulder(ctx, rnd, x, y, r, light, mid, dark) {
+    if (propSprite(ctx, 'boulder', x, y, 2.2*r, 1.6*r, false)) return;
     ctx.globalAlpha = 0.25; ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.ellipse(x, y + r*0.55, r*1.05, r*0.34, 0, 0, Math.PI*2); ctx.fill();
     ctx.globalAlpha = 1;
@@ -1048,11 +1065,33 @@
     ctx.globalAlpha = 1;
   }
 
+  /**
+   * Druh AI spritu pro dekoraci terénu + jeho footprint (v násobcích `size`,
+   * který dostává kresba) a kotva. Footprint je změřený z kódové kresby níž,
+   * aby výměna sprite za kresbu nic neposunula.
+   */
+  const DECO_PROP = {
+    water:        { kind:'ripple', w:4.6, h:1.6, bottom:false },
+    road:         { kind:'rut',    w:4.0, h:1.8, bottom:false },
+    forest:       { kind:'bush',   w:3.0, h:2.0, bottom:false },
+    deep_forest:  { kind:'bush',   w:3.0, h:2.0, bottom:false },
+    swamp:        { kind:'reed',   w:2.6, h:2.6, bottom:true },
+    snow:         { kind:'drift',  w:4.4, h:1.8, bottom:false },
+    hills:        { kind:'pebble', w:2.2, h:2.0, bottom:false },
+    mountain:     { kind:'pebble', w:2.2, h:2.0, bottom:false },
+    dirt:         { kind:'pebble', w:2.2, h:2.0, bottom:false },
+    grass:        { kind:'tuft',   w:2.6, h:2.2, bottom:true }
+  };
+
   /** Dekorace podle terénu: trs, kamínek, rákosí, závěj, vyjetá kolej. */
   function paintDeco(ctx, sx, sy, size, ti, variant, shape) {
     const t = TER[ti], pal = G.PAL[t] || G.PAL.grass;
     const dark = pal.dark || pal.base, light = pal.light || pal.base;
     const seed = (shape * 4096) | 0;
+
+    // AI sprite prvku (když je zapnutý a nahraný) — jinak se kreslí kódem
+    const dp = DECO_PROP[t];
+    if (dp && propSprite(ctx, dp.kind, sx, sy, dp.w * size, dp.h * size, dp.bottom)) return;
 
     if (t === 'water') {
       ctx.globalAlpha = 0.16 + variant * 0.16;

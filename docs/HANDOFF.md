@@ -37,6 +37,7 @@ node test/tiles-preview.js                                               # náhl
 node test/foundry.js                                                     # světová vrstva: plán a kreslení
 node test/foundry-game.js                                                # foundry v běžící hře
 node test/figures.js                                                     # postavy: jeden model + erb role
+node test/props.js                                                       # krajinné prvky jako alfa sprity
 # dlaždice (potřebuje python s pillow+numpy — viz past č. 13):
 python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSLEDEK: OK"
 # vrstva 3 (ilustrace) — pipeline si ověří sama sebe:
@@ -198,10 +199,11 @@ python scripts/check-art.py                                              # asset
 ## 4. Stav kódu (co je hotové)
 
 ### Čísla
-- 59 JS souborů, **697** definovaných/used globálů `G.*` (check-globals čisté;
+- 59 JS souborů, **704** definovaných/used globálů `G.*` (check-globals čisté;
   část přírůstku je z paralelní práce na výbavě postav).
-- Testy: headless-smoke **77** + tile-window **10** + tiles-preview **4** +
-  foundry **19** + foundry-game **13** + figures **12** kontrol, deterministicky.
+- Testy: headless-smoke **77** + tile-window **10** + tiles-preview **5** +
+  foundry **19** + foundry-game **13** + figures **12** + props **10** kontrol,
+  deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
 - Dlaždice: assety jsou **torusy** (`wrap` 1,87), kreslí se jako **okno do
   textury** ve světových souřadnicích — `seam/zrno` 0,78, perioda 6 dlaždic.
@@ -218,6 +220,11 @@ python scripts/check-art.py                                              # asset
   ho změří (nádech ≥ 0,45; neon ≤ 10 %; mimo paletu ≤ 25 %; kontrast ≥ 12) a
   `--selftest` ověří celou pipeline na syntetickém obrázku. Naměřeno na spritech:
   nádech 0,61–0,73 → 0,80–0,82, neon 5,4 % → 0 %. Detail: `docs/STYL_GRAFIKY.md` §14.
+- **Krajinné prvky jdou nahradit sprity** (`settings.props`, `G.propStyle`,
+  `js/render/units_ai.js` + háčky v `art.js`): stromy, kameny a dekorace foundry
+  se použijí z `assets/props/<druh>.png`, jinak se kreslí kódem. Footprinty jsou
+  změřené z kódové kresby, takže výměna nic neposune (test: těžiště 0,0 px).
+  Detail: `docs/STYL_GRAFIKY.md` §16.
 - **Foundry** (nový vzhled mapy, Stage 1): krajina jako funkce světa — plochý
   podklad + světové štětce + přechody terénů + dekorace. Plán **0,15 ms/snímek**,
   na obrazovku ~224 štětců / 176 přechodů / 36 dekorací, **žádné opakování**
@@ -410,8 +417,14 @@ python scripts/check-art.py                                              # asset
    srovná vygenerovaný obrázek do palety, `scripts/check-art.py` ho změří
    (a `--selftest` ověří sám sebe). **Zbývá vygenerovat samotné ilustrace**
    (titul, 7 scén, portréty) — to potřebuje volbu vzhledu (§6 bod 3) — a napojit
-   je do hry (kde se vykreslí + fallback, když chybí).
-6. **Drobné budoucí rozšíření**: vlastní sklad a obrana základny (karavany na
+   je do hry (kde se vykreslí + fallback, když chybí; pozor, `title_screen.js`
+   držela paralelní práce).
+6. **Krajinné prvky jako sprity (props)** — ✅ **plumbing hotová** (§16):
+   `settings.props` + `assets/props/<druh>.png` (strom, skála, trs, rákosí,
+   závěj, kolej, kamínek, pruh na vodě), fallback kreslí kódem, výměna nic
+   neposune. **Zbývá vyrobit sprity** (volba vzhledu) a doladit `mine`/`cave`,
+   které mají vlastní kresbu.
+7. **Drobné budoucí rozšíření**: vlastní sklad a obrana základny (karavany na
    základně už jezdí), dosah dílen jako kruh na mapě, posuvník výšky mapy.
 
 ---

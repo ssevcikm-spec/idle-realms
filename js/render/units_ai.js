@@ -98,4 +98,71 @@
     G.loadAiUnits();
     return A;
   };
+
+  /* ===================== props (krajinné prvky) =====================
+     Stejný princip jako postavy: krajinné prvky (strom, skála, trs, rákosí…)
+     umí hra nakreslit kódem, a když je v `assets/props/<druh>.png` hotový alfa
+     sprite, použije se místo kresby. Je to poslední vrstva, kterou má dělat AI
+     („AI jen na alfa sprity“) — a je nepovinná: bez souborů se chová všechno
+     jako dřív.
+
+     Kotvy jsou stejné jako u kódové kresby (strom/rákosí na základně, skála
+     a trs uprostřed), takže výměna sprite za kresbu nic neposune. Barvy spritů
+     musí ladit s paletou — na to je `scripts/grade_art.py`. */
+
+  const PROP_KINDS = ['tree','pine','boulder','tuft','bush','pebble','reed','drift','ripple','rut'];
+  const PROP_SRC = 'assets/props/';
+
+  G.AI_PROPS = { ready:false, loading:false, sprites:{}, loaded:0, failed:0, tried:false };
+
+  /** Vzhled krajinných prvků: 'code' (kreslené, výchozí) nebo 'ai' (sprity). */
+  G.propStyle = function () {
+    const s = (G.state && G.state.settings) || {};
+    return s.props === 'ai' ? 'ai' : 'code';
+  };
+  G.setPropStyle = function (v) {
+    if (!G.state) return 'code';
+    if (!G.state.settings) G.state.settings = {};
+    G.state.settings.props = (v === 'ai') ? 'ai' : 'code';
+    if (G.state.settings.props === 'ai' && G.loadAiProps) G.loadAiProps();
+    if (G.drawWorldFrame) G.drawWorldFrame();
+    return G.state.settings.props;
+  };
+
+  /** Sprite krajinného prvku (Image), nebo null když není / je vypnutý. */
+  G.aiPropSprite = function (kind) {
+    if (G.propStyle() !== 'ai') return null;
+    return G.AI_PROPS.sprites[kind] || null;
+  };
+
+  /** Načte sprity krajinných prvků (jednorázově, chybějící soubory nevadí). */
+  G.loadAiProps = function (done) {
+    const A = G.AI_PROPS;
+    if (A.ready || A.loading) { if (done) done(A); return; }
+    if (typeof Image !== 'function') { if (done) done(A); return; }
+    A.loading = true;
+    A.tried = true;
+    let finished = 0;
+    for (const k of PROP_KINDS) {
+      const img = new Image();
+      img.onload = () => { A.sprites[k] = img; A.loaded++; step(); };
+      img.onerror = () => { A.failed++; step(); };
+      img.src = PROP_SRC + k + '.png';
+    }
+    function step() {
+      if (++finished < PROP_KINDS.length) return;
+      A.ready = A.loaded > 0;
+      A.loading = false;
+      if (G.drawWorldFrame) G.drawWorldFrame();
+      if (done) done(A);
+    }
+  };
+
+  /** Dočte sprity prvků, když jsou zapnuté a ještě se to nezkusilo. */
+  G.ensureAiProps = function () {
+    const A = G.AI_PROPS;
+    if (G.propStyle() !== 'ai' || A.ready || A.loading || A.tried) return A;
+    G.loadAiProps();
+    return A;
+  };
 })();

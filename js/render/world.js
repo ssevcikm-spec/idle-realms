@@ -447,6 +447,7 @@
       // Vzhled postav je nezávislý na vzhledu mapy (malované jde zapnout
       // i k foundry/kreslené mapě) — viz G.unitStyle v units_ai.js.
       if (G.ensureAiUnits) G.ensureAiUnits();
+      if (G.ensureAiProps) G.ensureAiProps();   // sprity krajinných prvků (props)
       const spr = (G.aiUnitSprite) ? G.aiUnitSprite(u) : null;
       if (spr) drawAiFigure(ctx, spr, u, sx, sy, tilePx);
       else G.drawFigure(ctx, u, sx, sy, figScale(tilePx));
