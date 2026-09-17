@@ -74,7 +74,7 @@ def _blur_uint8(a, radius):
     ).astype(np.float32)
 
 
-def grain_pass(arr, band=28.0, detail=1.6, amount=1.0, gain=3.0, shift=0):
+def grain_pass(arr, band=16.0, detail=1.6, amount=0.9, gain=3.0, shift=0):
     """Vrátí do zaceleného kříže texturu, kterou tam zacelení rozmazalo.
 
     Zacelení míchá gaussovské rozostření s maskou kříže -> šev zmizí, ale
@@ -98,7 +98,7 @@ def grain_pass(arr, band=28.0, detail=1.6, amount=1.0, gain=3.0, shift=0):
     return arr + hf * (m[:, :, None] * amount)
 
 
-def heal(arr, band=28.0, radius=8.0, edge=16, grain=1.0, detail=1.6, gain=3.0):
+def heal(arr, band=16.0, radius=8.0, edge=16, grain=0.9, detail=1.6, gain=3.0):
     """Posun o polovinu + zacelení kříže + vrácení textury + srovnání okrajů."""
     h, w, _ = arr.shape
     b = np.roll(np.roll(arr, w // 2, axis=1), h // 2, axis=0).astype(np.float32)
@@ -181,13 +181,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--dir', default='assets/tiles')
     ap.add_argument('--out', default=None, help='vystupni adresar (default: prepsat vstup)')
-    ap.add_argument('--band', type=float, default=28.0, help='sirka pasu na krizi (px)')
+    ap.add_argument('--band', type=float, default=16.0, help='sirka pasu na krizi (px)')
     ap.add_argument('--radius', type=float, default=8.0, help='polomer rozostreni')
     ap.add_argument('--edge', type=int, default=16, help='pas pro srovnani okraju (px)')
     ap.add_argument('--quality', type=int, default=95)
     ap.add_argument('--skip-below', type=float, default=1.0,
                     help='kdyz je wrap pod timto, nechat soubor byt')
-    ap.add_argument('--grain', type=float, default=1.0,
+    ap.add_argument('--grain', type=float, default=0.9,
                     help='kolik textury vratit do zaceleneho krize (0 = vypnuto)')
     ap.add_argument('--detail', type=float, default=1.6,
                     help='polomer, od ktereho se bere "detail" (vyssi = hrubsi)')
