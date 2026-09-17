@@ -970,3 +970,97 @@ sad zelených, `check-tiles` OK, `check-art --mode props` OK (10 + 1 sprit).
 drží čitelnost, ale inkoustový ráz dodá teprve kresba linek (další krok, §7).
 Dlaždice a sprity jsou zatím jen *barevně* srovnané, ne přegenerované
 v pergamenovém motivu.
+
+## 18. Kuchařka: jak si grafiku vygenerovat sám *(2026-09-17)*
+
+Tohle je pro uživatele, který si chce experimentovat. Všechno jde spustit
+z terminálu ve `C:\idle-realm`; Python na obrázky je
+`D:\ComfyUI\venv-comfy\Scripts\python.exe` (má pillow + numpy; systémový
+Python 3.12 je **nemá** — past 13 v `docs/HANDOFF.md`).
+
+### 18.1 Dvě cesty k obrázkům
+
+| | **ComfyUI** (lokálně, `D:\ComfyUI`) | **Pollinations** (online, zdarma) |
+|---|---|---|
+| Co to je | SDXL model na tvé RX 6600, server `http://127.0.0.1:8188` | veřejná služba, stačí internet |
+| Kdy | chceš kvalitu a mít to pod kontrolou (model, kroky, seed) | chceš rychle vyzkoušet motiv nebo nápad |
+| Rychlost | ~105–144 s na obrázek (768×768) | jednotky sekund |
+| Skript | `scripts/gen_tiles_local.py`, `scripts/gen_units_local.py` | `scripts/gen_tiles.py`, `scripts/gen_props.py`, `scripts/gen_art.py` |
+| Pozor | ComfyUI musí běžet (`python main.py --port 8188`) | odřezává prompty nad ~350 znaků, občas vrátí 500 (skript to zkouší znovu) |
+
+**ComfyUI spustíš** takto (setup je popsaný v §9, tady jen start):
+
+```powershell
+cd D:\ComfyUI
+.\venv-comfy\Scripts\python.exe main.py --port 8188
+# pak v prohlížeči http://127.0.0.1:8188 (pokud chceš klikat místo skriptu)
+```
+
+**Vygenerovat dlaždice v ComfyUI** (stejná cesta, jak vznikla nasazená sada):
+
+```powershell
+cd C:\idle-realm
+& 'D:\ComfyUI\venv-comfy\Scripts\python.exe' scripts\gen_tiles_local.py
+# výstup: assets/tiles_local/*.png (gitignored); seznam terénů a promptů je v tom skriptu
+```
+
+**Vygenerovat dlaždice přes Pollinations** (bez ComfyUI, stačí internet):
+
+```powershell
+& 'D:\ComfyUI\venv-comfy\Scripts\python.exe' scripts\gen_tiles.py `
+    --style plain --out assets/moje_dlazdice/raw
+# --style plain | kronika | kronika-tex ; --only grass,water ; --variants 2
+# skript vypíše délku promptu u každého terénu (limit ~350 znaků)
+```
+
+### 18.2 Co s vygenerovanými obrázky (pipeline)
+
+Surový obrázek **není** použitelná dlaždice. Proženej ho třemi kroky — ať
+meziprodukty zůstanou, jinak se nedá nic přeladit (past 30):
+
+```powershell
+$py = 'D:\ComfyUI\venv-comfy\Scripts\python.exe'
+& $py scripts\tile_flatness.py assets\moje_dlazdice\raw           # 1) je to plocha textura, nebo scéna?
+& $py scripts\flatten_tiles.py assets\moje_dlazdice\raw assets\moje_dlazdice\flat --radius 48
+& $py scripts\grade_tiles.py  assets\moje_dlazdice\flat assets\moje_dlazdice\graded
+& $py scripts\seamless_tiles.py --dir assets\moje_dlazdice\graded --out assets\moje_dlazdice\final
+& $py scripts\check-tiles.py  --dir assets\moje_dlazdice\final --scheme sliding --repeat 6
+& $py scripts\tile_sharpness.py assets\moje_dlazdice\final --ref assets\moje_dlazdice\flat
+```
+
+Každý krok má jasné „VYSLEDEK: OK" a čísla; co znamenají, je v §8.3–8.4.
+`flatten` je potřeba jen když `tile_flatness.py` hlásí scénu (§8.6).
+
+### 18.3 Podívat se na výsledek (dvě cesty)
+
+1. **V běžící hře** (nejlepší — vidíš to na skutečné mapě): polož sadu do
+   `assets/tiles_moje/final/`, přidej ji do `G.TILE_SETS`
+   (`js/render/tiles_ai.js`), otevři hru, zmáčkni **D** → sekce **Mapa —
+   vzhled** → klikni na svou sadu (vzhled se sám přepne na `malovaný`).
+   Když složka chybí, hra sadu odmítne přepnout a nechá předchozí.
+2. **Vedle sebe jako mozaiky**: `scripts/compare_tiles.py`
+   (`--old assets/tiles --new assets/tiles_moje/final --out .../srovnani.html`) —
+   každá dlaždice 4×4 zopakovaná, protože v jednom obrázku šev nepoznáš.
+
+### 18.4 Můžu se na obrázek i zeptat (vision)
+
+Model v téhle session obrázky sám nevidí, ale je na to nástroj — pošle obrázek
+Gemini a vrátí text (popis, vady, přepis textu):
+
+```powershell
+$env:PYTHONIOENCODING='utf-8'   # bez toho spadne na výpisu češtiny do cp1252
+& "$env:USERPROFILE\.dsh\skills\vision\run.cmd" --mode asset "C:\idle-realm\assets\tiles\grass-1.jpg"
+& "$env:USERPROFILE\.dsh\skills\vision\run.cmd" img1.jpg img2.jpg --mode diff
+```
+
+Hodí se jako **druhé oči** (našel rozmazaný kříž, který metriky neviděly — past 28),
+ale v jemných rozdílech je nekonzistentní (past 29). Čísla + tvůj pohled rozhodují.
+
+### 18.5 Generování obrázků přes Gemini (skill `imagegen`)
+
+`~\.dsh\skills\imagegen\run.cmd "popis obrázku"` umí obrázky i herní sprity
+(stejný klíč jako bot cetnik). **Stav 2026-09-17: nefunguje** — free tier má
+u obou image modelů kvótu `limit: 0` (HTTP 429). Až se kredit doplní, je to
+nejpohodlnější cesta (`--project idle-realm --many "vlk,medvěd" --size 32x32
+--colors 16`).
+
