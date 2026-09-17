@@ -5,8 +5,11 @@
 
   G.panelTrade = function (settlementId) {
     const def = G.WORLD.settlementById[settlementId];
+    if (!def) return `<div class="empty">Neznámé sídlo (${G.esc(settlementId)}).</div>`;
+    // Pojistka pro starší savy: sídlo bez ekonomiky se dorovná, místo mrtvého panelu
+    if (!G.state.economy[settlementId] && G.ensureEconomy) G.ensureEconomy();
     const st = G.state.economy[settlementId];
-    if (!def || !st) return `<div class="empty">Sídlo nenalezeno.</div>`;
+    if (!st) return `<div class="empty">Sídlo ${G.esc(def.name)} nemá ekonomická data — zkus načíst hru znovu.</div>`;
     const sizeDef = G.SETTLEMENT_SIZE[def.size];
     const spec = G.SETTLEMENT_SPECS[def.spec];
     const bonuses = G.settlementBonuses(settlementId);
@@ -211,28 +214,11 @@
     }
     const inv = G.state.equipment || [];
     html += `<div class="panel-title">Tvůj sklad (${inv.length})</div>`;
-    if (!inv.length) html += G.emptyState ? G.emptyState('Žádné vybavení — vyrob si ho, nebo kup.', 'craft', '🔨 Výroba') : `<div class="empty">Žádné vybavení.</div>`;
-    else {
-      for (const it of inv) {
-        const def = G.EQUIPMENT[it.itemId];
-        const durFrac = it.durability / def.durability;
-        const durColor = durFrac > 0.6 ? '#8fbf7a' : durFrac > 0.25 ? '#e0bb5e' : '#c05a45';
-        const qTag = it.quality && it.quality !== 'common' ? ` <span class="q-tag q-${it.quality}">${G.QUALITY_LABEL[it.quality]}</span>` : '';
-        const legTag = def.legendary ? ' <span class="q-tag q-masterwork">✨ Leg.</span>' : '';
-        html += `<div class="trade-row">
-          <div class="trade-icon">${def.icon}</div>
-          <div class="trade-main">
-            <div class="trade-name">${G.esc(def.name)} <span class="q-tag">${slotCz(def.slot)}</span>${qTag}${legTag}</div>
-            <div class="trade-sub">životnost <b style="color:${durColor}">${Math.round(it.durability)}/${def.durability}</b></div>
-            <div class="unit-assign"><select data-change="assign-equip" data-item="${it.id}"><option value="">— přiřadit postavě —</option>${G.state.units.filter(u => !u.dead).map(u => {
-              const cur = u.equipment[def.slot];
-              return `<option value="${u.id}">${G.esc(u.name)}${cur ? ' (nahradí)' : ''}</option>`;
-            }).join('')}</select></div>
-          </div>
-          ${!def.legendary ? `<button class="btn-sm ghost" data-action="sell-equip" data-item="${it.id}">Prodat</button>` : ''}
-        </div>`;
-      }
-    }
+    html += `<div class="hint" style="text-align:left">Nakoupené vybavení leží tady — vyber postavu a hned ji ho nasadíš. Stejný seznam najdeš i v <b>Řemeslo → Batoh</b>.</div>`;
+    html += G.gearStockHtml({
+      emptyText: 'Žádné vybavení — kup ho v nabídce nahoře, nebo je získáš z bossů.',
+      sell: true
+    });
     return html;
   }
   function slotCz(slot) { return { tool:'Nástroj', weapon:'Zbraň', armor:'Zbroj' }[slot] || slot; }

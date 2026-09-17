@@ -93,9 +93,66 @@
     }
   };
 
+  /**
+   * Kam se má postava bez úkolu postavit, aby držela se svou družinou.
+   * Vrací bod u středu ostatních členů skupiny (s rozptylem po kruhu), nebo
+   * null — postava bez skupiny, osamocený člen nebo ruční režim zůstává stát.
+   */
+  G.groupCohesionTarget = function (u) {
+    if (!u || !u.groupId || u.manual || u.onExpedition || u.resting || u.dead) return null;
+    const g = G.getGroup(u.groupId);
+    if (!g) return null;
+    let cx = 0, cy = 0, n = 0;
+    for (const m of G.groupMembers(g)) {
+      if (!m || m.id === u.id || m.dead || m.isChild || m.onExpedition) continue;
+      cx += m.pos.x; cy += m.pos.y; n++;
+    }
+    if (!n) return null;
+    cx /= n; cy /= n;
+    const a = Math.atan2(u.pos.y - cy, u.pos.x - cx) || 0;   // zůstane na své straně kruhu
+    const r = 1.2;
+    return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r };
+  };
+
   G.groupRoleBonus = function (g, roleId) {
     if (!g.roles || !g.roles[roleId]) return null;
     return G.getUnit(g.roles[roleId]);
+  };
+
+  /**
+   * Družina postavy = její skupina. Postava bez skupiny je sama sobě družinou
+   * (skupina o jednom), takže se s ní dá počítat úplně stejně.
+   * `onlyReady` vyfiltruje ty, kdo teď nemůžou bojovat (odpočívají, obchodují…).
+   */
+  G.partyOf = function (unitId, onlyReady) {
+    const u = G.getUnit(unitId);
+    if (!u) return [];
+    const g = u.groupId ? G.getGroup(u.groupId) : null;
+    const all = (g ? G.groupMembers(g) : [u]).filter(x => x && !x.dead && !x.isChild);
+    if (!onlyReady) return all;
+    const can = G.unitCanFight || (x => x && !x.dead);
+    return all.filter(can);
+  };
+  /** Družina jako členové (pro boj) — prázdná, když postava neexistuje. */
+  G.partyIdsOf = function (unitId, onlyReady) { return G.partyOf(unitId, onlyReady).map(u => u.id); };
+
+  /** Bojový multiplikátor skupiny pro postavu (1, když je bez skupiny). */
+  G.groupCombatMultFor = function (u) {
+    if (!u || !u.groupId) return 1;
+    const g = G.getGroup(u.groupId);
+    return g ? G.groupCombatMult(g) : 1;
+  };
+  /** Multiplikátor spotřeby jídla pro družinu (nejlepší člen platí pro celou). */
+  G.groupFoodMultFor = function (units) {
+    let m = 1;
+    const seen = new Set();
+    for (const u of (units || [])) {
+      if (!u || !u.groupId || seen.has(u.groupId)) continue;
+      seen.add(u.groupId);
+      const g = G.getGroup(u.groupId);
+      if (g) m *= G.groupFoodCostMult(g);
+    }
+    return m;
   };
 
   G.groupWorkMult = function (g) {

@@ -36,6 +36,7 @@
   let modal = null;
   let pendingAssign = null;
   let pickedExpedition = null;
+  let pendingExpGroup = null;   // skupina, ze které se má expedice předvybrat
   let pickedPrestigeUnlock = null;
 
   function captureDetailsState() {
@@ -114,6 +115,12 @@
 
     const modalRoot = document.getElementById('modal-root');
     modalRoot.addEventListener('click', e => {
+      // Klik mimo okno boje = zavřít okno (souboj běží dál na pozadí)
+      const backdrop = e.target.closest ? e.target.closest('.modal-backdrop') : null;
+      if (backdrop && backdrop.querySelector && backdrop.querySelector('.combat-modal')
+          && !(e.target.closest && e.target.closest('.combat-modal'))) {
+        if (G.state && G.state.combat && G.state.combat.active) { doCombatHide(); return; }
+      }
       const choice = e.target.closest('[data-choice]');
       if (choice) { G.resolveEvent(choice.dataset.event, parseInt(choice.dataset.choice, 10)); return; }
       const story = e.target.closest('[data-story-choice]');
@@ -138,6 +145,8 @@
         pickedExpedition = expPick.dataset.expedition;
         modalRoot.querySelectorAll('.expedition-pick').forEach(b => b.classList.remove('selected'));
         expPick.classList.add('selected');
+        // Přišel-li hráč z konkrétní skupiny, označ její členy rovnou
+        if (pendingExpGroup) { const gid = pendingExpGroup; pendingExpGroup = null; G.expQuickPick('group', { group: gid }); return; }
         updateExpCounter();
         return;
       }
@@ -161,7 +170,10 @@
     const menuBtn = document.getElementById('hud-menu');
     if (menuBtn) menuBtn.addEventListener('click', () => { if (G.openGameMenu) G.openGameMenu(); });
     window.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && G.isGameMenuOpen && G.isGameMenuOpen()) { if (G.closeGameMenu) G.closeGameMenu(); }
+      if (e.key !== 'Escape') return;
+      if (G.isGameMenuOpen && G.isGameMenuOpen()) { if (G.closeGameMenu) G.closeGameMenu(); return; }
+      // Esc zavře i okno boje (souboj běží dál na pozadí)
+      if (G.combatModalVisible && G.combatModalVisible()) { if (G.hideCombatWindow) G.hideCombatWindow(); renderHud(); }
     });
 
     // Přehled surovin: sbalení/rozbalení + odkaz do batohu
@@ -177,6 +189,13 @@
       toggleMatsBar();   // ťuknutí na prázdné místo lišty ji sbalí/rozbalí
     });
     applyMatsBar();
+
+    // Tlačítko „souboj běží" na mapě — otevře zavřené okno boje
+    const reopenBtn = document.getElementById('combat-reopen');
+    if (reopenBtn) reopenBtn.addEventListener('click', () => {
+      if (G.openCombatWindow) G.openCombatWindow();
+      renderHud();
+    });
 
     render(); renderHud();
     setInterval(renderHud, 400);
@@ -311,6 +330,21 @@
       else pEl.style.display = 'none';
     }
     renderMatsBar();
+    // Tlačítko na mapě: běží souboj, ale okno je zavřené (ručně, nebo je režim „nikdy")
+    const reopenBtn = document.getElementById('combat-reopen');
+    if (reopenBtn) {
+      const cb = G.state.combat && G.state.combat.active;
+      const show = !!(cb && G.combatWindowHiddenNow && G.combatWindowHiddenNow());
+      reopenBtn.style.display = show ? 'inline-flex' : 'none';
+      if (show) {
+        const label = document.getElementById('combat-reopen-text');
+        const txt = cb.finished
+          ? `Souboj skončil — ${cb.result === 'win' ? 'vítězství' : 'prohra'}`
+          : `Souboj — kolo ${cb.round}`;
+        if (label) label.textContent = txt;
+        reopenBtn.title = `${cb.enemyName} • ${txt} — klikni pro otevření okna`;
+      }
+    }
     const ordersBadge = document.getElementById('tab-badge-orders');
     if (ordersBadge) {
       const n = (G.state.orders || []).length;
@@ -351,6 +385,8 @@
       weBar.innerHTML = parts.join('');
     }
   }
+  /** Vynutí překreslení HUD (tlačítko „souboj běží", fronta příkazů…). */
+  G.refreshHud = renderHud;
   function formatShort(s) {
     s = Math.max(0, Math.floor(s));
     const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
@@ -433,31 +469,27 @@
     if (!el) return;
     const picked = Array.from(root.querySelectorAll('.member-pick.selected')).map(b => b.dataset.unit);
     const n = picked.length;
-    const tpl = pickedExpedition ? G.EXPEDITIONS[pickedExpedition] : null;
-    const food = tpl && G.expeditionFoodCost ? G.expeditionFoodCost(pickedExpedition, Math.max(1, n)) : 0;
-    let chanceTxt = '— vyber expedici';
-    if (tpl) {
-      const power = picked.reduce((s, id) => {
-        const u = G.getUnit(id);
-        return s + (u ? G.unitCombatPower(u) + G.unitSkill(u, 'scouting') * 3 : 0);
-      }, 0);
-      const need = tpl.difficulty * 30;
-      const chance = G.clamp(0.30 + (power / Math.max(1, need)) * 0.40, 0.20, 0.95);
-      chanceTxt = `${Math.round(chance * 100)} %`;
-    }
+    const food = pickedExpedition && G.expeditionFoodCost ? G.expeditionFoodCost(pickedExpedition, Math.max(1, n), picked) : 0;
+    const chanceTxt = (pickedExpedition && G.expeditionChance && n)
+      ? `${Math.round(G.expeditionChance(pickedExpedition, picked) * 100)} %`
+      : '— vyber expedici';
     const ok = n >= G.EXPEDITION_MIN_PARTY && n <= G.EXPEDITION_MAX_PARTY;
     el.classList.toggle('warn', !ok);
     el.innerHTML = `Vybráno <b>${n}</b> / ${G.EXPEDITION_MIN_PARTY}–${G.EXPEDITION_MAX_PARTY} • 🍞 ${food} jídla • šance ≈ ${chanceTxt}`;
   }
 
+  /** Jiné okno přebírá obrazovku — okno boje se jen schová (souboj běží dál). */
+  function yieldCombatWindow() { if (G.combatModalYield) G.combatModalYield(); }
+
   function openModal(type, unitId) {
     modal = { type, unitId };
+    yieldCombatWindow();
     const root = document.getElementById('modal-root');
     let content = '';
     if (type === 'perks') content = G.perkPanel(unitId);
     else if (type === 'mentor') content = G.mentorPanel(unitId);
     else if (type === 'merchant') content = G.merchantPanel(unitId);
-    else if (type === 'expedition') { pickedExpedition = null; content = G.expeditionModal(); }
+    else if (type === 'expedition') { pickedExpedition = null; pendingExpGroup = null; content = G.expeditionModal(); }
     else if (type === 'prestige') { pickedPrestigeUnlock = null; content = prestigeModal(); }
     else if (type === 'export') content = exportPanel();
     else if (type === 'import') content = importPanel();
@@ -470,6 +502,7 @@
     modal = null;
     pendingAssign = null;
     pickedExpedition = null;
+    pendingExpGroup = null;
     pickedPrestigeUnlock = null;
     const root = document.getElementById('modal-root');
     root.innerHTML = ''; root.classList.remove('show');
@@ -563,6 +596,8 @@
       case 'buy-gem':       return doBuyGem(ds.settlement, ds.gem);
       case 'sell-equip':    return doSellEquip(ds.item);
       case 'unequip':       return doUnequip(ds.unit, ds.slot);
+      case 'equip-best':    return doEquipBest(ds.unit);
+      case 'equip-all':     return doEquipAll();
       case 'rest':          return doRest(ds.unit);
       case 'wake':          return doWake(ds.unit);
       case 'toggle-manual': return doToggleManual(ds.unit);
@@ -589,19 +624,26 @@
       case 'stop-merchant': return doStopMerchant(ds.unit);
       case 'merchant-instant-trade': return doMerchantInstant(ds.unit);
       case 'set-custom-merchant-route': return doSetCustomMerchantRoute(ds.unit);
-      case 'attack-here':   return doAttackHere(ds.node, ds.recommended === '1');
+      case 'attack-here':   return doAttackHere(ds.node, ds.mode || (ds.recommended === '1' ? 'recommended' : ''));
       case 'set-tactic':    return G.setTactic(ds.tactic);
       case 'toggle-auto-abilities': return G.toggleAutoAbilities();
       case 'queue-ability': return doQueueAbility(ds);
       case 'combat-round':  return doCombatRound();
       case 'toggle-combat-auto': return doToggleCombatAuto();
       case 'combat-close':  return doCombatClose();
+      case 'combat-hide':   return doCombatHide();
       case 'export-save':   return openModal('export');
       case 'import-save':   return openModal('import');
       case 'copy-export':   return doCopyExport();
       case 'confirm-import':return doConfirmImport();
       case 'support-candidate': return doSupportCandidate(ds);
       case 'confirm-expedition': return doConfirmExpedition();
+      case 'group-expedition': return doGroupExpedition(ds.group);
+      case 'exp-pick-free': return G.expQuickPick('free');
+      case 'exp-pick-all':  return G.expQuickPick('all');
+      case 'exp-pick-none': return G.expQuickPick('none');
+      case 'exp-pick-best': return G.expQuickPick('best');
+      case 'exp-pick-group':return G.expQuickPick('group', ds);
       case 'confirm-prestige': return doConfirmPrestige();
       case 'set-directive-focus': return doSetDirectiveFocus(ds.material || null);
       case 'toggle-directive-danger': return doToggleDirectiveDanger();
@@ -692,7 +734,12 @@
       if (value) { G.addUnitToGroup(value, ds.group); render(); }
     } else if (change === 'assign-equip') {
       if (value) {
-        const res = G.equipUnit(value, ds.item);
+        doEquipToUnit(value, ds.item);
+      }
+    } else if (change === 'unit-equip') {
+      // Nasadit ze skladu přímo z karty postavy
+      if (value) {
+        const res = G.equipUnit(ds.unit, value);
         if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
         render();
       }
@@ -954,6 +1001,32 @@
     render();
   }
   function doUnequip(unitId, slot) { G.unequipUnit(unitId, slot); render(); }
+  function doEquipBest(unitId) {
+    const res = G.equipBest(unitId);
+    const u = G.getUnit(unitId);
+    if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
+    else if (u) G.log(`🎽 ${u.name} si nasadil: ${res.fitted.join(', ')}.`, 'social');
+    render();
+  }
+  function doEquipAll() {
+    const res = G.autoEquipAll();
+    if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
+    else G.log(`🎽 Výbava rozdaná postavám (${res.changed}× nasazeno, zbytek zůstal ve skladu).`, 'social');
+    render();
+  }
+  function doEquipToUnit(unitId, instanceId) {
+    const u = G.getUnit(unitId);
+    const item = G.equipFind(instanceId);
+    const def = item ? G.EQUIPMENT[item.itemId] : null;
+    if (!u || !def) return render();
+    // Varuj, když hráč nasazuje horší kus, než jaký postava už má.
+    const cur = u.equipment[def.slot];
+    const worse = cur && G.equipScore(item, u) < G.equipScore(cur, u) - 1e-9;
+    const res = G.equipUnit(unitId, instanceId);
+    if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
+    else if (worse) G.log(`🎽 ${u.name} si nasadil ${def.name} — pozor, je horší než ${G.EQUIPMENT[cur.itemId].name}.`, 'social');
+    render();
+  }
   function doRest(unitId) { const u = G.getUnit(unitId); if (!u) return; G.sendToRest(u, false); render(); }
   function doWake(unitId) { const u = G.getUnit(unitId); if (!u) return; G.wakeUnit(u); render(); }
   function doHealAll(unitId) {
@@ -1042,19 +1115,27 @@
     if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
     if (modal) openModal(modal.type, modal.unitId); else render();
   }
-  function doAttackHere(nodeId, recommended) {
+  function doAttackHere(nodeId, mode) {
     const node = G.WORLD.nodes.find(n => n.id === nodeId); if (!node) return;
-    const idle = G.state.units.filter(u => !u.dead && !u.isChild && !u.onExpedition && !u.resting
-      && !(G.hasSevereInjury && G.hasSevereInjury(u))
-      && !(u.merchantState && u.merchantState.active));
-    if (!idle.length) { G.log('⚠️ Žádné volné postavy.', 'info'); return; }
-    const party = (recommended && G.recommendParty) ? G.recommendParty(G.nodeDanger(node.kind), idle) : idle;
+    const ready = G.state.units.filter(G.unitCanFight);
+    if (!ready.length) { G.log('⚠️ Žádné volné postavy.', 'info'); return; }
+    let party;
+    if (mode === 'all') party = ready;
+    else if (mode === 'recommended') party = (G.recommendParty ? G.recommendParty(G.nodeDanger(node.kind), ready) : ready);
+    else party = G.partyNearNode(node);      // výchozí: družina (= skupina) u uzlu
+    if (!party || !party.length) { G.log('⚠️ Nikdo nemůže bojovat.', 'info'); return; }
     G.startCombat(node, party, { tactic:'balanced' });
   }
   function doQueueAbility(ds) { if (G.queueAbility) G.queueAbility(ds.ally, ds.ability); }
   function doCombatRound() { G.combatRound(); if (G.updateCombatModal) G.updateCombatModal(G.state.combat.active); }
   function doToggleCombatAuto() { if (G.toggleCombatAuto) G.toggleCombatAuto(); }
   function doCombatClose() { G.closeCombat(); render(); }
+  /** Zavře okno boje, ale souboj nechá běžet na pozadí. */
+  function doCombatHide() {
+    if (G.hideCombatWindow) G.hideCombatWindow();
+    else if (G.hideCombatModal) G.hideCombatModal();
+    renderHud();
+  }
 
   function doSupportCandidate(ds) {
     const res = G.supportCandidate(ds.faction, ds.candidate);
@@ -1069,8 +1150,54 @@
     if (picked.length < G.EXPEDITION_MIN_PARTY) { G.log(`⚠️ Vyber alespoň ${G.EXPEDITION_MIN_PARTY}.`, 'info'); return; }
     const res = G.startExpedition(pickedExpedition, picked);
     if (!res.ok) G.log('⚠️ ' + res.reason, 'info');
-    else closeModal();
+    else { pendingExpGroup = null; closeModal(); }
   }
+  /** Otevře výběr expedice a předpřipraví skupinu, ze které se vybírá. */
+  function doGroupExpedition(groupId) {
+    const g = G.getGroup(groupId);
+    if (!g) return;
+    openModal('expedition');       // openModal pendingExpGroup vynuluje, nastavíme ho až po něm
+    pendingExpGroup = groupId;
+    G.log(`👥 ${g.name}: vyber expedici — členové se rovnou označí.`, 'info');
+  }
+  /**
+   * Rychlý výběr členů expedice: celá skupina, jen volné postavy, všichni,
+   * doporučená družina, nebo zrušit výběr. Vrací označené postavy (kvůli testům).
+   */
+  G.expQuickPick = function (mode, ds) {
+    const root = document.getElementById('modal-root');
+    const pickable = G.expeditionPickable ? G.expeditionPickable() : [];
+    let picked = [];
+    if (mode === 'group') {
+      const g = G.getGroup(ds && ds.group);
+      if (!g) return picked;
+      const ids = new Set(pickable.map(u => u.id));
+      const members = G.groupMembers(g).filter(u => u && ids.has(u.id))
+        .sort((a, b) => G.unitCombatPower(b) - G.unitCombatPower(a));
+      picked = members.slice(0, G.EXPEDITION_MAX_PARTY);
+      if (!members.length) G.log(`⚠️ Ze skupiny ${g.name} teď nikdo nemůže vyrazit.`, 'info');
+      else if (members.length > picked.length) G.log(`⚠️ ${g.name}: expedice unese ${G.EXPEDITION_MAX_PARTY} postav — bere se ${picked.length} nejsilnějších.`, 'info');
+      else G.log(`👥 ${g.name}: označeno ${picked.length} členů.`, 'info');
+    } else if (mode === 'free') {
+      picked = pickable.filter(u => G.expeditionUnitIsFree(u));
+      if (picked.length > G.EXPEDITION_MAX_PARTY) { picked = picked.slice(0, G.EXPEDITION_MAX_PARTY); G.log(`⚠️ Volných postav je víc než ${G.EXPEDITION_MAX_PARTY} — označeno prvních ${G.EXPEDITION_MAX_PARTY}.`, 'info'); }
+      if (!picked.length) G.log('⚠️ Žádná postava teď není úplně volná (všechny pracují, odpočívají nebo obchodují).', 'info');
+    } else if (mode === 'all') {
+      picked = pickable.slice(0, G.EXPEDITION_MAX_PARTY);
+    } else if (mode === 'best') {
+      if (!pickedExpedition) { G.log('⚠️ Nejdřív vyber expedici (krok 1) — doporučení se počítá podle její obtížnosti.', 'info'); return picked; }
+      picked = G.recommendExpeditionParty(pickedExpedition, pickable);
+      G.log(`🎯 Doporučená družina: ${picked.length} postav — šance ≈ ${Math.round(G.expeditionChance(pickedExpedition, picked.map(u => u.id)) * 100)} %.`, 'info');
+    }
+    const pickedIds = new Set(picked.map(u => u.id));
+    if (root && root.querySelectorAll) root.querySelectorAll('.member-pick').forEach(btn => {
+      const on = pickedIds.has(btn.dataset.unit);
+      btn.dataset.selected = on ? 'true' : 'false';
+      if (btn.classList && btn.classList.toggle) btn.classList.toggle('selected', on);
+    });
+    updateExpCounter();
+    return picked;
+  };
 
   function doConfirmPrestige() {
     const pool = G.availablePrestigeUnlocks();
@@ -1099,6 +1226,7 @@
   }
 
   G.showEventModal = function (ev) {
+    yieldCombatWindow();
     const root = document.getElementById('modal-root');
     root.innerHTML = `<div class="modal-backdrop"><div class="modal">
       <div class="modal-title">${G.esc(ev.title)}</div>
@@ -1114,6 +1242,7 @@
     root.innerHTML = ''; root.classList.remove('show');
   };
   G.showStoryModal = function (ps) {
+    yieldCombatWindow();
     const root = document.getElementById('modal-root');
     root.innerHTML = `<div class="modal-backdrop"><div class="modal story-modal">
       <div class="story-label">📖 Příběh</div>
@@ -1180,6 +1309,7 @@
 
   /* === VICTORY MODAL === */
   G.showVictoryModal = function () {
+    yieldCombatWindow();
     const root = document.getElementById('modal-root');
     const sm = G.runSummary();
     const chapter = G.chapterName ? G.chapterName(sm.prestige) : 'Neznámá';
@@ -1214,6 +1344,7 @@
 
   /* === DEFEAT MODAL === */
   G.showDefeatModal = function () {
+    yieldCombatWindow();
     const root = document.getElementById('modal-root');
     const sm = G.runSummary();
     root.innerHTML = `<div class="modal-backdrop"><div class="modal wide victory-modal">

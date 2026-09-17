@@ -51,6 +51,8 @@
     if (menuOpen) return;
     if (G.isPaused && !G.isPaused()) { G.pauseGame(); menuPaused = true; }
     menuOpen = true;
+    // Menu překryje okno boje — odklidíme ho, ať se stav (visible) nerozejde s DOM.
+    if (G.hideCombatModal) G.hideCombatModal();
     G.showTitleScreen({
       saveInfo: G.getSaveInfo(G.state),
       fromGame: true,
@@ -144,6 +146,10 @@
           <option value="deliver" ${G.autoQuestMode() === 'deliver' ? 'selected' : ''}>jen doručovací</option>
           <option value="all" ${G.autoQuestMode() === 'all' ? 'selected' : ''}>všechny</option>
         </select></label>` : ''}
+        ${opts.fromGame ? `<label class="title-toggle">⚔️ Okno boje: <select id="combat-toggle">
+          ${G.COMBAT_WINDOW_MODES.map(m => `<option value="${m}" ${G.combatWindowMode() === m ? 'selected' : ''}>${G.COMBAT_WINDOW_LABEL[m]}</option>`).join('')}
+        </select></label>
+        <div class="title-note">Když okno nevyskočí, souboj stejně proběhne a výsledek najdeš v logu. Vyskočené okno jde kdykoli zavřít (✕) — souboj poběží dál a vrátíš se k němu tlačítkem ⚔️ na mapě.</div>` : ''}
         ${opts.fromGame ? `<label class="title-toggle">🎨 Vzhled (mapa a postavy): <select id="tile-toggle">
           <option value="code" ${(G.tileStyle && G.tileStyle() === 'code') ? 'selected' : ''}>kreslený (kód)</option>
           <option value="ai" ${(G.tileStyle && G.tileStyle() === 'ai') ? 'selected' : ''}>malovaný (AI dlaždice)</option>
@@ -169,6 +175,16 @@
       if (questToggle) questToggle.addEventListener('change', () => {
         if (G.setAutoQuestMode) G.setAutoQuestMode(questToggle.value);
         G.log(`🤖 Automatické zakázky: ${questToggle.value === 'off' ? 'vypnuty' : questToggle.value === 'deliver' ? 'jen doručovací' : 'všechny'}.`, 'info');
+      });
+
+      const combatToggle = root.querySelector('#combat-toggle');
+      if (combatToggle) combatToggle.addEventListener('change', () => {
+        const v = G.setCombatWindowMode ? G.setCombatWindowMode(combatToggle.value) : 'always';
+        G.log(v === 'off'
+          ? '⚔️ Okno boje vypnuto — souboje proběhnou na pozadí, výsledek najdeš v logu (tlačítko ⚔️ na mapě ho kdykoli otevře).'
+          : v === 'boss'
+            ? '⚔️ Okno boje se ukáže jen u bosse a elity.'
+            : '⚔️ Okno boje se ukáže u každého souboje.', 'info');
       });
 
       const tileToggle = root.querySelector('#tile-toggle');

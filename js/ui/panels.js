@@ -319,10 +319,16 @@
       const need = Math.round(Math.max(1, danger) * 22);
       const verdict = danger <= 0 ? 'bezpečný lov' : safety >= need * 1.2 ? 'mělo by to vyjít' : safety >= need * 0.8 ? 'bude to těsné' : 'je to nad síly družiny';
       const rec = G.recommendParty ? G.recommendParty(Math.max(1, danger), idleUnits) : idleUnits;
+      const party = G.partyNearNode ? G.partyNearNode(n) : [];
+      const partyNames = party.map(u => esc(u.name.split(' ')[0])).join(', ');
+      const partyLabel = party.length ? `⚔️ Bojovat s družinou (${party.length})` : '⚔️ Bojovat';
       html += `<div class="warn-box">⚔️ Můžeš tu bojovat — v okolí se vyskytují nepřátelé. Odhad síly družiny <b>${safety}</b> vs. potřeba <b>${need}</b> — ${verdict}. Doporučená družina: <b>${rec.length}</b> postav.</div>`;
-      html += `<button class="btn attack-btn" data-action="attack-here" data-node="${n.id}" title="Pošle do boje všechny volné postavy, ne jen ty u tohoto uzlu">⚔️ Bojovat (všichni)</button>`;
+      html += `<button class="btn attack-btn" data-action="attack-here" data-node="${n.id}" title="Vezme družinu (= skupinu) postavy, která je uzlu nejblíž${partyNames ? ': ' + partyNames : ''}. Postava bez skupiny je sama sobě družinou.">${partyLabel}</button>`;
       if (rec.length < idleUnits.length) {
-        html += `<button class="btn ghost attack-btn" data-action="attack-here" data-node="${n.id}" data-recommended="1" title="Menší družina s rozumnou šancí — zbytek může dál pracovat">🛡️ Bojovat s doporučenou družinou (${rec.length})</button>`;
+        html += `<button class="btn ghost attack-btn" data-action="attack-here" data-node="${n.id}" data-mode="recommended" title="Menší družina s rozumnou šancí — zbytek může dál pracovat">🛡️ Doporučená družina (${rec.length})</button>`;
+      }
+      if (idleUnits.length > party.length) {
+        html += `<button class="btn ghost attack-btn" data-action="attack-here" data-node="${n.id}" data-mode="all" title="Pošle do boje všechny volné postavy z celé mapy — přeruší jim práci">⚔️ Všichni (${idleUnits.length})</button>`;
       }
     }
     html += `<div class="panel-title">Dostupné práce</div>`;
@@ -619,6 +625,9 @@
     if (G.PERK_LEVELS) for (const sid in u.skills) for (const lv of G.PERK_LEVELS) if (G.unitSkill(u, sid) >= lv && G.canPickPerk(u, sid, lv)) pendingPerks++;
     const perkTag = pendingPerks > 0 ? `<span class="perk-badge">✨ ${pendingPerks}</span>` : '';
 
+    // Kolik slotů jde ze skladu vylepšit (odznak ⬆ na tlačítku "Nasadit nejlepší")
+    const canUpgrade = G.equipPoolCount ? G.equipPoolCount(u.id) : 0;
+
     const ambitionsHtml = (u.ambitions || []).map(a => {
       const def = G.getAmbitionDef(a.id); if (!def) return '';
       return `<div class="ambition-item ${a.done ? 'done' : ''}"><span class="ambition-icon">${def.icon}</span><span class="ambition-text">${esc(def.text)}</span>${a.done ? '<span class="ambition-done">✓</span>' : ''}</div>`;
@@ -660,7 +669,11 @@
       ${journalSection(u)}
       <details class="unit-personality"><summary>🎭 Osobnost</summary><div class="pers-grid">${persBars}</div></details>
       ${relHtml}
+      <div class="unit-equip-head">🎽 Výzbroj a výstroj
+        <button class="btn-sm ghost${canUpgrade ? ' btn-up' : ''}" data-action="equip-best" data-unit="${u.id}" title="Nasadí nejlepší předměty ze skladu do všech tří slotů">⚡ Nasadit nejlepší${canUpgrade ? ' ⬆ ' + canUpgrade : ''}</button>
+      </div>
       <div class="unit-equip">${renderSlot(u, 'tool', '🔧 Nástroj')}${renderSlot(u, 'weapon', '⚔️ Zbraň')}${renderSlot(u, 'armor', '🛡️ Zbroj')}</div>
+      <div class="equip-hint">Výbava zvyšuje práci i boj a šetří výdrž. Předměty kup v sídle na mapě (záložka <b>Vybavení</b>) nebo je získáš z bossů; tady je ze skladu nasadíš. Sundané kusy se vracejí do skladu.</div>
       <div class="unit-task">${u.onExpedition ? '⛵' : u.merchantState && u.merchantState.active ? '🐎' : u.resting ? '💤' : task ? '⚒️' : '🟢'} ${esc(taskName)}${taskExtra}</div>
       ${(!u.onExpedition && !(u.merchantState && u.merchantState.active) && !u.dead) ? `<select class="unit-task-select" data-change="unit-task" data-unit="${u.id}"><option value="">⚒️ Přiřadit práci…</option>${unitActivityOptions(u)}</select>` : ''}
       <div class="unit-actions">
@@ -688,23 +701,55 @@
 
   function renderSlot(unit, slot, label) {
     const item = unit.equipment[slot];
-    if (!item) return `<div class="equip-slot empty"><span class="equip-label">${label}</span><span class="equip-item">— prázdné —</span></div>`;
-    const def = G.EQUIPMENT[item.itemId];
-    if (!def) return `<div class="equip-slot broken"><span class="equip-label">${label}</span><span class="equip-item">— neznámý předmět (${item.itemId}) —</span></div>`;
-    const durPct = Math.round(item.durability / def.durability * 100);
-    const durColor = durPct > 60 ? '#8fbf7a' : durPct > 25 ? '#e0bb5e' : '#c05a45';
-    const broken = item.durability <= 0;
-    const qTag = item.quality && item.quality !== 'common' ? `<span class="q-tag q-${item.quality}">${G.QUALITY_LABEL[item.quality]}</span>` : '';
-    const legTag = def.legendary ? `<span class="q-tag q-masterwork">✨ Leg.</span>` : '';
-    const gemsTag = item.gems && item.gems.length ? `<span class="q-tag" style="background:#4a3a6b;color:#d8d0f5">${item.gems.map(g => G.GEMS[g] ? G.GEMS[g].icon : '?').join('')}</span>` : '';
-    const socketInfo = def.slot === 'armor' || def.slot === 'weapon' ? ` <button class="btn-sm ghost" data-action="socket-modal" data-item="${item.id}">💎</button>` : '';
-    return `<div class="equip-slot ${broken ? 'broken' : ''}">
-      <span class="equip-label">${label}</span>
-      <span class="equip-item">${def.icon} ${esc(def.name)}${qTag}${legTag}${gemsTag}</span>
-      <span class="equip-dur" style="color:${durColor}">${Math.round(item.durability)}/${def.durability}</span>
-      ${socketInfo}
-      <button class="btn-sm ghost" data-action="unequip" data-unit="${unit.id}" data-slot="${slot}">Sundat</button>
-    </div>`;
+    const free = G.equipPool ? G.equipPool(slot) : [];
+    const curScore = item ? (G.equipScore ? G.equipScore(item, unit) : 0) : 0;
+
+    let head;
+    if (!item) {
+      head = `<span class="equip-label">${label}</span><span class="equip-item empty-text">— prázdné —</span>`;
+    } else {
+      const def = G.EQUIPMENT[item.itemId];
+      if (!def) {
+        head = `<span class="equip-label">${label}</span><span class="equip-item">— neznámý předmět (${item.itemId}) —</span>`;
+      } else {
+        const durPct = Math.round(item.durability / def.durability * 100);
+        const durColor = durPct > 60 ? '#8fbf7a' : durPct > 25 ? '#e0bb5e' : '#c05a45';
+        const broken = item.durability <= 0;
+        const qTag = item.quality && item.quality !== 'common' ? `<span class="q-tag q-${item.quality}">${G.QUALITY_LABEL[item.quality]}</span>` : '';
+        const legTag = def.legendary ? `<span class="q-tag q-masterwork">✨ Leg.</span>` : '';
+        const gemsTag = item.gems && item.gems.length ? `<span class="q-tag" style="background:#4a3a6b;color:#d8d0f5">${item.gems.map(g => G.GEMS[g] ? G.GEMS[g].icon : '?').join('')}</span>` : '';
+        const socketInfo = def.slot === 'armor' || def.slot === 'weapon' ? ` <button class="btn-sm ghost" data-action="socket-modal" data-item="${item.id}">💎</button>` : '';
+        head = `<span class="equip-label">${label}</span>
+          <span class="equip-item">${def.icon} ${esc(def.name)}${qTag}${legTag}${gemsTag}</span>
+          <span class="equip-dur" style="color:${durColor}">${Math.round(item.durability)}/${def.durability}${broken ? ' 💥' : ''}</span>
+          ${socketInfo}
+          <button class="btn-sm ghost" data-action="unequip" data-unit="${unit.id}" data-slot="${slot}" title="Vrátí předmět do skladu">Sundat</button>`;
+      }
+    }
+
+    // Nabídka ze skladu: co jde do tohohle slotu. Lepší kusy jsou označené.
+    let picker = '';
+    if (free.length) {
+      // Nejdřív to, co postavě nejvíc pomůže
+      const sorted = free.slice().sort((a, b) => (G.equipScore ? G.equipScore(b, unit) - G.equipScore(a, unit) : 0));
+      const opts = sorted.map(it => {
+        const d = G.EQUIPMENT[it.itemId];
+        const sc = G.equipScore ? G.equipScore(it, unit) : 0;
+        const up = sc > curScore + 1e-9 ? ' ⬆' : '';
+        const q = it.quality && it.quality !== 'common' ? ` ${G.QUALITY_LABEL[it.quality]}` : '';
+        const dur = d && d.durability ? ` ${Math.round(it.durability / d.durability * 100)} %` : '';
+        return `<option value="${it.id}" ${sc > curScore + 1e-9 ? 'class="opt-up"' : ''}>${d ? d.icon + ' ' + d.name : it.itemId}${q}${dur}${up}</option>`;
+      }).join('');
+      picker = `<select class="equip-pick" data-change="unit-equip" data-unit="${unit.id}" data-slot="${slot}" title="Nasadit předmět ze skladu">
+        <option value="">➕ Nasadit ze skladu… (${free.length})</option>${opts}</select>`;
+    } else {
+      // Prázdný slot + nic ve skladu = ať hráč ví, proč tam není nabídka
+      picker = item ? '' : `<span class="equip-no-stock">sklad: nic do tohohle slotu</span>`;
+    }
+
+    const broken = item && G.EQUIPMENT[item.itemId] && item.durability <= 0;
+    const cls = ['equip-slot', !item ? 'empty' : '', broken ? 'broken' : ''].filter(Boolean).join(' ');
+    return `<div class="${cls}">${head}${picker}</div>`;
   }
 
   G.panelGroups = function () {
@@ -715,10 +760,13 @@
     for (const g of s.groups) {
       const members = G.groupMembers(g).filter(u => u && !u.dead);
       const ch = G.groupChemistry(g);
+      const away = members.filter(u => u.onExpedition).length;
       const avgSafety = G.partySafety(members);
       html += `<div class="group-card">
-        <div class="group-head"><div class="group-name">👥 ${esc(g.name)}</div><div class="group-count">${members.length}</div><button class="btn-sm ghost group-rename" data-action="rename-group" data-group="${g.id}" title="Přejmenovat skupinu">✎</button></div>
-        <div class="group-stats"><span>Chemie: <b style="color:${ch.color}">${ch.label}</b></span><span>Síla: <b>${Math.round(avgSafety)}</b></span></div>
+        <div class="group-head"><div class="group-name">👥 ${esc(g.name)}</div><div class="group-count">${members.length}</div>
+          <button class="btn-sm ghost group-expedition" data-action="group-expedition" data-group="${g.id}" title="Vyslat tuhle skupinu na expedici — členové se předvyberou">⛵ Expedice</button>
+          <button class="btn-sm ghost group-rename" data-action="rename-group" data-group="${g.id}" title="Přejmenovat skupinu">✎</button></div>
+        <div class="group-stats"><span>Chemie: <b style="color:${ch.color}">${ch.label}</b></span><span>Síla: <b>${Math.round(avgSafety)}</b></span>${away ? `<span style="color:#7aa8e0">⛵ ${away} na expedici</span>` : ''}</div>
         <div class="hint" style="text-align:left">Chemie = průměr vztahů mezi členy. Kladná zvyšuje produktivitu i boj, záporná je sráží.</div>
         <div class="group-roles">`;
       for (const roleId in G.ROLES) {
@@ -770,11 +818,15 @@
   };
 
   G.expeditionModal = function () {
-    const avail = G.availableForExpedition();
-    if (avail.length < G.EXPEDITION_MIN_PARTY) {
-      return `<div class="perk-panel"><div class="perk-header">⛵ Vyslat expedici</div><div class="perk-hint">Potřebuješ alespoň ${G.EXPEDITION_MIN_PARTY} volné postavy.</div><div class="perk-actions"><button class="btn" data-action="close-modal">Zavřít</button></div></div>`;
+    const pickable = G.expeditionPickable ? G.expeditionPickable() : G.availableForExpedition();
+    if (pickable.length < G.EXPEDITION_MIN_PARTY) {
+      return `<div class="perk-panel"><div class="perk-header">⛵ Vyslat expedici</div>
+        <div class="perk-hint">Potřebuješ alespoň ${G.EXPEDITION_MIN_PARTY} postavy. Na expedici nemůže nikdo, kdo je mrtvý, dítě, už na cestě nebo zrovna vede karavanu.</div>
+        <div class="perk-actions"><button class="btn" data-action="close-modal">Zavřít</button></div></div>`;
     }
-    let html = `<div class="perk-panel"><div class="perk-header">⛵ Vyslat expedici</div><div class="perk-hint">Vyber expedici a označ ${G.EXPEDITION_MIN_PARTY}–${G.EXPEDITION_MAX_PARTY} postav. Expedice spotřebuje jídlo (chléb/ryba) na cestu. Postavy, které zrovna pracují, o svůj úkol přijdou.</div><div class="panel-title">1. Vyber expedici</div>`;
+    let html = `<div class="perk-panel"><div class="perk-header">⛵ Vyslat expedici</div>
+      <div class="perk-hint">Vyber expedici a označ ${G.EXPEDITION_MIN_PARTY}–${G.EXPEDITION_MAX_PARTY} postav. Expedice spotřebuje jídlo (chléb/ryba) na cestu. Pracující o úkol přijdou, odpočívající se vzbudí — <b>ze skupiny ale nikoho nevytrhne</b>, členství i role jim zůstávají.</div>
+      <div class="panel-title">1. Vyber expedici</div>`;
     for (const id in G.EXPEDITIONS) {
       const tpl = G.EXPEDITIONS[id];
       const rewards = (tpl.rewardPool || []).map(r => G.MATERIALS[r.material] ? G.MATERIALS[r.material].icon : '💎').join(' ');
@@ -785,10 +837,35 @@
         <div class="exp-pick-info">${tpl.minDays}–${tpl.maxDays} dní • obtížnost ${tpl.difficulty}/5 • 🍞 ${food} jídla za ${G.EXPEDITION_MIN_PARTY} postavy${rewards ? ` • odměny: ${rewards}` : ''}</div>
       </button>`;
     }
-    html += `<div class="panel-title">2. Označ postavy</div><div class="member-picker" id="exp-member-picker">`;
-    for (const u of avail) {
-      const busy = u.assignedTaskId ? ' • ⚒️ pracuje (přeruší se)' : ' • 🟢 volný';
-      html += `<button class="member-pick" data-action="toggle-exp-member" data-unit="${u.id}" data-selected="false">${esc(u.name)} <span style="opacity:.6">(Lv${u.level}, ⚔${Math.round(G.unitCombatPower(u))}${busy})</span></button>`;
+
+    // Rychlý výběr: celá skupina, nebo jen volné postavy
+    html += `<div class="panel-title">2. Rychlý výběr</div><div class="exp-quick">`;
+    html += `<button class="btn-sm" data-action="exp-pick-free" title="Označí jen postavy, které zrovna nic nedělají — nepracují, neodpočívají a nevedou karavanu">🟢 Jen volné postavy</button>`;
+    html += `<button class="btn-sm" data-action="exp-pick-best" title="Nejsilnější postavy, ale jen tolik, kolik má smysl — zbytek by jen sežral jídlo">🎯 Doporučená družina</button>`;
+    html += `<button class="btn-sm ghost" data-action="exp-pick-all" title="Označí všechny nabídnuté postavy (nejvýš ${G.EXPEDITION_MAX_PARTY})">Vybrat vše (${pickable.length})</button>`;
+    html += `<button class="btn-sm ghost" data-action="exp-pick-none">Zrušit výběr</button>`;
+    const groups = G.expeditionGroups ? G.expeditionGroups() : [];
+    for (const { g, members, eligible, away } of groups) {
+      const canGo = eligible.length > 0;
+      const label = `👥 ${esc(g.name)} (${eligible.length}${eligible.length !== members.length ? '/' + members.length : ''})`;
+      const title = canGo
+        ? `Označí celou skupinu ${g.name}${eligible.length > G.EXPEDITION_MAX_PARTY ? ` — expedice unese ${G.EXPEDITION_MAX_PARTY}, bere se ${G.EXPEDITION_MAX_PARTY} nejsilnějších` : ''}`
+        : `Ze skupiny ${g.name} teď nikdo nemůže${away ? ` — ${away} členů je na cestě` : ''}.`;
+      html += `<button class="btn-sm${canGo ? '' : ' ghost'}" data-action="exp-pick-group" data-group="${g.id}" ${canGo ? '' : 'disabled'} style="${canGo ? '' : 'opacity:.5'}" title="${esc(title)}">${label}</button>`;
+    }
+    if (!groups.length) html += `<span class="hint">Nemáš žádné skupiny — když si je založíš, půjde je vyslat celé.</span>`;
+    html += `</div>`;
+
+    html += `<div class="panel-title">3. Označ postavy</div><div class="member-picker" id="exp-member-picker">`;
+    for (const u of pickable) {
+      const g = u.groupId ? G.getGroup(u.groupId) : null;
+      const state = u.assignedTaskId ? '⚒️ pracuje (přeruší se)'
+        : u.resting ? '💤 odpočívá (vzbudí se)'
+          : '🟢 volný';
+      const extra = [];
+      if (g) extra.push(`👥 ${esc(g.name)}`);
+      if (u.injuries && u.injuries.length) extra.push('🩹 zraněný');
+      html += `<button class="member-pick" data-action="toggle-exp-member" data-unit="${u.id}" data-selected="false">${esc(u.name)} <span style="opacity:.6">(Lv${u.level}, ⚔${Math.round(G.unitCombatPower(u))} • ${state}${extra.length ? ' • ' + extra.join(' • ') : ''})</span></button>`;
     }
     html += `</div><div class="exp-pick-count" id="exp-pick-count">Vybráno <b>0</b> / ${G.EXPEDITION_MIN_PARTY}–${G.EXPEDITION_MAX_PARTY} • 🍞 0 • šance ≈ —</div>`;
     html += `<div class="perk-actions"><button class="btn" data-action="confirm-expedition">⛵ Vyslat</button><button class="btn ghost" data-action="close-modal">Zavřít</button></div></div>`;
@@ -844,6 +921,64 @@
     return html;
   };
 
+  /** Český název slotu výbavy. */
+  G.slotLabel = function (slot) { return { tool:'Nástroj', weapon:'Zbraň', armor:'Zbroj' }[slot] || slot; };
+
+  /**
+   * Seznam výbavy ve skladu s možností přiřadit ji postavě.
+   * Sdílí ho Batoh (Řemeslo → Batoh) i obchod v sídle, ať je ovládání všude stejné.
+   * opts: { emptyText, sell }
+   */
+  G.gearStockHtml = function (opts) {
+    opts = opts || {};
+    const inv = G.state.equipment || [];
+    if (!inv.length) {
+      return opts.emptyText ? `<div class="hint" style="text-align:left">${esc(opts.emptyText)}</div>` : '';
+    }
+    const units = G.state.units.filter(u => !u.dead && !u.isChild && u.equipment);
+    let html = '';
+    for (const it of inv) {
+      const def = G.EQUIPMENT[it.itemId];
+      if (!def) { html += `<div class="trade-row"><div class="trade-icon">❓</div><div class="trade-main"><div class="trade-name">Neznámý předmět (${esc(it.itemId)})</div></div></div>`; continue; }
+      const durFrac = def.durability > 0 ? it.durability / def.durability : 0;
+      const durColor = durFrac > 0.6 ? '#8fbf7a' : durFrac > 0.25 ? '#e0bb5e' : '#c05a45';
+      const qTag = it.quality && it.quality !== 'common' ? ` <span class="q-tag q-${it.quality}">${G.QUALITY_LABEL[it.quality]}</span>` : '';
+      const legTag = def.legendary ? ' <span class="q-tag q-masterwork">✨ Leg.</span>' : '';
+      const gemsTag = it.gems && it.gems.length ? ` <span class="q-tag" style="background:#4a3a6b;color:#d8d0f5">${it.gems.map(g => G.GEMS[g] ? G.GEMS[g].icon : '?').join('')}</span>` : '';
+
+      // Komu se kus hodí nejvíc (ať hráč nemusí hádat).
+      let bestU = null, bestScore = 0;
+      for (const u of units) {
+        const s = G.equipScore ? G.equipScore(it, u) : 0;
+        if (s > bestScore) { bestScore = s; bestU = u; }
+      }
+      const bestLine = bestU
+        ? ` · nejvíc se hodí: <b>${esc(bestU.name.split(' ')[0])}</b>`
+        : (units.length ? ' · nikomu teď nepřinese užitek' : ' · nemáš žádnou postavu');
+
+      const options = units.map(u => {
+        const cur = u.equipment[def.slot];
+        const gain = G.equipScore && cur ? G.equipScore(it, u) - G.equipScore(cur, u) : (G.equipScore ? G.equipScore(it, u) : 0);
+        const mark = gain > 1e-9 ? ' ⬆ lepší' : (cur ? ' (horší)' : '');
+        return `<option value="${u.id}">${esc(u.name)}${cur ? ' — nahradí ' + esc((G.EQUIPMENT[cur.itemId] || { name:'?' }).name) : ' — prázdný slot'}${mark}</option>`;
+      }).join('');
+
+      html += `<div class="trade-row">
+        <div class="trade-icon">${def.icon}</div>
+        <div class="trade-main">
+          <div class="trade-name">${esc(def.name)} <span class="q-tag">${G.slotLabel(def.slot)}${def.tier ? ' • T' + def.tier : ''}</span>${qTag}${legTag}${gemsTag}</div>
+          <div class="trade-sub">životnost <b style="color:${durColor}">${Math.round(it.durability)}/${def.durability}</b>${bestLine}</div>
+          ${units.length ? `<div class="unit-assign"><select data-change="assign-equip" data-item="${it.id}"><option value="">— nasadit postavě —</option>${options}</select></div>` : ''}
+        </div>
+        <div class="gear-actions">
+          ${(def.slot === 'armor' || def.slot === 'weapon') ? `<button class="btn-sm ghost" data-action="socket-modal" data-item="${it.id}" title="Vložit nebo vyndat gemy">💎</button>` : ''}
+          ${opts.sell && !def.legendary ? `<button class="btn-sm ghost" data-action="sell-equip" data-item="${it.id}">Prodat</button>` : ''}
+        </div>
+      </div>`;
+    }
+    return html;
+  };
+
   G.panelInventory = function () {
     let html = `<div class="panel-title">Materiály</div>`;
     const rows = [];
@@ -862,6 +997,16 @@
       gemRows.push(`<div class="inv-row"><div class="inv-icon">${G.GEMS[gid].icon}</div><div class="inv-main"><div class="inv-name">${esc(G.GEMS[gid].name)} <span style="color:#8d8570;font-weight:400">×${cnt}</span></div><div class="inv-q">${esc(G.GEMS[gid].desc)}</div></div></div>`);
     }
     html += rows.length ? rows.join('') : G.emptyState('Batoh je prázdný — pošli postavy sbírat suroviny.', 'activities', '⚒️ Práce');
+
+    // Výzbroj a výstroj — nasazení postavám (stejné ovládání jako v sídle)
+    const gear = G.state.equipment || [];
+    html += `<div class="panel-title">🎽 Výzbroj a výstroj (${gear.length})</div>`;
+    html += `<div class="panel-gear-head">
+      <span class="hint" style="text-align:left">Výbava se kupuje v sídle na mapě (záložka <b>Vybavení</b>) nebo padá z bossů. Tady ji nasadíš postavě.</span>
+      <button class="btn-sm" data-action="equip-all" ${gear.length ? '' : 'disabled'} title="Rozdá výbavu ze skladu postavám — nejlepší kusy první">⚡ Nasadit vše nejlepší</button>
+    </div>`;
+    html += G.gearStockHtml({ emptyText: 'Sklad s výbavou je prázdný. Kup vybavení v sídle na mapě (záložka Vybavení) nebo poraz bosse.', sell: true });
+
     if (gemRows.length) { html += `<div class="panel-title">💎 Gemy</div>`; html += gemRows.join(''); }
     const mw = G.state.masterworks || [];
     if (mw.length) {

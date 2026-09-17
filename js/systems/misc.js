@@ -357,6 +357,91 @@
     G.refreshGearVisual(u);
     return { ok:true };
   };
+
+  /** Předměty ve skladu, které patří do daného slotu (rozbité zůstávají — skóre je 0). */
+  G.equipPool = function (slot) {
+    const inv = G.state.equipment || [];
+    if (!slot) return inv.slice();
+    return inv.filter(e => {
+      const def = G.EQUIPMENT[e.itemId];
+      return def && def.slot === slot;
+    });
+  };
+  /** Kolik toho postava ze skladu ještě může nasadit (pro odznak/tlačítko). */
+  G.equipPoolCount = function (unitId) {
+    const u = G.getUnit(unitId);
+    if (!u || !u.equipment) return 0;
+    let n = 0;
+    for (const slot of ['tool', 'weapon', 'armor']) {
+      const cur = u.equipment[slot];
+      const curScore = cur ? G.equipScore(cur, u) : 0;
+      for (const it of G.equipPool(slot)) if (G.equipScore(it, u) > curScore) { n++; break; }
+    }
+    return n;
+  };
+  /** Jak moc je předmět pro tuhle postavu užitečný (vyšší = lepší). */
+  G.equipScore = function (item, unit) {
+    if (!item) return 0;
+    const def = G.EQUIPMENT[item.itemId];
+    if (!def) return 0;
+    const dur = def.durability > 0 ? Math.max(0, Math.min(1, item.durability / def.durability)) : 0;
+    if (dur <= 0) return 0;   // rozbité nic nepřinese
+    const q = G.QUALITY_MULT[item.quality || 'common'] || 1;
+    let s = ((def.combatBonus || 0) + (def.defBonus || 0) * 0.5) * q;
+    for (const sid in (def.mods || {})) {
+      const lv = (unit && G.unitSkill) ? G.unitSkill(unit, sid) : 1;
+      s += def.mods[sid] * 100 * q * (0.5 + Math.min(1.5, lv * 0.08));
+    }
+    if (def.staminaDrain) s += (1 - def.staminaDrain) * 25 * q;   // úspora výdrže
+    return s * (0.5 + 0.5 * dur);
+  };
+  /**
+   * Nasadí postavě nejlepší dostupný předmět. Bez `slot` projde všechny tři.
+   * Nahrazený předmět se vrací do skladu.
+   */
+  G.equipBest = function (unitId, slot) {
+    const u = G.getUnit(unitId);
+    if (!u || !u.equipment) return { ok:false, reason:'Chybí postava.' };
+    const slots = slot ? [slot] : ['tool', 'weapon', 'armor'];
+    const fitted = [];
+    for (const sl of slots) {
+      const cur = u.equipment[sl];
+      let best = null, bestScore = cur ? G.equipScore(cur, u) : 0;
+      for (const it of G.equipPool(sl)) {
+        const s = G.equipScore(it, u);
+        if (s > bestScore + 1e-9) { bestScore = s; best = it; }
+      }
+      if (best && G.equipUnit(unitId, best.id).ok) {
+        fitted.push(G.EQUIPMENT[best.itemId] ? G.EQUIPMENT[best.itemId].name : best.itemId);
+      }
+    }
+    if (!fitted.length) return { ok:false, reason:`${u.name} už má to nejlepší, co sklad nabízí.` };
+    return { ok:true, fitted };
+  };
+  /**
+   * Rozdá výbavu ze skladu postavám — nejlepší předměty první, každý dostane
+   * ta postava, které přinese nejvíc. Nahrazené kusy se vracejí do skladu.
+   */
+  G.autoEquipAll = function () {
+    const units = G.state.units.filter(u => !u.dead && !u.isChild && u.equipment);
+    if (!units.length) return { ok:false, changed:0, reason:'Nemáš žádné postavy.' };
+    const pool = (G.state.equipment || []).filter(it => G.equipScore(it, null) > 0);
+    if (!pool.length) return { ok:false, changed:0, reason:'Sklad je prázdný — výbavu kup v sídle nebo získávej z bossů.' };
+    pool.sort((a, b) => G.equipScore(b, null) - G.equipScore(a, null));
+    let changed = 0;
+    for (const it of pool) {
+      const def = G.EQUIPMENT[it.itemId];
+      if (!def || (G.state.equipment || []).indexOf(it) < 0) continue;   // už ho někdo dostal
+      let bestU = null, bestGain = 1e-9;
+      for (const u of units) {
+        const cur = u.equipment[def.slot];
+        const gain = G.equipScore(it, u) - (cur ? G.equipScore(cur, u) : 0);
+        if (gain > bestGain) { bestGain = gain; bestU = u; }
+      }
+      if (bestU && G.equipUnit(bestU.id, it.id).ok) changed++;
+    }
+    return { ok: changed > 0, changed };
+  };
   G.equipmentSkillBonus = function (unit, skillId) {
     if (!unit.equipment) return 0;
     let bonus = 0;

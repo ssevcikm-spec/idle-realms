@@ -6,10 +6,88 @@
   G.ELITE_HP_MULT = 1.5;
   G.ELITE_ATK_MULT = 1.3;
 
+  /* ---------- kdy má okno boje vyskočit ---------- */
+  // 'always' = u každého souboje, 'boss' = jen boss/elita, 'off' = nikdy (boj běží tiše)
+  G.COMBAT_WINDOW_MODES = ['always', 'boss', 'off'];
+  G.COMBAT_WINDOW_LABEL = { always:'vždy', boss:'jen boss a elita', off:'nikdy (tiše)' };
+  G.combatWindowMode = function () {
+    const m = G.state && G.state.settings ? G.state.settings.combatWindow : null;
+    return G.COMBAT_WINDOW_MODES.indexOf(m) >= 0 ? m : 'always';
+  };
+  /** Má se u tohohle souboje ukázat okno? */
+  G.combatWindowWanted = function (cb) {
+    if (!cb) return false;
+    const m = G.combatWindowMode();
+    if (m === 'off') return false;
+    if (m === 'boss') return !!(cb.isBoss || (cb.enemy || []).some(e => e.isElite));
+    return true;
+  };
+  /** Nastaví režim okna a hned ho promítne do běžícího souboje. */
+  G.setCombatWindowMode = function (m) {
+    if (G.COMBAT_WINDOW_MODES.indexOf(m) < 0) m = 'always';
+    if (!G.state.settings) G.state.settings = {};
+    G.state.settings.combatWindow = m;
+    const cb = G.state.combat.active;
+    if (cb && !cb.finished) {
+      if (G.combatWindowWanted(cb)) { if (G.openCombatWindow) G.openCombatWindow(); }
+      else if (G.hideCombatModal) G.hideCombatModal();
+    }
+    return m;
+  };
+
+  /** Může postava teď bojovat? (jedno místo pro všechna volání) */
+  G.unitCanFight = function (u) {
+    return !!(u && !u.dead && !u.isChild && !u.resting && !u.onExpedition
+      && !(u.merchantState && u.merchantState.active)
+      && !(G.hasSevereInjury && G.hasSevereInjury(u)));
+  };
+
+  /** Postavy družiny, které jsou dost blízko uzlu, aby se přidaly do boje. */
+  G.helpersNear = function (node, party, radius) {
+    const inParty = new Set((party || []).map(u => u.id));
+    const groups = new Set((party || []).map(u => u.groupId).filter(Boolean));
+    if (!groups.size) return [];
+    const cx = node.x + 0.5, cy = node.y + 0.5;
+    const out = [];
+    for (const u of G.state.units) {
+      if (inParty.has(u.id) || !u.groupId || !groups.has(u.groupId)) continue;
+      if (!G.unitCanFight(u)) continue;
+      if (Math.hypot(u.pos.x - cx, u.pos.y - cy) > (radius || 4)) continue;
+      out.push(u);
+    }
+    return out;
+  };
+
+  /**
+   * Družina, která u uzlu bojuje: skupina postavy, která je uzlu nejblíž
+   * (postava bez skupiny = družina o jednom). Když u uzlu nikdo není, bere se
+   * nejbližší bojeschopná postava kdekoliv — do boje se stejně jen „vstoupí“.
+   */
+  G.partyNearNode = function (node, radius) {
+    const ready = G.state.units.filter(G.unitCanFight);
+    if (!ready.length) return [];
+    const cx = node.x + 0.5, cy = node.y + 0.5;
+    const dist = (u) => Math.hypot(u.pos.x - cx, u.pos.y - cy);
+    const inRange = ready.filter(u => dist(u) <= (radius || 4));
+    const pool = (inRange.length ? inRange : ready).slice().sort((a, b) => dist(a) - dist(b));
+    return G.partyOf(pool[0].id, true);
+  };
+
   G.startCombat = function (node, units, opts) {
     opts = opts || {};
-    const party = units.filter(u => !u.dead && !u.isChild && !u.resting && !u.onExpedition && !(G.hasSevereInjury && G.hasSevereInjury(u)));
+    let party = units.filter(G.unitCanFight || (u => !u.dead && !u.isChild));
     if (!party.length) return null;
+    // Nikdo nesmí bojovat a zároveň pracovat — bojující se odpojí od svých úkolů
+    if (G.detachUnit) for (const u of party) if (u.assignedTaskId) G.detachUnit(u.id);
+    // Přispěchání na pomoc: členové stejné družiny v okolí uzlu se přidají
+    if (opts.helpers) {
+      const helpers = G.helpersNear(node, party, opts.helpRadius || 4);
+      if (helpers.length) {
+        if (G.detachUnit) for (const u of helpers) if (u.assignedTaskId) G.detachUnit(u.id);
+        party = party.concat(helpers);
+        G.log(`🏃 ${helpers.map(u => u.name.split(' ')[0]).join(', ')} přispěchal(a) na pomoc!`, 'combat');
+      }
+    }
     const partyPower = party.reduce((s, u) => s + G.unitCombatPower(u), 0);
     let enemy, count, isBoss = false;
     const danger = G.nodeDanger(node.kind);
@@ -18,7 +96,7 @@
       const boss = G.pickBossFor(node.kind);
       if (boss) { enemy = boss; count = 1; isBoss = true; G.log(`⚠️ ${boss.icon} ${boss.name} se vynořil z temnoty!`, 'combat'); }
     }
-    if (!enemy) { enemy = G.pickEnemyFor(node.kind, partyPower); count = G.enemyCountFor(enemy, party.length); }
+    if (!enemy) { enemy = G.pickEnemyFor(node.kind, partyPower); count = G.enemyCountFor(enemy, party.length, partyPower); }
     const combat = {
       id: 'cb_' + Date.now(),
       nodeId: node.id, nodeKind: node.kind,
@@ -62,7 +140,11 @@
     for (let i = 0; i < count; i++) combat.enemy.push(createEnemyInstance(enemy, i, count, false));
     G.state.combat.active = combat;
     // Svět běží dál i během souboje — boj jen překryje mapu, nic nepauzuje.
-    if (G.showCombatModal) G.showCombatModal(combat);
+    if (G.showCombatModal && G.combatWindowWanted(combat)) {
+      G.showCombatModal(combat);
+    } else {
+      G.log(`⚔️ Souboj: ${combat.enemyName} — okno boje je vypnuté, průběh i výsledek najdeš v logu (otevřeš ho tlačítkem ⚔️ na mapě).`, 'combat');
+    }
     startCombatAuto();
     return combat;
   };
@@ -371,6 +453,10 @@
     cb.result = result;
     stopCombatAuto();
     startCombatCloseTimer();   // okno se samo zavře po 5 s (nečinnost prodlouží)
+    // Když hráč okno nemá na očích, dej mu aspoň plovoucí hlášku
+    if (G.toast && !(G.combatModalVisible && G.combatModalVisible())) {
+      G.toast(result === 'win' ? `🎉 Vítězství — ${cb.enemyName}` : `💀 Prohra — ${cb.enemyName}`);
+    }
     if (result === 'win') {
       G.state.stats.combatsWon = (G.state.stats.combatsWon || 0) + 1;
       G.log(`⚔️ Vítězství! Porazil jsi ${cb.enemyName}.`, 'combat');
@@ -517,7 +603,8 @@
     const combatChance = danger >= 2 ? 0.45 : 0.25;
     if (danger >= 1 && G.chance(combatChance)) {
       G.cancelTask(task.id);
-      G.startCombat(node, active, { tactic: 'balanced' });
+      // Přepadení u uzlu: družina poblíž přispěchá na pomoc
+      G.startCombat(node, active, { tactic: 'balanced', helpers: true, helpRadius: 4 });
       return true;
     } else {
       let victim = active[0];

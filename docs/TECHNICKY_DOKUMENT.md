@@ -108,6 +108,15 @@ tickWorldEvents → tickMerchants → tickAchievements → tickAutonomy → tick
 - `SAVE_KEY = 'idleRealmSave_v8'`, `SAVE_VERSION = 8`.
 - `newState()` — kompletní výchozí stav (jednotky, skupiny, úkoly, ekonomika, svět, meta).
 - `save()` / `load()` / `migrateSave()` — migrace ze starších verzí (v2–v7).
+- **Dopočet chybějícího stavu po načtení** (`continueGame` v `js/main.js`): migrace
+  nesmí být „všechno, nebo nic“. `G.ensureEconomy()` (`js/systems/economy.js`)
+  doplní sídla bez trhu, `G.ensureQuests(id)` zakázky, `G.ensurePolitics()` /
+  `G.ensureDynasty()` frakce a dynastii. Past: `initEconomy()` se dřív pouštěl
+  jen když byla ekonomika **úplně prázdná**, takže když se svět rozšířil ze 6 na
+  10 sídel (`c63effc`), nová města zůstala bez ekonomiky a hlásila
+  „Sídlo nenalezeno“. `ensureEconomy()` nic nepřepisuje, jen doplňuje, a je
+  idempotentní (volá se i v `tickEconomy` jako pojistka).
+  Stejně se čistí `state.selected`, když ukazuje na sídlo, které ve světě není.
 - `exportSave()` / `importSave()` — base64 export/import.
 - Pomocné funkce materiálů (`matAdd`, `matCount`, `matRemove`, …) a log (`G.log`).
 - Stav obsahuje domény: `resources`, `materials`, `equipment`, `buildings`, `units`,

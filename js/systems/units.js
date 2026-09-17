@@ -207,6 +207,7 @@
     if (unit.dead) return 0;
     let p = (unit.attrs.str + unit.attrs.agi)*0.5 + G.unitSkill(unit, 'combat')*2.5;
     if (G.equipmentCombatBonus) p += G.equipmentCombatBonus(unit);
+    if (G.groupCombatMultFor) p *= G.groupCombatMultFor(unit);   // role Bojovník + chemie skupiny
     p *= G.unitTraitMod(unit, 'combat', 1);
     if (G.injuryWorkMult) p *= G.injuryWorkMult(unit);
     if (G.perkCombatMult) p *= G.perkCombatMult(unit);

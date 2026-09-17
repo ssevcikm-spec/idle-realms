@@ -8,8 +8,14 @@ Otevři `index.html` v prohlížeči. Nebo `python3 -m http.server 8000`.
 ## Funkce
 
 - **Postavy** — atributy, dovednosti, výstroj, zranění, výdrž, **nálada**, **osobnost** (5 os), **ambice**, vztahy, povolání, perky, učednictví
-- **Skupiny** — role (Vůdce, Zásobovač, Ranhojič, Průzkumník, Bojovník), chemie
-- **Boj** — statistiky, kola, taktika, nepřátelé podle regionů
+- **Skupiny** — role (Vůdce, Zásobovač, Ranhojič, Průzkumník, Bojovník), chemie.
+  Skupina je **družina**: drží spolu na mapě, bojuje spolu a role opravdu fungují —
+  Vůdce +10 % práce, Bojovník +30 % boje, Ranhojič +50 % hojení, Průzkumník −25 %
+  nebezpečí, Zásobovač −30 % jídla na expedici. Postava bez skupiny je družina o jednom.
+- **Boj** — statistiky, kola, taktika, nepřátelé podle regionů. Bojuje se **s družinou**
+  postavy, která je uzlu nejblíž (nebo s doporučenou / se všemi); členové skupiny
+  v okolí **přispěchají na pomoc**. Nepřátel se přidává podle **síly** družiny, ne
+  podle počtu hlav — přibrat slabšího člena tedy nikdy neuškodí.
 - **Obchodník** — postava cestující mezi sídly, prodává přebytky, buduje vztahy
 - **Výroba** — dílny ve městech, produkční řetězce, kvalita
 - **Ekonomika** — dynamické ceny, specializace, budovy, zakázky, frakce
@@ -21,6 +27,25 @@ Otevři `index.html` v prohlížeči. Nebo `python3 -m http.server 8000`.
 ## Ovládání
 - Tažení — pohyb mapou
 - Ťuknutí — výběr uzlu / sídla / základny
+- **Výbava (nástroj, zbraň, zbroj)** — kup ji v sídle na mapě (záložka **Vybavení**)
+  nebo ji získej z bossů, a pak ji postavě nasaď:
+  - **Lidé → Postavy** — u postavy v sekci *Výzbroj a výstroj* vyber v rozbalovacím
+    seznamu konkrétní kus (➕ *Nasadit ze skladu*), nebo zmáčkni **⚡ Nasadit nejlepší**
+    (tlačítko svítí s ⬆ a počtem slotů, které jde vylepšit),
+  - **Řemeslo → Batoh** — seznam celého skladu, u každého kusu je vidět, komu se hodí
+    nejvíc, a tlačítko **⚡ Nasadit vše nejlepší** rozdistribuuje výbavu všem postavám,
+  - *Sundat* vrátí kus zpět do skladu; výměna kusu starý automaticky vrátí do skladu.
+- **Expedice** — vyšli družinu (2–6 postav) na 2–10 dní; vybrat můžeš
+  **celou skupinu** jedním tlačítkem, **jen volné postavy**, nebo nechat hru
+  navrhnout **doporučenou družinu**. Expedice nikoho nevytrhne ze skupiny —
+  členství i role mu zůstávají, jen je zrovna na cestě (⛵).
+- **Souboj** — u uzlu s nepřáteli vyber, kdo půjde: **⚔️ Bojovat s družinou (N)**
+  (výchozí — družina/skupina postavy, která je uzlu nejblíž), **🛡️ Doporučená
+  družina** (nejmenší dostatečně silná), nebo **⚔️ Všichni** (přeruší práci všem).
+  Okno boje se dá kdykoli zavřít (`✕ Zavřít okno`, `Esc` nebo klik
+  mimo okno) a souboj běží dál na pozadí; zpátky ho otevřeš tlačítkem
+  **⚔️ Souboj — kolo N** na mapě. V menu ☰ jde volbou **⚔️ Okno boje** nastavit,
+  jestli má okno vyskakovat `vždy`, `jen boss a elita`, nebo `nikdy (tiše)`.
 - **☰ v horní liště** — menu (zpět do hry, nová hra, obtížnost, přepínač příběhových popupů, smazání savu), zavře i `Esc`
 - **Lišta surovin** pod HUD — co máš; na mobilu se posouvá prstem, šipkou ▸/▾ ji sbalíš
 - **Klávesa D** — debug (rychlost času, měřítko mapy: dlaždice 46–80 px, výška postav 60–115 %)
@@ -63,7 +88,7 @@ obsluhu v `js/ui/ui.js` — odhalí mrtvá tlačítka):
 powershell.exe -ExecutionPolicy Bypass -File scripts/check-actions.ps1
 ```
 
-Headless smoke test (spustí hru bez prohlížeče přes Node — 49 kontrol, deterministicky):
+Headless smoke test (spustí hru bez prohlížeče přes Node — 77 kontrol, deterministicky):
 
 ```bash
 node test/headless-smoke.js

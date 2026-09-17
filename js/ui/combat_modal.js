@@ -1,22 +1,64 @@
 (function () {
   const G = window.Game;
 
-  G.showCombatModal = function (cb) {
+  // Je okno zrovna na obrazovce? (kvůli tlačítku „otevřít" na mapě a testům)
+  let visible = false;
+  // Id souboje, jehož okno hráč zavřel ručně — takové okno se samo nevrací.
+  let hiddenForId = null;
+
+  G.combatModalVisible = function () { return visible; };
+
+  G.showCombatModal = function (cb, opts) {
+    if (!cb) return;
+    opts = opts || {};
+    // Okno, které hráč zavřel, se samo neotvírá (jen nový souboj nebo force).
+    if (hiddenForId && hiddenForId === cb.id && !opts.force) return;
+    hiddenForId = null;
     const root = document.getElementById('modal-root');
     root.innerHTML = renderCombat(cb);
     root.classList.add('show');
+    visible = true;
     if (cb.finished) bindCombatAutoClose();
   };
   G.updateCombatModal = function (cb) {
     const root = document.getElementById('modal-root');
-    if (!root.classList.contains('show')) return;
+    if (!root.classList.contains('show') || !visible) return;
     root.innerHTML = renderCombat(cb);
   };
   G.hideCombatModal = function () {
     const root = document.getElementById('modal-root');
     root.innerHTML = '';
     root.classList.remove('show');
+    visible = false;
   };
+  /** Hráč si okno zavřel sám — souboj pokračuje, okno jde zase otevřít. */
+  G.hideCombatWindow = function () {
+    const cb = G.state && G.state.combat && G.state.combat.active;
+    if (cb) hiddenForId = cb.id;
+    G.hideCombatModal();
+    if (G.refreshHud) G.refreshHud();
+  };
+  /** Znovu otevře okno běžícího (i skrytého) souboje. */
+  G.openCombatWindow = function () {
+    const cb = G.state && G.state.combat && G.state.combat.active;
+    if (!cb) return { ok:false, reason:'Žádný souboj neběží.' };
+    G.showCombatModal(cb, { force: true });
+    // Když hráč otevírá už dohraný souboj, dej mu na přečtení dalších 5 s
+    if (cb.finished && G.resetCombatCloseTimer) G.resetCombatCloseTimer();
+    if (G.refreshHud) G.refreshHud();
+    return { ok:true };
+  };
+  /** Je potřeba nabídnout tlačítko „otevřít okno boje"? */
+  G.combatWindowHiddenNow = function () {
+    const cb = G.state && G.state.combat && G.state.combat.active;
+    return !!(cb && !visible);
+  };
+  /**
+   * Obrazovku přebírá jiné okno (příběh, událost, perky…). Okno boje jen schováme,
+   * aby se stav nerozešel s DOM — souboj běží dál a na mapě se objeví ⚔️ tlačítko.
+   * Neoznačuje se jako „zavřené hráčem", takže se okno může vrátit.
+   */
+  G.combatModalYield = function () { if (visible) G.hideCombatModal(); };
 
   /** Jakákoli aktivita v okně (čtení/rolování) odloží samozavření o dalších 5 s. */
   let closeBound = false;
@@ -38,7 +80,11 @@
     let html = `<div class="modal-backdrop"><div class="modal wide combat-modal">
       <div class="combat-head">
         <div class="combat-title">⚔️ Souboj — kolo ${round}${cb.isBoss ? ' — BOSS' : ''}</div>
+        ${cb.finished ? '' : `<button class="combat-hide" data-action="combat-hide" title="Zavřít okno — souboj poběží dál na pozadí. Otevřeš ho tlačítkem ⚔️ na mapě.">✕ Zavřít okno</button>`}
       </div>`;
+    if (!cb.finished) {
+      html += `<div class="combat-note">Souboj běží sám dál, i když okno zavřeš — svět se nezastaví. Zpátky ho otevřeš tlačítkem <b>⚔️</b> na mapě.</div>`;
+    }
     html += `<div class="combat-side enemy-side">
       <div class="combat-side-label">Nepřátelé — ${G.esc(cb.enemyName)}</div>
       <div class="combat-units">`;

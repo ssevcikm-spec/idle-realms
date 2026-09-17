@@ -59,7 +59,13 @@
 
     ensureDefaults();
     restoreSequences();
-    if (!Object.keys(G.state.economy).length) G.initEconomy();
+    // Oprava starších savů: ekonomika musí existovat pro KAŽDÉ sídlo ve světě
+    // (dřív se inizializovala jen když byla úplně prázdná, takže sídla přidaná
+    // do generátoru později zůstala bez trhu a hlásila „Sídlo nenalezeno“).
+    if (G.ensureEconomy) {
+      const filled = G.ensureEconomy();
+      if (filled.length) G.log(`🏘️ Doplněna ekonomika nových sídel: ${filled.join(', ')}.`, 'info');
+    }
     if (G.ensurePolitics) G.ensurePolitics();
     if (G.ensureDynasty) G.ensureDynasty();
     repairUnits();
@@ -191,6 +197,8 @@
     s.camera.x = G.clamp(s.camera.x || 7, 0, (G.WORLD && G.WORLD.w ? G.WORLD.w - 1 : 63));
     s.camera.y = G.clamp(s.camera.y || 22, 0, (G.WORLD && G.WORLD.h ? G.WORLD.h - 1 : 47));
     s.selected = s.selected || null;
+    // Výběr z prosavého stavu může ukazovat na sídlo, které ve světě už není
+    if (s.selected && s.selected.type === 'settlement' && !G.WORLD.settlementById[s.selected.id]) s.selected = null;
   }
 
   function newGame(diffId) {

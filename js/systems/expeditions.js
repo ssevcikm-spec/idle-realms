@@ -10,10 +10,70 @@
     for (const mat of ['bread', 'fish']) { if (remaining <= 0) break; const have = G.matCount(mat); const take = Math.min(have, remaining); if (take > 0) { G.matRemove(mat, take); remaining -= take; } }
     return remaining === 0;
   }
-  G.expeditionFoodCost = function (expeditionId, partySize) {
+  /**
+   * Cena jídla na expedici. Když známe složení družiny (`unitIds`), uplatní se
+   * role Zásobovač ze skupiny (−30 % jídla) — jinak se počítá základ.
+   */
+  G.expeditionFoodCost = function (expeditionId, partySize, unitIds) {
     const tpl = G.EXPEDITIONS[expeditionId]; if (!tpl) return 0;
     const avgDays = (tpl.minDays + tpl.maxDays) / 2;
-    return foodNeededFor(avgDays, partySize);
+    let cost = foodNeededFor(avgDays, partySize);
+    if (unitIds && unitIds.length) {
+      const units = unitIds.map(id => G.getUnit(id)).filter(Boolean);
+      const mult = G.groupFoodMultFor ? G.groupFoodMultFor(units) : 1;
+      if (mult !== 1) cost = Math.max(1, Math.round(cost * mult));
+    }
+    return cost;
+  };
+
+  /** Součet síly družiny na expedici (stejný vzorec jako při vyhodnocení). */
+  G.expeditionPowerOf = function (units) {
+    return (units || []).reduce((s, u) => s + (u ? G.unitCombatPower(u) + G.unitSkill(u, 'scouting') * 3 : 0), 0);
+  };
+  /** Jak silná družina je na tuhle expedici potřeba. */
+  G.expeditionNeed = function (expeditionId) {
+    const tpl = G.EXPEDITIONS[expeditionId];
+    return tpl ? tpl.difficulty * 30 : 0;
+  };
+  /** Odhad šance na úspěch pro expedici + vybrané postavy (0.20–0.95). */
+  G.expeditionChance = function (expeditionId, unitIds) {
+    const units = (unitIds || []).map(id => G.getUnit(id)).filter(u => u && !u.dead);
+    if (!units.length) return 0.20;
+    const ratio = G.expeditionPowerOf(units) / Math.max(1, G.expeditionNeed(expeditionId));
+    return G.clamp(0.30 + ratio * 0.40, 0.20, 0.95);
+  };
+  /**
+   * Doporučená družina: nejsilnější postavy, ale jen tolik, kolik má smysl —
+   * jakmile je šance dobrá, další postavy jen zbytečně spotřebují jídlo.
+   */
+  G.recommendExpeditionParty = function (expeditionId, units) {
+    const pool = (units || []).slice().sort((a, b) => G.expeditionPowerOf([b]) - G.expeditionPowerOf([a]));
+    const out = [];
+    for (const u of pool) {
+      if (out.length >= G.EXPEDITION_MAX_PARTY) break;
+      out.push(u);
+      if (out.length >= G.EXPEDITION_MIN_PARTY && G.expeditionChance(expeditionId, out.map(x => x.id)) >= 0.75) break;
+    }
+    return out;
+  };
+  /**
+   * Koho vůbec jde na expedici nabídnout: ne mrtvé, ne děti, ne ty, kdo už jsou
+   * pryč nebo obchodují. Odpočívající jde vzít taky (vzbudí se), pracující taky
+   * (přeruší úkol) — na rozdíl od `G.availableForExpedition`, která vrací jen volné.
+   */
+  G.expeditionPickable = function () {
+    const busy = new Set();
+    for (const e of (G.state.expeditions || [])) for (const id of e.unitIds) busy.add(id);
+    return G.state.units.filter(u => u && !u.dead && !u.isChild
+      && !busy.has(u.id)
+      && !u.onExpedition
+      && !(u.merchantState && u.merchantState.active));
+  };
+  /** Je postava úplně volná (nic nedělá, neodpočívá, neobchoduje)? */
+  G.expeditionUnitIsFree = function (u) {
+    return !!(u && !u.dead && !u.isChild && !u.onExpedition && !u.resting && !u.assignedTaskId
+      && !(u.merchantState && u.merchantState.active)
+      && !(G.hasSevereInjury && G.hasSevereInjury(u)));
   };
 
   G.startExpedition = function (expeditionId, unitIds) {
@@ -28,10 +88,12 @@
     for (const u of units) if (busy.has(u.id)) return { ok:false, reason:`${u.name} už je na expedici.` };
     const days = tpl.minDays + G.randInt(0, tpl.maxDays - tpl.minDays);
     const duration = days * G.TIME.dayLength;
-    const foodCost = foodNeededFor(days, units.length);
+    let foodCost = foodNeededFor(days, units.length);
+    const groupFoodMult = G.groupFoodMultFor ? G.groupFoodMultFor(units) : 1;
+    if (groupFoodMult !== 1) foodCost = Math.max(1, Math.round(foodCost * groupFoodMult));
     if (availableFood() < foodCost) return { ok:false, reason:`Potřebuješ ${foodCost}× jídlo na cestu, máš ${availableFood()}.` };
-    const power = units.reduce((s, u) => s + G.unitCombatPower(u) + G.unitSkill(u, 'scouting') * 3, 0);
-    const need = tpl.difficulty * 30;
+    const power = G.expeditionPowerOf(units);
+    const need = G.expeditionNeed(expeditionId);
     consumeFood(foodCost);
     const exp = {
       id: 'ex' + Date.now() + '_' + G.randInt(0, 999),
@@ -40,13 +102,18 @@
       days: days, power: Math.round(power), need: Math.round(need),
       foodCost: foodCost, outcome: null, events: []
     };
+    const groups = new Set();
     for (const u of units) {
       if (u.assignedTaskId) G.cancelTask(u.assignedTaskId);
+      if (u.resting && G.wakeUnit) G.wakeUnit(u);   // odpočívající jde taky, jen se vzbudí
       u.onExpedition = true; u.expeditionId = exp.id;
       u.stamina = Math.max(20, Math.floor(u.stamina * 0.7));
-      G.removeUnitFromGroup(u.id);
+      // Skupinu NEROZEBÍRÁME: postava zůstává členem i ve své roli, jen je na cestě.
+      const g = u.groupId ? G.getGroup(u.groupId) : null;
+      if (g) groups.add(g.name);
       if (G.addJournal) G.addJournal(u, `Vyrazil na expedici "${tpl.name}" (${days} dní).`, '⛵');
     }
+    exp.groups = Array.from(groups);
     // Naplánuj eventy na cestě
     if (G.EXPEDITION_EVENTS && G.chance(G.EXPEDITION_EVENT_CHANCE)) {
       const ev = G.pick(G.EXPEDITION_EVENTS);
@@ -54,7 +121,7 @@
     }
     G.state.expeditions.push(exp);
     G.state.stats.expeditions = (G.state.stats.expeditions || 0) + 1;
-    G.log(`⛵ ${tpl.icon} Expedice "${tpl.name}" začala (${days} dní, ${units.length} postav, ${foodCost} jídla).`, 'story');
+    G.log(`⛵ ${tpl.icon} Expedice "${tpl.name}" začala (${days} dní, ${units.length} postav, ${foodCost} jídla${groupFoodMult !== 1 ? ` — Zásobovač ušetřil ${Math.round((1 - groupFoodMult) * 100)} %` : ''}).${exp.groups.length ? ` Skupiny: ${exp.groups.join(', ')} — členství i role jim zůstávají.` : ''}`, 'story');
     return { ok:true, expedition: exp };
   };
 
@@ -183,5 +250,19 @@
       && !u.resting
       && !u.onExpedition
       && !(u.merchantState && u.merchantState.active));
+  };
+  /** Kolik členů skupiny je zrovna na expedici (pro odznak ve skupině). */
+  G.groupExpeditionCount = function (groupId) {
+    const g = G.getGroup(groupId);
+    if (!g) return 0;
+    return G.groupMembers(g).filter(u => u && !u.dead && u.onExpedition).length;
+  };
+  /** Skupiny, ze kterých jde teď na expedici aspoň někdo. */
+  G.expeditionGroups = function () {
+    const pickable = new Set(G.expeditionPickable().map(u => u.id));
+    return (G.state.groups || []).map(g => {
+      const members = G.groupMembers(g).filter(u => u && !u.dead && !u.isChild);
+      return { g, members, eligible: members.filter(u => pickable.has(u.id)), away: members.filter(u => u.onExpedition).length };
+    });
   };
 })();

@@ -2,7 +2,7 @@
 // Použití:  node test/headless-smoke.js
 // Exit 0 = OK, exit 1 = chyba.
 //
-// Simuluje prohlížeč (window/document/localStorage), načte všech 56 skriptů
+// Simuluje prohlížeč (window/document/localStorage), načte všech 59 skriptů
 // v pořadí z index.html, zobrazí title screen → spustí Novou hru, a pak
 // prožene ticky. Odhalí runtime chyby, které statická analýza nezachytí.
 
@@ -177,6 +177,85 @@ check('vsechny panely se vykresli bez vyjimky', () => {
   const sid = G.WORLD.settlements[0].id;
   assert(typeof G.panelTrade(sid) === 'string', 'panelTrade nevykreslil');
 });
+check('vybava: koupeni, nasazeni a sundani', () => {
+  const u = G.state.units.find(x => !x.dead && !x.isChild && x.equipment);
+  assert(!!u, 'zadna postava s vybavou');
+  const sid = G.WORLD.settlements[0].id;
+  const origTool = u.equipment.tool || null;
+  G.state.resources.gold = 100000;
+  const before = (G.state.equipment || []).length;
+  const buy = G.buyEquipment(sid, 'stone_pick');
+  assert(buy.ok, 'nakup vybavy selhal: ' + (buy.reason || '?'));
+  assert(G.state.equipment.length === before + 1, 'koupeny predmet neni ve skladu');
+  const res = G.equipUnit(u.id, buy.instance.id);
+  assert(res.ok, 'nasazeni selhalo: ' + (res.reason || '?'));
+  assert(u.equipment.tool && u.equipment.tool.id === buy.instance.id, 'predmet neni nasazeny');
+  assert(G.state.equipment.indexOf(buy.instance) === -1, 'nasazeny predmet zustal ve skladu');
+  assert(!!u.gear, 'gear (vzhled) se neprepocital');
+  const off = G.unequipUnit(u.id, 'tool');
+  assert(off.ok, 'sundani selhalo');
+  assert(G.state.equipment.indexOf(buy.instance) !== -1, 'sundany predmet se nevratil do skladu');
+  // uklid: sundany kus zrusit, puvodni vybavu postave vratit
+  G.equipRemove(buy.instance.id);
+  if (origTool) {
+    G.equipRemove(origTool.id);
+    u.equipment.tool = origTool;
+    G.refreshGearVisual(u);
+  }
+});
+check('vybava: equipBest vybere nejlepsi kus a ignoruje rozbity', () => {
+  const u = G.state.units.find(x => !x.dead && !x.isChild && x.equipment);
+  assert(!!u, 'zadna postava');
+  for (const slot of ['tool', 'weapon', 'armor']) if (u.equipment[slot]) G.unequipUnit(u.id, slot);
+  const weak = G.equipAdd('stone_pick', { quality: 'common' });
+  const broken = G.equipAdd('iron_pick', { durability: 0 });
+  const strong = G.equipAdd('iron_pick', { quality: 'fine' });
+  assert(weak && broken && strong, 'nepodarilo se pridat predmety do skladu');
+  const res = G.equipBest(u.id, 'tool');
+  assert(res.ok, 'equipBest selhal: ' + (res.reason || '?'));
+  assert(u.equipment.tool && u.equipment.tool.id === strong.id,
+    'nenasadil nejlepsi kus: ' + (u.equipment.tool && u.equipment.tool.itemId));
+  assert(G.state.equipment.indexOf(weak) !== -1, 'horsi kus mel zustat ve skladu');
+  assert(G.state.equipment.indexOf(broken) !== -1, 'rozbit kus se mel preskocit');
+  assert(G.equipScore(broken, u) === 0, 'rozbit kus ma mit skore 0');
+  for (const it of [weak, broken, strong]) if (G.state.equipment.indexOf(it) !== -1) G.equipRemove(it.id);
+  G.equipRemove(u.equipment.tool.id);
+  u.equipment.tool = null;
+});
+check('vybava: hromadne rozdani postavam (autoEquipAll)', () => {
+  const units = G.state.units.filter(x => !x.dead && !x.isChild && x.equipment);
+  assert(units.length >= 2, 'malo postav na rozdeleni (' + units.length + ')');
+  for (const x of units) for (const slot of ['tool', 'weapon', 'armor']) if (x.equipment[slot]) G.unequipUnit(x.id, slot);
+  const made = [G.equipAdd('stone_axe'), G.equipAdd('stone_pick'), G.equipAdd('leather_armor')];
+  assert(made.every(Boolean), 'nepodarilo se pridat predmety do skladu');
+  const res = G.autoEquipAll();
+  assert(res.ok, 'autoEquipAll nic nerozdal: ' + (res.reason || '?'));
+  let equipped = 0, wearers = 0;
+  for (const x of units) {
+    const n = ['tool', 'weapon', 'armor'].filter(s => x.equipment[s]).length;
+    equipped += n;
+    if (n) wearers++;
+  }
+  assert(equipped === made.length, 'nerozdalo vsechny kusy (' + equipped + '/' + made.length + ')');
+  assert(wearers >= 2, 'vsechno dostala jedna postava (' + wearers + ')');
+});
+check('vybava: rozhrani umi nasadit (karta postavy + Batoh)', () => {
+  assert(G.equipAdd('stone_axe'), 'nepodarilo se pridat predmet');
+  const card = G.panelUnits();
+  assert(card.indexOf('data-change="unit-equip"') !== -1, 'karta postavy nenabizi nasazeni ze skladu');
+  assert(card.indexOf('data-action="equip-best"') !== -1, 'chybi tlacitko "Nasadit nejlepsi"');
+  assert(card.indexOf('data-action="unequip"') !== -1, 'chybi tlacitko "Sundat"');
+  const inv = G.panelInventory();
+  assert(inv.indexOf('data-action="equip-all"') !== -1, 'Batoh neumi rozdat vybavu');
+  assert(inv.indexOf('data-change="assign-equip"') !== -1, 'Batoh neumi priradit predmet postave');
+  assert(inv.indexOf('Výzbroj a výstroj') !== -1, 'v Batohu chybi sekce vybavy');
+  const sid = G.WORLD.settlements[0].id;
+  G.setTradeTab('equipment');
+  const trade = G.panelTrade(sid);
+  assert(trade.indexOf('data-change="assign-equip"') !== -1, 'obchod v sidle neumi priradit predmet');
+  assert(trade.indexOf('data-action="buy-equip"') !== -1, 'v nabidce sidla chybi nakup vybavy');
+  G.setTradeTab('market');
+});
 check('modaly se vykresli bez vyjimky', () => {
   const u = G.state.units.find(x => !x.dead);
   assert(!!u, 'zadna postava');
@@ -185,6 +264,69 @@ check('modaly se vykresli bez vyjimky', () => {
   assert(typeof G.merchantPanel(u.id) === 'string', 'merchantPanel');
   assert(typeof G.expeditionModal() === 'string', 'expeditionModal');
   assert(typeof G.taskAssignModal({ activityId:'chop_wood', nodeId:null, targetQty:25 }) === 'string', 'taskAssignModal');
+});
+check('expedice: celá skupina i volné postavy, nikoho nevytrhne ze skupiny', () => {
+  const units = G.state.units.filter(x => !x.dead && !x.isChild && !x.onExpedition
+    && !(x.merchantState && x.merchantState.active));
+  assert(units.length >= 3, 'malo volnych postav na test (' + units.length + ')');
+  const originals = units.slice(0, 3).map(x => ({ u: x, groupId: x.groupId }));
+  const g = G.createGroup('Testovaci expedicni');
+  for (const o of originals) G.addUnitToGroup(o.u.id, g.id);
+  assert(G.groupMembers(g).length === 3, 'skupina nema 3 cleny');
+
+  G.matAdd('bread', 80, 'common');        // dost jidla na cestu
+
+  // Modal nabízí celou skupinu i volné postavy (dokud je dost postav na výběr)
+  const html = G.expeditionModal();
+  assert(html.indexOf(`data-action="exp-pick-group" data-group="${g.id}"`) !== -1, 'modal nenabizi celou skupinu');
+  assert(html.indexOf('data-action="exp-pick-free"') !== -1, 'modal nenabizi jen volne postavy');
+  assert(html.indexOf('data-action="exp-pick-best"') !== -1, 'modal nenabizi doporucenou druzinu');
+  assert(html.indexOf('data-action="exp-pick-none"') !== -1, 'modal nenabizi zruseni vyberu');
+  assert(G.expQuickPick('group', { group: g.id }).length === 3, 'vyber cele skupiny nevzal 3 cleny');
+  // Doporučená družina respektuje limity (min–max) a umí spočítat šanci
+  const rec = G.recommendExpeditionParty('pilgrimage', G.expeditionPickable());
+  assert(rec.length >= G.EXPEDITION_MIN_PARTY && rec.length <= G.EXPEDITION_MAX_PARTY,
+    'doporucena druzina ma divny pocet: ' + rec.length);
+  assert(G.expeditionChance('pilgrimage', rec.map(x => x.id)) >= 0.20, 'expeditionChance vraci nesmysl');
+
+  const party = units.slice(0, 2);
+  const res = G.startExpedition('lost_caravan', party.map(x => x.id));
+  assert(res.ok, 'expedice nezacala: ' + (res.reason || '?'));
+  for (const x of party) {
+    assert(x.onExpedition === true, x.name + ' neni na expedici');
+    assert(x.groupId === g.id, 'expedice vytrhla ' + x.name + ' ze skupiny');
+  }
+  assert(G.groupMembers(g).length === 3, 'skupina se rozpada: ' + G.groupMembers(g).length);
+  assert(G.groupExpeditionCount(g.id) === 2, 'groupExpeditionCount spatne: ' + G.groupExpeditionCount(g.id));
+
+  const mine = G.expeditionGroups().find(x => x.g.id === g.id);
+  assert(!!mine, 'expeditionGroups nezahrnul skupinu');
+  assert(mine.away === 2, 'expeditionGroups nespocital cleny na ceste: ' + mine.away);
+  assert(mine.eligible.length === 1, 'eligible ma byt 1 (treti clen): ' + mine.eligible.length);
+
+  // Rychlý výběr vrací správné postavy
+  assert(G.expQuickPick('group', { group: g.id }).length === 1, 'skupinovy vyber ma vzit jen toho, kdo muze');
+  assert(G.expQuickPick('none').length === 0, 'zruseni vyberu ma vratit prazdno');
+  const free = G.expQuickPick('free');
+  assert(free.every(u => G.expeditionUnitIsFree(u)), 'volny vyber obsahuje zaneprazdnenou postavu');
+  assert(G.expQuickPick('all').length <= G.EXPEDITION_MAX_PARTY, 'vyber vsech prekrocil limit expedice');
+
+  // Po návratu zůstávají ve skupině
+  res.expedition.endsAt = G.state.time;
+  G.tickExpeditions(0.1);
+  for (const x of party) {
+    assert(x.onExpedition === false, x.name + ' se nevratil z expedice');
+    assert(x.groupId === g.id, 'po navratu ' + x.name + ' uz neni ve skupine');
+  }
+  assert(G.groupExpeditionCount(g.id) === 0, 'po navratu nikdo nema byt na ceste');
+
+  // Úklid: vrátit postavy do původních skupin a testovací skupinu zrušit
+  G.state.expeditions = (G.state.expeditions || []).filter(e => e !== res.expedition);
+  for (const o of originals) {
+    o.u.groupId = null;
+    if (o.groupId) G.addUnitToGroup(o.u.id, o.groupId);
+  }
+  G.state.groups = G.state.groups.filter(x => x.id !== g.id);
 });
 check('mnozstvi: pamet hodnot a davkova vyroba', () => {
   G.qtySet('act:chop_wood', 42);
@@ -259,6 +401,39 @@ check('trh ukazuje cenu a trend proti zakladu', () => {
     assert(html.indexOf('sklad') !== -1, 'chybi plnost skladu');
     assert(html.indexOf('%') !== -1, 'chybi trend ceny');
   }
+});
+check('ekonomika: chybějící sídla se doplní (starý sav s 6 sídly)', () => {
+  const all = G.WORLD.settlements.map(s => s.id);
+  assert(all.length === 10, 'svet nema 10 sidel: ' + all.length);
+  // Simulace starého savu: existuje jen prvních 6 sídel
+  const missing = all.slice(6);
+  for (const sid of missing) { delete G.state.economy[sid]; delete G.state.settlementRep[sid]; }
+  const dead = G.WORLD.settlementById[missing[0]];
+  assert(G.state.economy[dead.id] === undefined, 'priprava selhala — ekonomika ma chybet');
+  assert(G.priceAt(dead.id, G.TRADED[0]) === 0, 'bez ekonomiky ma byt cena 0');
+  assert(G.settlementMarket(dead.id).length === 0, 'bez ekonomiky ma byt trh prazdny');
+
+  const filled = G.ensureEconomy();
+  assert(filled.length === missing.length, 'nedoplnilo vsechna chybejici sidla: ' + filled.length);
+  for (const sid of missing) {
+    const st = G.state.economy[sid];
+    assert(!!st, 'ekonomika se nedoplnila pro ' + sid);
+    assert(st.gold > 0 && st.goldTarget > 0, 'doplnena ekonomika nema zlato: ' + sid);
+    assert(Object.keys(st.target).length > 0, 'doplnena ekonomika nema target: ' + sid);
+    assert(G.state.settlementRep[sid] != null, 'chybi vztah se sidlem ' + sid);
+    assert(G.settlementMarket(sid).length > 0, 'trh je i po oprave prazdny: ' + sid);
+  }
+  // Panel sídla už nesmí hlásit „nenalezeno“ a musí nabízet zboží
+  const html = G.panelTrade(dead.id);
+  assert(html.indexOf('nenalezeno') === -1, 'panel porad hlasi nenalezeno');
+  assert(html.indexOf('Nabídka') !== -1 || html.indexOf('koupíš') !== -1, 'panel nema nabidku zbozi');
+
+  // Oprava je idempotentní a nepřepisuje existující trhy
+  const goldBefore = G.state.economy[all[0]].gold;
+  assert(G.ensureEconomy().length === 0, 'druha oprava mela vratit prazdno');
+  assert(G.state.economy[all[0]].gold === goldBefore, 'oprava prepsala existujici trh');
+  assert(!!G.economyOf(dead.id), 'economyOf nevratilo ekonomiku sídla');
+  assert(G.panelTrade('neexistuje').indexOf('Neznámé sídlo') !== -1, 'nezname sidlo ma rict Neznámé sídlo');
 });
 check('zakladna: validace mista', () => {
   const w = G.WORLD;
@@ -783,6 +958,11 @@ check('boj: uzel s divocinou ma tlacitko bojovat', () => {
   G.state.selected = { type: 'node', id: n.id };
   const html = G.panelPlace();
   assert(html.indexOf('data-action="attack-here"') !== -1, 'hluboky les nenabizi bojovat');
+  // Výchozí volba je družina (= skupina) u uzlu, ne „všichni“ z celé mapy
+  assert(html.indexOf('Bojovat s družinou') !== -1 || html.indexOf('⚔️ Bojovat<') !== -1, 'chybi tlacitko pro druzinu');
+  if (html.indexOf('data-mode="all"') !== -1) {
+    assert(html.indexOf('přeruší') !== -1, 'tlacitko "vsichni" ma varovat pred prerusenim prace');
+  }
 });
 check('boj: automaticky rezim a dovednosti ve vychozim stavu', () => {
   const u = G.state.units.find(x => !x.dead && !x.isChild && !x.onExpedition);
@@ -827,6 +1007,207 @@ check('boj: svet bezi dal a okno se samo zavre po konci', () => {
   assert(G.combatAutoCloseAt() === 0, 'po zavreni nemelo nic zustat naplanovano');
   assert(G.unitInCombat(u) === false, 'po zavreni uz postava nebojuje');
 });
+check('boj: okno jde zavrit behem souboje a znovu otevrit', () => {
+  G.resumeGame();
+  const u = G.state.units.find(x => !x.dead && !x.isChild && !x.onExpedition);
+  assert(!!u, 'zadna postava');
+  if (G.wakeUnit) G.wakeUnit(u);
+  u.resting = false; u._refuseUntil = null; u.mood = Math.max(u.mood || 70, 70);
+  const node = G.WORLD.nodes.find(n => (G.NODE_DANGER[n.kind] || 0) >= 1) || G.WORLD.nodes[0];
+  const cb = G.startCombat(node, [u], { tactic: 'balanced' });
+  assert(!!cb, 'souboj nezacal');
+  assert(G.combatModalVisible() === true, 'okno boje se melo ukazat');
+  assert(G.combatWindowHiddenNow() === false, 'okno je videt, nemelo by nabizet otevreni');
+
+  G.hideCombatWindow();                       // hráč zavřel okno uprostřed souboje
+  assert(G.combatModalVisible() === false, 'okno se nezavrelo');
+  assert(G.combatWindowHiddenNow() === true, 'chybi nabidka "otevrit okno boje"');
+  assert(G.state.combat.active === cb, 'zavreni okna nesmi zrusit souboj');
+  assert(G.combatAutoOn() === true, 'souboj ma bezn dal i se zavrenym oknem');
+
+  const roundBefore = cb.round;
+  let guard = 0;
+  while (!cb.finished && cb.round === roundBefore && guard++ < 200) G.combatRound();
+  assert(cb.round > roundBefore || cb.finished, 'souboj se zavrenym oknem stoji');
+
+  if (!cb.finished) {
+    G.openCombatWindow();                     // a zase ho otevřít
+    assert(G.combatModalVisible() === true, 'okno se znovu neotevrelo');
+    assert(G.combatWindowHiddenNow() === false, 'po otevreni se stale hlasi skryte okno');
+  }
+  G.closeCombat();
+  assert(G.combatModalVisible() === false, 'po konci souboje zustalo okno viset');
+});
+check('boj: okno nemusi vyskakovat (rezim vždy / boss / nikdy)', () => {
+  assert(G.combatWindowMode() === 'always', 'vychozi rezim ma byt always: ' + G.combatWindowMode());
+  G.setCombatWindowMode('off');
+  assert(G.combatWindowMode() === 'off', 'rezim se neulozil');
+
+  const u = G.state.units.find(x => !x.dead && !x.isChild && !x.onExpedition);
+  if (G.wakeUnit) G.wakeUnit(u);
+  u.resting = false; u._refuseUntil = null; u.mood = Math.max(u.mood || 70, 70);
+  const node = G.WORLD.nodes.find(n => (G.NODE_DANGER[n.kind] || 0) >= 1) || G.WORLD.nodes[0];
+  const cb = G.startCombat(node, [u], { tactic: 'balanced' });
+  assert(!!cb, 'souboj nezacal');
+  assert(G.combatModalVisible() === false, 'v rezimu "nikdy" se okno nemelo ukazat');
+  assert(G.state.combat.active === cb, 'souboj v tichém rezimu nebezi');
+  assert(G.combatWindowHiddenNow() === true, 'i tichy souboj ma jit rucne otevrit');
+  G.openCombatWindow();                       // ruční otevření musí jít i tak
+  assert(G.combatModalVisible() === true, 'rucni otevreni okna selhalo');
+
+  G.setCombatWindowMode('always');
+  assert(G.combatWindowWanted({ isBoss: false, enemy: [] }) === true, 'always ma chtit okno');
+  G.setCombatWindowMode('boss');
+  assert(G.combatWindowWanted({ isBoss: false, enemy: [] }) === false, 'boss rezim ma mlcet u bezneho nepritele');
+  assert(G.combatWindowWanted({ isBoss: true, enemy: [] }) === true, 'boss rezim ma ukazat okno u bosse');
+  assert(G.combatWindowWanted({ isBoss: false, enemy: [{ isElite: true }] }) === true, 'boss rezim ma ukazat okno u elity');
+  G.setCombatWindowMode('always');
+  assert(G.combatWindowMode() === 'always', 'rezim se nevratil na always');
+  G.closeCombat();
+});
+check('boj: menu ☰ pri skrytem okne ho samo nevrati', () => {
+  const u = G.state.units.find(x => !x.dead && !x.isChild && !x.onExpedition);
+  if (G.wakeUnit) G.wakeUnit(u);
+  u.resting = false; u._refuseUntil = null; u.mood = Math.max(u.mood || 70, 70);
+  const node = G.WORLD.nodes.find(n => (G.NODE_DANGER[n.kind] || 0) >= 1) || G.WORLD.nodes[0];
+  const cb = G.startCombat(node, [u], { tactic: 'balanced' });
+  assert(G.combatModalVisible() === true, 'okno se melo ukazat');
+  G.hideCombatWindow();
+  G.openGameMenu();
+  assert(G.combatModalVisible() === false, 'menu ma okno boje odklidit');
+  G.closeGameMenu();
+  assert(G.combatModalVisible() === false, 'okno, ktere hrac zavrel, se po menu nemá vracet');
+  if (G.state.combat.active) G.closeCombat();
+});
+check('družina: skupina drží spolu, jedinec je skupina o jednom', () => {
+  const pool = G.state.units.filter(u => !u.dead && !u.isChild && !u.onExpedition);
+  assert(pool.length >= 3, 'malo postav: ' + pool.length);
+  const [a, b, c] = pool;
+  const originals = [a, b, c].map(x => ({ u: x, groupId: x.groupId }));
+  // Uklid: všechny tři bez skupiny na známé pozice
+  for (const u of [a, b, c]) { G.removeUnitFromGroup(u.id); u.manual = false; u.onExpedition = false; }
+
+  // Samostatná postava = družina o jednom
+  assert(G.partyOf(a.id).length === 1, 'samostatna postava ma byt druzina o jednom');
+  assert(G.partyOf(a.id, true)[0] === a, 'partyOf neobsahuje samu postavu');
+
+  const g = G.createGroup('TestDruzina');
+  G.addUnitToGroup(a.id, g.id);
+  G.addUnitToGroup(b.id, g.id);
+  const members = G.partyOf(a.id);
+  assert(members.length === 2 && members.indexOf(b) !== -1, 'partyOf nema celou skupinu: ' + members.length);
+  assert(G.partyIdsOf(a.id).indexOf(b.id) !== -1, 'partyIdsOf neobsahuje clena');
+
+  // Přispěchání na pomoc: b je u uzlu, c daleko a mimo skupinu
+  const node = G.WORLD.nodes.find(n => (G.NODE_DANGER[n.kind] || 0) >= 1) || G.WORLD.nodes[0];
+  a.pos = { x: node.x + 1, y: node.y + 0.5 };
+  b.pos = { x: node.x + 0.5, y: node.y + 1.5 };
+  c.pos = { x: node.x + 30, y: node.y + 30 };
+  const helpers = G.helpersNear(node, [a], 4);
+  assert(helpers.indexOf(b) !== -1, 'clen druziny u uzlu se ma pridat');
+  assert(helpers.indexOf(c) === -1, 'postava mimo skupinu se pridat nesmi');
+  b.pos = { x: node.x + 30, y: node.y + 30 };
+  assert(G.helpersNear(node, [a], 4).length === 0, 'clen daleko od uzlu se pridat nesmi');
+  b.pos = { x: node.x + 0.5, y: node.y + 1.5 };
+
+  // Držení pohromadě: nečinný člen míří ke středu ostatních
+  const target = G.groupCohesionTarget(b);
+  assert(!!target, 'clen skupiny ma mit cil drzeni');
+  assert(Math.hypot(target.x - a.pos.x, target.y - a.pos.y) < 3, 'cil drzeni je daleko od skupiny');
+  assert(G.groupCohesionTarget(c) === null, 'postava bez skupiny se nema presouvat');
+
+  // Úklid
+  for (const o of originals) { o.u.groupId = null; if (o.groupId) G.addUnitToGroup(o.u.id, o.groupId); }
+  G.state.groups = G.state.groups.filter(x => x.id !== g.id);
+});
+check('role skupiny: bojovník posiluje boj, zásobovač šetří jídlo', () => {
+  const pool = G.state.units.filter(u => !u.dead && !u.isChild && !u.onExpedition);
+  const [a, b] = pool;
+  const originals = [a, b].map(x => ({ u: x, groupId: x.groupId }));
+  for (const u of [a, b]) G.removeUnitFromGroup(u.id);
+  const beforePower = G.unitCombatPower(a);
+  const beforeStats = G.unitCombatStats(a);
+  assert(G.groupCombatMultFor(a) === 1, 'postava bez skupiny nema mit bojovy bonus');
+
+  const g = G.createGroup('TestRole');
+  G.addUnitToGroup(a.id, g.id);
+  G.addUnitToGroup(b.id, g.id);
+  g.roles = { fighter: a.id, quarter: b.id };
+  const gm = G.groupCombatMultFor(a);
+  assert(gm > 1.2, 'bojovnik ma dat aspon +20 %: ' + gm);
+  assert(G.groupCombatMultFor(b) > 1.2, 'bonus ma platit pro celou skupinu');
+  assert(G.unitCombatPower(a) > beforePower, 'unitCombatPower ma zohlednit skupinu: ' + beforePower + ' -> ' + G.unitCombatPower(a));
+  assert(G.unitCombatStats(a).atk > beforeStats.atk, 'unitCombatStats.atk ma zohlednit skupinu');
+
+  // Zásobovač: −30 % jídla na expedici (b je v partě)
+  const base = G.expeditionFoodCost('lost_caravan', 2);
+  const withQuarter = G.expeditionFoodCost('lost_caravan', 2, [a.id, b.id]);
+  assert(G.groupFoodMultFor([a, b]) < 1, 'groupFoodMultFor ma vratit slevu');
+  assert(withQuarter <= base, 'se zasobovacem nema byt jidla vic: ' + base + ' -> ' + withQuarter);
+  delete g.roles.quarter;
+  assert(G.expeditionFoodCost('lost_caravan', 2, [a.id, b.id]) === base, 'bez zasobovace se cena menit nema');
+  g.roles.quarter = b.id;
+
+  for (const o of originals) { o.u.groupId = null; if (o.groupId) G.addUnitToGroup(o.u.id, o.groupId); }
+  G.state.groups = G.state.groups.filter(x => x.id !== g.id);
+});
+check('boj: nepratele se skal ukuji podle sily, ne podle poctu hlav', () => {
+  const enemy = G.ENEMIES[Object.keys(G.ENEMIES).find(id => G.ENEMIES[id].tier <= 1 && !G.ENEMIES[id].isBoss)];
+  assert(!!enemy, 'nenasel se nepritel tieru 1');
+  let weakMax = 0, strongMax = 0;
+  for (let i = 0; i < 400; i++) {
+    weakMax = Math.max(weakMax, G.enemyCountFor(enemy, 6, 6 * 5));      // 6 slabých postav
+    strongMax = Math.max(strongMax, G.enemyCountFor(enemy, 6, 6 * 20)); // 6 silných
+  }
+  assert(weakMax <= 2, 'slaba sesticka pritahla moc nepratel: ' + weakMax);
+  assert(strongMax > weakMax, 'silna druzina ma mit vic nepratel (' + strongMax + ' vs ' + weakMax + ')');
+  assert(G.enemyCountFor(enemy, 1, 14) >= 1, 'solo souboj musi mit aspon jednoho nepritele');
+});
+check('boj: družina u uzlu a přispěchání na pomoc v souboji', () => {
+  const pool = G.state.units.filter(u => !u.dead && !u.isChild && !u.onExpedition);
+  const [a, b, c] = pool;
+  const originals = [a, b, c].map(x => ({ u: x, groupId: x.groupId }));
+  for (const u of [a, b, c]) { G.removeUnitFromGroup(u.id); u.resting = false; u._refuseUntil = null; }
+  const g = G.createGroup('TestBoj');
+  G.addUnitToGroup(a.id, g.id);
+  G.addUnitToGroup(b.id, g.id);
+  const node = G.WORLD.nodes.find(n => (G.NODE_DANGER[n.kind] || 0) >= 1) || G.WORLD.nodes[0];
+  a.pos = { x: node.x + 1, y: node.y + 0.5 };
+  b.pos = { x: node.x + 0.5, y: node.y + 1.5 };
+  c.pos = { x: node.x + 40, y: node.y + 40 };
+
+  const party = G.partyNearNode(node);
+  assert(party.length === 2 && party.indexOf(a) !== -1 && party.indexOf(b) !== -1,
+    'partyNearNode ma vzit druzinu u uzlu: ' + party.length);
+
+  // Přepadení: začne to jen s a, b má přispěchat
+  const cb = G.startCombat(node, [a], { tactic: 'balanced', helpers: true, helpRadius: 4 });
+  assert(!!cb, 'souboj nezacal');
+  const ids = cb.ally.map(x => x.unitId);
+  assert(ids.indexOf(a.id) !== -1, 'v souboji chybi hlavni postava');
+  assert(ids.indexOf(b.id) !== -1, 'clen druziny neprispel na pomoc');
+  assert(ids.indexOf(c.id) === -1, 'postava mimo skupinu se do boje priplest nesmi');
+  G.closeCombat();
+
+  for (const o of originals) { o.u.groupId = null; if (o.groupId) G.addUnitToGroup(o.u.id, o.groupId); }
+  G.state.groups = G.state.groups.filter(x => x.id !== g.id);
+});
+check('boj: jine okno (pribeh/udalost) okno boje jen schova', () => {
+  const u = G.state.units.find(x => !x.dead && !x.isChild && !x.onExpedition);
+  if (G.wakeUnit) G.wakeUnit(u);
+  u.resting = false; u._refuseUntil = null; u.mood = Math.max(u.mood || 70, 70);
+  const node = G.WORLD.nodes.find(n => (G.NODE_DANGER[n.kind] || 0) >= 1) || G.WORLD.nodes[0];
+  const cb = G.startCombat(node, [u], { tactic: 'balanced' });
+  assert(G.combatModalVisible() === true, 'okno boje se melo ukazat');
+  G.showStoryModal({ id: 'x', title: 'Test', text: 'Text', choices: [] });
+  assert(G.combatModalVisible() === false, 'pribeh mel okno boje odklidit');
+  assert(G.combatWindowHiddenNow() === true, 'po prevzeti obrazovky chybi nabidka otevrit okno boje');
+  assert(G.state.combat.active === cb, 'pribeh nesmi zrusit souboj');
+  G.hideStoryModal();
+  G.openCombatWindow();
+  assert(G.combatModalVisible() === true, 'okno boje se nevrátilo');
+  G.closeCombat();
+});
 check('emptyState: prázdný stav odkazuje kam jit', () => {
   assert(typeof G.emptyState === 'function', 'chybi G.emptyState');
   const h = G.emptyState('Nic.', 'units', 'Postavy');
@@ -836,12 +1217,16 @@ check('log: filtr podle casu je v defaultu all', () => {
   assert(G.state.logTime === 'all', 'logTime neni v defaultu all: ' + G.state.logTime);
 });
 check('auto-pokracovani: se savem se nezastavi na menu', () => {
+  // Záměrně rozbitý sav (jako z doby, kdy svět měl 6 sídel) — načtení ho má spravit
+  const brokenSettlements = G.WORLD.settlements.slice(6).map(s => s.id);
+  for (const sid of brokenSettlements) delete G.state.economy[sid];
   G.save();
   assert(!!localStorageStub.getItem(G.SAVE_KEY), 'save se neulozil');
   titleOpts = null;
   vm.runInThisContext(fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8'), { filename: 'js/main.js' });
   assert(titleOpts === null, 'hra se zastavila na uvodni obrazovce i s ulozenou hrou');
   assert(!!G.state && G.state.units.length > 0, 'po auto-pokracovani neni stav hry');
+  for (const sid of brokenSettlements) assert(!!G.state.economy[sid], 'nacteni nedoplnilo ekonomiku sídla ' + sid);
 });
 
 console.log('');

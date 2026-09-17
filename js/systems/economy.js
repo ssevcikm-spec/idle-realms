@@ -1,26 +1,57 @@
 (function () {
   const G = window.Game;
 
-  G.initEconomy = function () {
-    const rnd = G.rngFrom((G.WORLD.seed || 1) + 7777);
-    for (const s of G.WORLD.settlements) {
-      const sizeDef = G.SETTLEMENT_SIZE[s.size];
-      const spec = G.SETTLEMENT_SPECS[s.spec];
-      const stock = {}, target = {};
-      for (const mid of G.TRADED) {
-        let t;
-        if (spec.produces.includes(mid)) t = Math.round(28 * sizeDef.stockMult);
-        else if (spec.consumes.includes(mid)) t = Math.round(6 * sizeDef.stockMult);
-        else t = Math.round(12 * sizeDef.stockMult);
-        if (s.size === 'village' && !spec.produces.includes(mid) && !spec.consumes.includes(mid) && rnd() < 0.45) t = 0;
-        target[mid] = t; stock[mid] = Math.round(t * (0.7 + rnd()*0.6));
-      }
-      G.state.economy[s.id] = {
-        gold: Math.round(sizeDef.goldBase * (0.6 + rnd()*0.8)),
-        goldTarget: sizeDef.goldBase, stock, target
-      };
-      if (G.state.settlementRep[s.id] == null) G.state.settlementRep[s.id] = 0;
+  /** Naplní ekonomiku jednoho sídla. `rnd` = seedovaný generátor (viz níže). */
+  function fillSettlementEconomy(s, rnd) {
+    const sizeDef = G.SETTLEMENT_SIZE[s.size];
+    const spec = G.SETTLEMENT_SPECS[s.spec];
+    const stock = {}, target = {};
+    for (const mid of G.TRADED) {
+      let t;
+      if (spec.produces.includes(mid)) t = Math.round(28 * sizeDef.stockMult);
+      else if (spec.consumes.includes(mid)) t = Math.round(6 * sizeDef.stockMult);
+      else t = Math.round(12 * sizeDef.stockMult);
+      if (s.size === 'village' && !spec.produces.includes(mid) && !spec.consumes.includes(mid) && rnd() < 0.45) t = 0;
+      target[mid] = t; stock[mid] = Math.round(t * (0.7 + rnd()*0.6));
     }
+    G.state.economy[s.id] = {
+      gold: Math.round(sizeDef.goldBase * (0.6 + rnd()*0.8)),
+      goldTarget: sizeDef.goldBase, stock, target
+    };
+    if (G.state.settlementRep[s.id] == null) G.state.settlementRep[s.id] = 0;
+  }
+
+  G.initEconomy = function () {
+    if (!G.state.economy) G.state.economy = {};
+    if (!G.state.settlementRep) G.state.settlementRep = {};
+    const rnd = G.rngFrom((G.WORLD.seed || 1) + 7777);
+    for (const s of G.WORLD.settlements) fillSettlementEconomy(s, rnd);
+  };
+
+  /**
+   * Dopojí sídla, kterým chybí ekonomika. Starší savy vznikly v době, kdy svět
+   * měl jen 6 sídel — `initEconomy` se ale pouštěl jen když byla ekonomika
+   * ÚPLNĚ prázdná, takže nová města (Železná, Přístav, Dolina, Starý Háj)
+   * zůstala bez trhu a hlásila „Sídlo nenalezeno“.
+   * Na rozdíl od `initEconomy` nic nepřepisuje — existující trhy zůstávají.
+   * Vrací jména doplněných sídel (prázdné pole = bylo vše v pořádku).
+   */
+  G.ensureEconomy = function () {
+    if (!G.state.economy) G.state.economy = {};
+    if (!G.state.settlementRep) G.state.settlementRep = {};
+    const filled = [];
+    G.WORLD.settlements.forEach((s, i) => {
+      if (G.state.economy[s.id]) return;
+      // Deterministicky podle indexu sídla — stejné hodnoty jako po dohrání nové hry
+      fillSettlementEconomy(s, G.rngFrom(((G.WORLD.seed || 1) + 7777 + (i + 1) * 7919) | 0));
+      filled.push(s.name || s.id);
+    });
+    return filled;
+  };
+  /** Ekonomika sídla s pojistkou — doplní, co chybí. */
+  G.economyOf = function (settlementId) {
+    if (!G.state.economy || !G.state.economy[settlementId]) G.ensureEconomy();
+    return (G.state.economy && G.state.economy[settlementId]) || null;
   };
 
   G.priceAt = function (settlementId, matId, mode) {
@@ -175,6 +206,8 @@
     ecoTimer += dt;
     if (ecoTimer < ECO_STEP) return;
     const step = ecoTimer; ecoTimer = 0;
+    // Pojistka: kdyby nějaké sídlo ekonomiku nemělo, dorovnej ji (např. po načtení savu)
+    if (G.ensureEconomy) G.ensureEconomy();
     for (const sid in G.state.economy) {
       const st = G.state.economy[sid];
       const def = G.WORLD.settlementById[sid];

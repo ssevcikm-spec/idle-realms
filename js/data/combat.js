@@ -139,6 +139,7 @@
     if (G.injuryWorkMult) { atk *= G.injuryWorkMult(u); def *= G.injuryWorkMult(u); }
     const moodMult = G.moodWorkMult ? G.moodWorkMult(u) : 1;
     atk *= (0.7 + 0.3 * moodMult);
+    if (G.groupCombatMultFor) { const gm = G.groupCombatMultFor(u); atk *= gm; hpMax *= (1 + (gm - 1) * 0.5); }   // role Bojovník + chemie
     return { hpMax: Math.round(hpMax), atk: Math.round(atk), def: Math.round(def), speed: Math.round(speed), crit, reach };
   };
 
@@ -148,6 +149,8 @@
     defensive:  { id:'defensive',  name:'Defenzivní',icon:'🛡️', atkMult:0.75, defMult:1.35, desc:'−25 % útok, +35 % obrana' }
   };
 
+  /** Průměrná síla jedné postavy (~čerstvá postava) — referenční bod pro škálování. */
+  G.COMBAT_POWER_REF = 14;
   G.pickEnemyFor = function (nodeKind, partyPower) {
     const pool = G.ENCOUNTER_TABLE[nodeKind] || ['bandit'];
     const candidates = pool.filter(id => {
@@ -158,10 +161,20 @@
     const list = candidates.length ? candidates : pool.filter(id => !G.ENEMIES[id].summonOnly && !G.ENEMIES[id].isBoss);
     return G.ENEMIES[G.pick(list.length ? list : pool)];
   };
-  G.enemyCountFor = function (enemy, partySize) {
-    if (enemy.tier <= 1) return G.randInt(1, Math.min(4, Math.max(1, partySize)));
-    if (enemy.tier === 2) return G.randInt(1, Math.min(3, partySize));
-    if (enemy.tier === 3) return G.randInt(1, Math.min(2, partySize));
+  /**
+   * Kolik nepřátel se postaví družině. Neškáluje se podle počtu hlav, ale podle
+   * SÍLY: slabý člen, kterého přibereš, nepřitáhne dalšího nepřítele, takže
+   * „vzít celou skupinu" je vždycky výhoda a ne past.
+   */
+  G.enemyCountFor = function (enemy, partySize, partyPower) {
+    let eff = Math.max(1, partySize || 1);
+    if (partyPower != null && partySize > 0) {
+      const ratio = partyPower / (G.COMBAT_POWER_REF * partySize);   // jak silný je průměrný člen
+      eff = Math.max(1, Math.min(partySize, Math.round(partySize * G.clamp(ratio, 0.35, 1.6))));
+    }
+    if (enemy.tier <= 1) return G.randInt(1, Math.min(4, Math.max(1, eff)));
+    if (enemy.tier === 2) return G.randInt(1, Math.min(3, Math.max(1, eff)));
+    if (enemy.tier === 3) return G.randInt(1, Math.min(2, Math.max(1, eff)));
     return 1;
   };
   G.pickBossFor = function (nodeKind) {

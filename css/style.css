@@ -440,17 +440,35 @@ input:focus, select:focus, textarea:focus { border-color: #a8813a; }
 .injury-icon { font-size: 14px; }
 .injury-name { flex: 1; font-weight: 600; }
 .injury-time { color: #8d8570; }
+.unit-equip-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 10px 0 4px; font-size: 12px; font-weight: 700; color: #d8b45a;
+}
 .unit-equip { display: flex; flex-direction: column; gap: 5px; margin: 8px 0; }
 .equip-slot {
   display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
   background: #191813; border: 1px solid #2e2b25;
   border-radius: 8px; padding: 6px 9px; font-size: 12px;
 }
-.equip-slot.empty { color: #6d6656; font-style: italic; }
+.equip-slot.empty { color: #6d6656; }
 .equip-slot.broken { border-color: #6d2c23; }
 .equip-label { color: #8d8570; font-size: 11px; font-weight: 600; min-width: 74px; }
 .equip-item { color: #e0bb5e; font-weight: 600; flex: 1; }
+.equip-item.empty-text { font-style: italic; font-weight: 400; }
 .equip-dur { font-size: 11px; }
+/* Výběr předmětu ze skladu — na vlastním řádku, ať se vejde i na mobilu */
+.equip-pick { flex: 0 0 100%; width: 100%; }
+.equip-no-stock { flex: 0 0 100%; font-size: 11px; color: #6d6656; font-style: italic; }
+.equip-hint { font-size: 11.5px; color: #8d8570; margin: 2px 0 6px; line-height: 1.45; }
+.panel-gear-head { display: flex; align-items: center; gap: 10px; margin: 6px 0; flex-wrap: wrap; }
+.panel-gear-head .hint { flex: 1; min-width: 200px; }
+.gear-actions { display: flex; gap: 5px; flex-shrink: 0; }
+/* Rychlý výběr členů expedice (celá skupina / jen volné postavy) */
+.exp-quick { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 10px; }
+.exp-quick .btn-sm { white-space: normal; text-align: left; }
+option.opt-up { color: #8fbf7a; font-weight: 700; }
+/* Zvýrazní "Nasadit nejlepší", když je ve skladu něco lepšího */
+.btn-up { border-color: #6d5423 !important; color: #f0d38a !important; }
 .unit-skills summary { cursor: pointer; font-size: 12px; color: #d8b45a; font-weight: 600; padding: 4px 0; }
 .skill-grid { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
 .skill-row {
@@ -765,7 +783,8 @@ input:focus, select:focus, textarea:focus { border-color: #a8813a; }
 }
 .route-pick.selected { background: #4a6b34; border-color: #8fbf7a; color: #f0ffe8; }
 .combat-modal { max-width: 600px; }
-.combat-head { text-align: center; margin-bottom: 12px; }
+.combat-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.combat-head .combat-title { flex: 1; text-align: center; }
 .combat-title { font-weight: 700; color: #e0bb5e; font-size: 16px; }
 .combat-side { background: #1a1815; border: 1px solid #2e2b25; border-radius: 10px; padding: 9px; margin-bottom: 6px; }
 .combat-side-label { font-size: 11px; text-transform: uppercase; color: #8d8570; letter-spacing: .05em; margin-bottom: 6px; }
@@ -954,6 +973,30 @@ input:focus, select:focus, textarea:focus { border-color: #a8813a; }
 .toast.toast-story { border-color: #b3a4e8; color: #ded7ff; background: rgba(30,27,44,.96); }
 .toast.out { opacity: 0; transform: translateY(8px); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* === boj: zavíratelné okno + tlačítko „souboj běží" na mapě === */
+.combat-hide {
+  flex-shrink: 0; border: 1px solid #4a4232; background: #191813; color: #cfc7b4;
+  border-radius: 8px; padding: 5px 11px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.combat-hide:hover { border-color: #6d6656; color: #f0e9d8; }
+.combat-note {
+  font-size: 11px; color: #8d8570; text-align: center;
+  margin: -2px 0 8px; line-height: 1.4;
+}
+.combat-reopen {
+  position: absolute; top: 10px; left: 10px;
+  z-index: 30; align-items: center; gap: 6px;
+  border: 1px solid #a8813a; background: rgba(41,32,18,.96); color: #f0d38a;
+  border-radius: 999px; padding: 7px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0,0,0,.55);
+  animation: toast-in .25s ease;
+}
+.combat-reopen:hover { border-color: #e0bb5e; color: #ffe9b0; }
+@media (max-width: 620px) {
+  .combat-reopen { top: 6px; left: 6px; padding: 6px 10px; font-size: 11.5px; }
+}
+.title-note { font-size: 11px; color: #8d8570; line-height: 1.5; margin: 2px 0 6px; text-align: left; }
 
 /* === příběh: náhled efektů volby === */
 .story-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; }
