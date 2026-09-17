@@ -20,6 +20,11 @@ kandidátů proto drží `raw/` → `graded/` → `final/`:
     python scripts/compare_tiles.py --old assets/tiles --new assets/tiles_kronika/final
 
 Vyžaduje: pillow (+ numpy u navazujících skriptů) — venv ComfyUI + internet.
+
+Pozor na `--style kronika`: stylový blok táhne model k **ilustraci krajiny**, takže
+dlaždice dostanou horizont, oblohu a ústřední motiv (13 z 20 kandidátů, měřeno
+`tile_flatness.py`; nasazená sada bez stylu 0 z 20). Pro dlaždice se hodí styl
+popsat jako texturu, ne jako ilustraci. Viz `docs/STYL_GRAFIKY.md` §8.6.
 """
 import argparse
 import os

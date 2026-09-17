@@ -46,6 +46,7 @@ python scripts/tile_sharpness.py assets/tiles                            # bez "
 #   obsahova reference (raw = assets/tiles_local projde nejdriv grade_tiles.py):
 python scripts/tile_sharpness.py assets/tiles --ref <graded-raw>         # smerodatne cislo
 python scripts/compare_tiles.py --old assets/tiles --new <kandidati>      # srovnani okem (moziky 4x4)
+python scripts/tile_flatness.py <kandidati>                              # neni to omylem obrazek sceny?
 # vrstva 3 (ilustrace) — pipeline si ověří sama sebe:
 python scripts/check-art.py --selftest                                   # "selftest OK"
 python scripts/check-art.py                                              # assets/art (zatím prázdné = OK)

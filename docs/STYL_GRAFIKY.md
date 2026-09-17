@@ -311,6 +311,7 @@ Výchozí hodnota je 0; kterou použít, se má rozhodnout **okem** v náhledu.
 | `scripts/check-tiles.py` | metriky: `wrap`, `seam/zrno`, `perioda`, barva vs. cíl terénu, kontrast v 46 px, odlišnost terénů. Umí nasimulovat schéma skládání (`random`/`parity`/`sliding`/`sliding2`) a uložit mozaiku jako PNG. |
 | `scripts/tile_sharpness.py` | ostrost pásu kolem středu — hlídá, že se šev nevyřešil rozmazáním (`--limit`, výchozí 0,85). S `--ref <raw adresář>` měří **obsahovou** referenci (stejné místo z raw dlaždice) = „kolik detailu tu hojení ubralo"; bez ní proti mediánu zbytku dlaždice. |
 | `scripts/compare_tiles.py` | srovnávací HTML dvou sad dlaždic: každá dlaždice **zopakovaná 4×4** (v jednom obrázku šev nepoznáš) + 1:1. Pro „líbí / nelíbí" rozhodnutí uživatele. |
+| `scripts/tile_flatness.py` | pozná dlaždici, která není plocha textura, ale **obrázek scény** (horizont/obloha, ústřední motiv). Ostatní metriky takovou dlaždici chválí — je ostrá, bezešvá a v paletě. Limity kalibrované na přijaté sadě. |
 | `tools/tiles/preview.html` | náhled v prohlížeči z **reálného kódu hry**: kontaktní list terénů (46/64/192 px), mozaiky 12×12, detaily švů 2× zvětšené, slider prolnutí, diagnostika s čísly. Otevři přes lokální server, nebo Chrome s `--allow-file-access-from-files` (jinak canvas taintuje a měření se přeskočí). |
 | `node test/tile-window.js` | geometrie kreslení: okna navazují, obtáčejí se na torusu, nepřetékají, fallback na kreslenou cestu, váhy prolnutí sčítají na 1. |
 | `node test/tiles-preview.js` | náhledová stránka se spustí bez chyby a spočítá diagnostiku. |
@@ -344,6 +345,34 @@ Výchozí hodnota je 0; kterou použít, se má rozhodnout **okem** v náhledu.
   zvětšit (posunout odstín/hodnotu), ne je jen „nějak vybarvit".
 - **Headless Chrome v tomhle sandboxu nespustíš** (blokuje mojo jmenné roury),
   takže ověřování je postavené na Node + Python, ne na renderu stránky.
+
+### 8.6 Kandidáti dlaždic v motivu kroniky — **neuspěli** (změřeno 2026-09-17)
+
+Zkoušelo se přenést pergamenový motiv kroniky (který uspěl u spritů, prvků
+a ilustrací) i na dlaždice terénu: 20 dlaždic přes Pollinations
+(`scripts/gen_tiles.py --style kronika`), stejný postup jako u nasazené sady.
+
+Dopadly špatně a je to vidět **dvěma nezávislými způsoby**:
+
+| Míra | Nasazená sada (přijatá) | Kandidáti kroniky |
+|---|---|---|
+| `tile_flatness.py`: dlaždic, co vypadají jako scéna | **0 / 20** | **13 / 20** |
+| nejhorší `horizont` (obloha nahoře / zem dole) | 0,023 | 0,151 (snow-2) |
+| nejhorší `stred` (ústřední motiv místo textury) | 0,059 | 0,334 (forest-1) |
+| Gemini vision | — | označil 15 dlaždic (boční pohled, horizont, zrcadlené kříže) |
+
+Příčina je v promptu, ne v pipeline: stylový blok kroniky („old chronicle
+illustration style, ink linework with hatching") táhne model k **ilustraci
+krajiny** — a ilustrace má horizont, oblohu a ústřední motiv, což je pro
+dlaždici terénu přesně to, co nechceme. Barvy a šev přitom vyšly výborně
+(odchylka od palety **1,67**, seam/zrno 1,00, wrap 0,72).
+
+**Závěr:** motiv kroniky patří na **sprity, prvky a ilustrace** (tam měřeně
+uspěl), ne na plochu mapy. Pro základ mapy je správná cesta **kreslený foundry**
+(§11) — nemá šev, nemá horizont a nemůže „omylem vyrobit obrázek".
+Kdyby se dlaždice v motivu přesto chtěly, musí se hlídat `tile_flatness.py`
+a styl v promptu popsat jako texturu („flat seamless ground texture, ink
+hatching, no horizon, no focal point"), ne jako ilustraci.
 
 ### 8.5 Pasti při generování (ověřeno, obsah beze změny)
 
