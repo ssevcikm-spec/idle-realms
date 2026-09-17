@@ -39,6 +39,7 @@ node test/foundry-game.js                                                # found
 node test/figures.js                                                     # postavy: jeden model + erb role
 node test/props.js                                                       # krajinné prvky jako alfa sprity
 node test/units-ai.js                                                    # malované postavy: jeden základní model
+node test/art-assets.js                                                  # ilustrace: soubory, lookupy, vypínač
 # dlaždice (potřebuje python s pillow+numpy — viz past č. 13):
 python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSLEDEK: OK"
 # vrstva 3 (ilustrace) — pipeline si ověří sama sebe:

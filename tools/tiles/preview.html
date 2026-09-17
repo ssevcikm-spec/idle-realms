@@ -108,7 +108,8 @@
   Je to orientační: hotová grafika by měla i jiné linky a textury, ale paleta
   a čitelnost se podle toho rozhodnout dají. Vybraný balíček se pak zapíše do
   <code>G.PAL</code> a zbytek pipeline (dlaždice, foundry, ilustrace) ho bere
-  automaticky.
+  automaticky. <b>Nasazená je „Žoldnéřská kronika"</b>, takže řádek „současná"
+  a „kronika" teď ukazují totéž (40,5) — to je kontrola, že odvození sedí.
 </p>
 <div class="grid" id="packages"></div>
 
@@ -136,10 +137,22 @@
 </p>
 <div class="list" id="palette"></div>
 
+<h2>Ilustrace (vrstva 3)</h2>
+<p class="note">
+  Titul, sedm příběhových scén a šest portrétů rolí — vygenerované
+  <code>scripts/gen_art.py</code> v paletě kroniky a změřené
+  <code>scripts/check-art.py</code>. Scény odpovídají popupům z
+  <code>js/data/progress.js</code>, portréty rolím z <code>G.ROLES</code>.
+  Napojení do hry je připravené přes <code>G.illustrationForStory()</code> a
+  <code>G.illustrationForRole()</code> (viz <code>docs/STYL_GRAFIKY.md</code> §14.5).
+</p>
+<div class="grid" id="art"></div>
+
 <h2>Měření</h2>
 <pre id="diag">počítám…</pre>
 
-<script>window.Game = { AI_TILE_DIR: '../../assets/tiles/', AI_PROP_DIR: '../../assets/props/' };</script>
+<script>window.Game = { AI_TILE_DIR: '../../assets/tiles/', AI_PROP_DIR: '../../assets/props/',
+                        AI_ART_DIR: '../../assets/art/' };</script>
 <script src="../../js/data/character.js"></script>
 <script src="../../js/systems/groups.js"></script>
 <script src="../../js/render/art.js"></script>
@@ -529,6 +542,45 @@
     });
   }
 
+  /** Vykreslí ilustrace vrstvy 3 (titul, scény, portréty) s vazbou na popupy/role. */
+  function renderIllustrations() {
+    const box = document.getElementById('art');
+    if (!box) return;
+    if (!G.loadIllustrations) return;
+    G.AI_ART = { ready:false, loading:false, images:{}, loaded:0, failed:0, tried:false };
+    G.loadIllustrations(function (A) {
+      box.innerHTML = '';
+      for (const id of G.illustrationIds()) {
+        const fig = document.createElement('figure');
+        const c = document.createElement('canvas');
+        const img = A.images[id];
+        const maxW = 300;
+        c.width = maxW;
+        c.height = Math.round(maxW * (img ? img.height / img.width : 0.66));
+        const ctx = c.getContext('2d');
+        if (img) {
+          ctx.drawImage(img, 0, 0, c.width, c.height);
+        } else {
+          ctx.strokeStyle = '#5a5040';
+          ctx.strokeRect(4.5, 4.5, c.width - 9, c.height - 9);
+          ctx.fillStyle = '#7a7060';
+          ctx.font = '12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('chybí', c.width / 2, c.height / 2);
+        }
+        fig.appendChild(c);
+        let note = '';
+        if (id.indexOf('scene_') === 0) note = 'popup „' + id.slice(6) + '"';
+        else if (id.indexOf('portrait_') === 0) note = 'role „' + id.slice(9) + '"';
+        else note = 'titulní obrazovka';
+        const cap = document.createElement('figcaption');
+        cap.innerHTML = '<b>' + id + '</b><br>' + note + (img ? ' · ' + img.width + '×' + img.height : '');
+        fig.appendChild(cap);
+        box.appendChild(fig);
+      }
+    });
+  }
+
   /** Nejbližší dvojice základních barev dané palety (čitelnost). */
   function minDistanceOf(pal) {
     let best = { d: 1e9, a: '', b: '' };
@@ -713,6 +765,7 @@
     renderFigures();
     renderPackages();
     renderProps();
+    renderIllustrations();
   }
 
   // ---------- měření (stejná matematika jako scripts/check-tiles.py) ----------

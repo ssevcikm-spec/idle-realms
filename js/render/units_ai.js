@@ -177,4 +177,102 @@
     G.loadAiProps();
     return A;
   };
+
+  /* ============ ilustrace vrstvy 3 (titul, scény, portréty) ============
+     Ilustrace nejsou dlaždice ani postavy: jsou to velké statické obrazy pro
+     UI — titul, příběhové scény (popupy z `js/data/progress.js`) a portréty
+     rolí. Vygenerované jsou v `assets/art/` (docs/STYL_GRAFIKY.md §14.4).
+
+     Tenhle modul drží jen **načtení a lookupy**, aby napojení v UI bylo
+     dvouřádkové:
+         const id = G.illustrationForStory(ps.id);
+         const src = id && G.illustrationSrc(id);
+         if (src) { ... <img src=src> nebo drawImage(G.illustration(id), ...) }
+     Když obrázek chybí (nebo je vypnutý), funkce vrátí null a UI kreslí jako dřív. */
+
+  const ART_FILES = [
+    'title',
+    'scene_arrival', 'scene_mountain_message', 'scene_forest_call', 'scene_merchant_call',
+    'scene_cave_shadows', 'scene_council', 'scene_new_beginning',
+    'portrait_leader', 'portrait_quarter', 'portrait_medic',
+    'portrait_scout', 'portrait_fighter', 'portrait_trader'
+  ];
+  // Cesta jde přepsat (G.AI_ART_DIR) — používá to náhledová stránka.
+  G.AI_ART_DIR = G.AI_ART_DIR || 'assets/art/';
+  const ART_SRC = G.AI_ART_DIR;
+
+  G.AI_ART = { ready:false, loading:false, images:{}, loaded:0, failed:0, tried:false };
+
+  /** Mají se ilustrace používat? (`settings.art` = 'on' | 'off', výchozí zapnuto.) */
+  G.illustrationsEnabled = function () {
+    const s = (G.state && G.state.settings) || {};
+    return s.art !== 'off';
+  };
+  G.setIllustrations = function (v) {
+    if (!G.state) return false;
+    if (!G.state.settings) G.state.settings = {};
+    G.state.settings.art = (v === 'off') ? 'off' : 'on';
+    if (G.state.settings.art === 'on' && G.loadIllustrations) G.loadIllustrations();
+    if (G.drawWorldFrame) G.drawWorldFrame();
+    return G.state.settings.art !== 'off';
+  };
+
+  /** Načte ilustrace (jednorázově). Chybějící soubory nevadí. */
+  G.loadIllustrations = function (done) {
+    const A = G.AI_ART;
+    if (A.ready || A.loading) { if (done) done(A); return; }
+    if (typeof Image !== 'function') { if (done) done(A); return; }
+    if (!G.illustrationsEnabled()) { if (done) done(A); return; }
+    A.loading = true;
+    A.tried = true;
+    let finished = 0;
+    for (const id of ART_FILES) {
+      const img = new Image();
+      img.onload = () => { A.images[id] = img; A.loaded++; step(); };
+      img.onerror = () => { A.failed++; step(); };
+      img.src = ART_SRC + id + '.png';
+    }
+    function step() {
+      if (++finished < ART_FILES.length) return;
+      A.ready = A.loaded > 0;
+      A.loading = false;
+      if (done) done(A);
+    }
+  };
+
+  /** Dočte ilustrace, když jsou zapnuté a ještě se to nezkusilo. */
+  G.ensureIllustrations = function () {
+    const A = G.AI_ART;
+    if (!G.illustrationsEnabled() || A.ready || A.loading || A.tried) return A;
+    G.loadIllustrations();
+    return A;
+  };
+
+  /** Načtený obrázek ilustrace (Image) nebo null. */
+  G.illustration = function (id) {
+    if (!G.illustrationsEnabled()) return null;
+    return G.AI_ART.images[id] || null;
+  };
+
+  /** Cesta k ilustraci (pro `<img src>` / CSS) nebo null, když není načtená. */
+  G.illustrationSrc = function (id) {
+    return G.illustration(id) ? ART_SRC + id + '.png' : null;
+  };
+
+  /** Ilustrace k příběhovému popupu (`arrival` -> `scene_arrival`), jinak null. */
+  G.illustrationForStory = function (storyId) {
+    if (!storyId) return null;
+    const id = 'scene_' + storyId;
+    return G.illustration(id) ? id : null;
+  };
+
+  /** Portrét role (`medic` -> `portrait_medic`), jinak null. */
+  G.illustrationForRole = function (roleId) {
+    if (!roleId) return null;
+    const id = 'portrait_' + roleId;
+    return G.illustration(id) ? id : null;
+  };
+
+  /** Všechna id ilustrací (i ta, co se nenačetla) — pro náhled a testy. */
+  G.illustrationIds = function () { return ART_FILES.slice(); };
 })();

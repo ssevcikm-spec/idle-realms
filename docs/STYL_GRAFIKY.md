@@ -696,12 +696,35 @@ bylo potřeba vygenerovat znovu s vyšší silou srovnání).
 **Naměřeno u hotové sady 14 ilustrací:** nádech palety **0,96–0,97**, mimo paletu
 **0,0 %**, kontrast **48–72**, neon ≤ 10 % (u většiny do 3 %).
 
-### 14.5 Co ještě chybí
+### 14.5 Napojení do hry *(API hotové, čeká na UI)*
 
-- **Napojení do hry** — kde přesně se titul, scény a portréty vykreslí (a jak
-  vypadá fallback, když obrázek chybí). Blokuje to necommitnutá práce paralelní
-  session v `js/ui/ui.js` a `js/ui/title_screen.js`; jakmile se sejde, je to
-  dvouřádková změna (načíst `assets/art/<id>.png` a nakreslit/nevložit).
+Načtení a lookupy jsou hotové v `js/render/units_ai.js` (`G.AI_ART`), takže
+napojení v UI je **dvouřádkové**:
+
+```js
+// v G.showStoryModal(ps) — příběhová scéna:
+const id  = G.illustrationForStory(ps.id);      // 'arrival' -> 'scene_arrival'
+const img = id && G.illustration(id);           // Image, nebo null
+// <img src="..."> / CSS pozadí:  G.illustrationSrc(id)
+// canvas:                        ctx.drawImage(img, x, y, w, h)
+```
+
+| funkce | co dělá |
+|---|---|
+| `G.loadIllustrations(done)` / `G.ensureIllustrations()` | načte 14 obrázků (chybějící nevadí, `tried` brání opakování) |
+| `G.illustration(id)` / `G.illustrationSrc(id)` | obrázek / cesta, nebo `null` |
+| `G.illustrationForStory(storyId)` | `arrival` → `scene_arrival` (jinak `null` — náhodné události typu `lost_traveler` ilustraci nemají) |
+| `G.illustrationForRole(roleId)` | `medic` → `portrait_medic`, jinak `null` |
+| `G.illustrationsEnabled()` / `G.setIllustrations('on'\|'off')` | vypínač (`settings.art`); při `off` vrací všechno `null` a UI kreslí jako dřív |
+
+Zbývá **jen** doplnit ten kód do `js/ui/ui.js` a `js/ui/title_screen.js` — což
+blokuje necommitnutá práce paralelní session (v pracovním stromu je 19 cizích
+změněných souborů). `test/art-assets.js` (5 kontrol) hlídá, že na disku je
+přesně 14 očekávaných souborů (a nic osiřelého), že lookupy sedí na popupy
+a role a že vypínač funguje.
+
+Ilustrace se dají prohlédnout v `tools/tiles/preview.html` → sekce **Ilustrace**
+(u každé je vidět, ke kterému popupu/roli patří).
 
 ---
 
