@@ -258,10 +258,25 @@ souřadnicích.** Tři kroky:
 
 1. **Assety jsou skutečné torusy** — `scripts/seamless_tiles.py` je dopočítá
    deterministicky: posun o polovinu (nespojitost se přestěhuje doprostřed),
-   zacelení středního kříže proložením rozmazanou kopií v pásu ±28 px, a
-   srovnání protilehlých okrajů v pásu 16 px (tím je wrap **přesně** 0).
-   Naměřeno: wrap **27,91 → 0,00**, ztráta ostrosti jen **12–18 %**
-   (pro srovnání: prosté zrcadlové prolnutí ztratí 45 %).
+   zacelení středního kříže proložením rozmazanou kopií v pásu ±16 px,
+   **vrácení textury** do zaceleného pruhu (`grain_pass`) a srovnání
+   protilehlých okrajů v pásu 16 px (tím je wrap **přesně** 0).
+   Naměřeno: wrap **27,10 → 0,00**, ztráta ostrosti celé dlaždice 7–11 %.
+
+   Zacelení samo o sobě míchá rozmazání, takže uprostřed dlaždice zůstane
+   rozmazaný pruh — v prvním nasazení (pás ±28 px) měl **0,47** ostrosti okolí
+   (`scripts/tile_sharpness.py`) a **Gemini vision** ho popsal jako „extrémně
+   výrazný rozmazaný kříž přes střed". `grain_pass` proto přidá do stejné masky
+   **jen vysokofrekvenční** složku vzorku odjinud z dlaždice: nízké frekvence
+   (to, co drží šev neviditelný) zůstanou z rozmazané verze, ostrost se vrátí.
+   Maska je na okrajích nulová (exp(−(384/16)²) ≈ 0), takže wrap zůstává přesně 0.
+   Naměřeno: ostrost pásu **0,47 → 0,95**, seam/zrno **0,77**, wrap **1,93**.
+
+   **Co zůstává:** nízké frekvence jsou v pásu ±16 px pořád proložené, takže
+   tvary přes střed (květy, stébla) jsou mírně deformované — vision to vidí jako
+   „jemnou svislou šmouhu". Odstranit to jde jen tím, že by dlaždice šev vůbec
+   neměla: kresleným základem ve foundry (§11) nebo skutečně tilovacím
+   generátorem. Je to argument pro route C, ne proti ní.
 2. **Kreslení je výřez** (`G.tileDraw`): okno 128 px (= 1/6 textury 768 px) se
    posouvá o jedno okno na dlaždici světa. Sousední dlaždice jsou tedy sousední
    výřezy téhož spojitého obrazu — šev nemůže vzniknout. Naměřeno: seam/zrno
@@ -273,23 +288,29 @@ perioda opakování zmizí úplně (**period None** — v mozaice 16×16 se nezo
 cena je ~13 % kontrastu tam, kde je prolnutí půl na půl (zrno 1,86 → 1,62).
 Výchozí hodnota je 0; kterou použít, se má rozhodnout **okem** v náhledu.
 
-### 8.4 Jak se to teď ověřuje (místo vision)
+### 8.4 Jak se to teď ověřuje (metriky + vision)
 
 | Nástroj | Co dělá |
 |---|---|
 | `scripts/check-tiles.py` | metriky: `wrap`, `seam/zrno`, `perioda`, barva vs. cíl terénu, kontrast v 46 px, odlišnost terénů. Umí nasimulovat schéma skládání (`random`/`parity`/`sliding`/`sliding2`) a uložit mozaiku jako PNG. |
+| `scripts/tile_sharpness.py` | ostrost pásu kolem středu proti mediánu zbytku dlaždice — hlídá, že se šev nevyřešil rozmazáním (`--limit`, výchozí 0,85). |
 | `tools/tiles/preview.html` | náhled v prohlížeči z **reálného kódu hry**: kontaktní list terénů (46/64/192 px), mozaiky 12×12, detaily švů 2× zvětšené, slider prolnutí, diagnostika s čísly. Otevři přes lokální server, nebo Chrome s `--allow-file-access-from-files` (jinak canvas taintuje a měření se přeskočí). |
 | `node test/tile-window.js` | geometrie kreslení: okna navazují, obtáčejí se na torusu, nepřetékají, fallback na kreslenou cestu, váhy prolnutí sčítají na 1. |
 | `node test/tiles-preview.js` | náhledová stránka se spustí bez chyby a spočítá diagnostiku. |
 | `scripts/seamless_tiles.py --check` | jen změří `wrap` a ztrátu ostrosti, nic nemění. |
+| `scripts/seamless_tiles.py --grain-pass` | vrátí texturu do **už zacelených** dlaždic (bez posunu) — pro sady, které prošly starým `heal`. |
 | `scripts/tile_palette.py` | **jediný zdroj barev terénů** — parsuje `G.PAL` z `art.js`; berou ho `grade_tiles.py` i `check-tiles.py`. |
+| skill `vision` (Gemini) | **od 2026-09-17 k dispozici** — pošle dlaždici modelu a vrátí text: vidí vady, které metriky neměří (deformované tvary, „rozmazaný kříž"). Není to rozhodčí: v jemných rozdílech je nekonzistentní, ber ho jako druhé oči vedle čísel. |
 
-**Dvě klíčové lekce k metrice** (jinak se měří nesmysly):
+**Tři klíčové lekce k metrice** (jinak se měří nesmysly):
 
 - Absolutní skok na hranici dlaždice nic neříká: když dlaždice navazují spojitě,
   je skok stejně velký jako **zrno** textury. Měří se proto poměr `seam / zrno`
   (limit 1,6).
 - Šev se musí měřit na **nativním** rozlišení assetu — po zmenšení se zamaskuje.
+- `seam/zrno` ani `wrap` nepoznají, že je dlaždice **rozmazaná** (rozmazaný
+  přechod je hladký, takže šev „vypadá" dokonale). Proto se přidala měřená
+  ostrost pásu (`tile_sharpness.py`) a vizuální kontrola visionem.
 
 ### 8.5 Otevřené (do Stage 1)
 

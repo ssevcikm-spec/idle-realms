@@ -42,6 +42,7 @@ node test/units-ai.js                                                    # malov
 node test/art-assets.js                                                  # ilustrace: soubory, lookupy, vypínač
 # dlaždice (potřebuje python s pillow+numpy — viz past č. 13):
 python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSLEDEK: OK"
+python scripts/tile_sharpness.py assets/tiles                            # nesmí být nic "ROZMAZANE"
 # vrstva 3 (ilustrace) — pipeline si ověří sama sebe:
 python scripts/check-art.py --selftest                                   # "selftest OK"
 python scripts/check-art.py                                              # assets/art (zatím prázdné = OK)
@@ -133,9 +134,10 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
 14. **Bezešvost dlaždice je matematická vlastnost, ne dojem.** Buď platí
     „levý sloupec = pravý" (`wrap` ≈ 0), nebo dlaždice netileuje — a generátor
     obrázků to nikdy nedodá, musí se to dopočítat (`scripts/seamless_tiles.py`:
-    posun o polovinu + zacelení středního kříže + srovnání okrajů).
-    Naměřeno: wrap 27,9 → 0,0 při ztrátě ostrosti 12–18 % (zrcadlové prolnutí
-    ztratí 45 %, proto se nepoužívá).
+    posun o polovinu + zacelení středního kříže + vrácení textury + srovnání
+    okrajů). Naměřeno: wrap 27,10 → 0,00 při ztrátě ostrosti celé dlaždice 7–11 %
+    (zrcadlové prolnutí ztratí 45 %, proto se nepoužívá). Cenou je rozmazaný
+    pás uprostřed — viz past 28.
 15. **Světlo ani dekorace nesmí být v souřadnicích dlaždice.** Per-dlaždicová
     `vignette` v `art.js` dělala krok 11,5 jasu na každé hranici (šachovnice).
     Vše, co má přesahovat dlaždici, musí být funkce **světa**: buď výřez z torusu
@@ -196,20 +198,33 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
 27. **Statistiky obrázků musí ignorovat průhledné pixely.** U spritů s alfou má
     průhledné pozadí nesmyslné RGB a vychýlí průměr (vyšly „špatné" i slušné
     sprity). Vzor: `visible()` + `alpha` parametr v `scripts/grade_art.py`.
+28. **Dobré `wrap` a `seam/zrno` ještě neznamenají dobrý šev — dlaždice může být
+    jen rozmazaná.** Zacelení švu míchá rozmazání, a rozmazaný přechod je hladký,
+    takže všechny metriky švu vyjdou výborně. Naměřeno: střed dlaždic měl po
+    zacelení **0,47** ostrosti okolí, přitom `seam/zrno` 0,78 a `wrap` 1,9.
+    Hlídej to `scripts/tile_sharpness.py` (vrací ostrost pásu, limit 0,85).
+29. **Vision je dostupný a je to nezávislé oko, ale není rozhodčí.** Skill
+    `vision` (Gemini) našel rozmazaný kříž, který metriky neviděly — a je to on,
+    kdo odhalil past 28. Zároveň je v **jemných** rozdílech nekonzistentní (stejný
+    obrázek jednou označí za výrazně rozmazaný, podruhé za ostrý). Ber ho jako
+    druhé oči vedle čísel, ne jako verdikt. Pozor: `vision` spadne na výpisu
+    češtiny do cp1252 konzole — spouštěj s `$env:PYTHONIOENCODING='utf-8'`.
 
 ---
 
 ## 4. Stav kódu (co je hotové)
 
 ### Čísla
-- 59 JS souborů, **704** definovaných/used globálů `G.*` (check-globals čisté;
+- 59 JS souborů, **716** definovaných/used globálů `G.*` (check-globals čisté;
   část přírůstku je z paralelní práce na výbavě postav).
 - Testy: headless-smoke **77** + tile-window **10** + tiles-preview **5** +
   foundry **19** + foundry-game **13** + figures **12** + props **11** +
   units-ai **5** kontrol, deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
-- Dlaždice: assety jsou **torusy** (`wrap` 1,87), kreslí se jako **okno do
-  textury** ve světových souřadnicích — `seam/zrno` 0,78, perioda 6 dlaždic.
+- Dlaždice: assety jsou **torusy** (`wrap` 1,93), kreslí se jako **okno do
+  textury** ve světových souřadnicích — `seam/zrno` 0,77, perioda 6 dlaždic,
+  ostrost pásu kolem středu **0,95** (dřív 0,47 — zacelení švu dlaždici
+  rozmazalo, viz past 28).
 - **Paleta je jedna**: `G.PAL` v `js/render/art.js` je jediný zdroj — bere ji
   kresba, foundry i barevné srovnání malovaných dlaždic (`scripts/tile_palette.py`).
   Nejbližší dvojice terénů **33,1** (dřív 8,3 — hills vs dirt se slévaly).
