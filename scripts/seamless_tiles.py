@@ -57,22 +57,59 @@ def cross_step(a):
     return hx, vy
 
 
-def heal(arr, band=28.0, radius=8.0, edge=16):
-    """Posun o polovinu + zacelení kříže + srovnání okrajů. Vrací float RGB."""
-    h, w, _ = arr.shape
-    b = np.roll(np.roll(arr, w // 2, axis=1), h // 2, axis=0).astype(np.float32)
-
-    # maska kříže: 1 v ose nespojitosti, 0 daleko od ní (gaussovský úbytek)
+def cross_mask(shape, band):
+    """Maska kříže: 1 v ose nespojitosti, 0 daleko od ní (gaussovský úbytek)."""
+    h, w = shape[:2]
     xs = np.arange(w)[None, :]
     ys = np.arange(h)[:, None]
     mx = np.exp(-((xs - w / 2.0) / band) ** 2)
     my = np.exp(-((ys - h / 2.0) / band) ** 2)
-    mask = np.maximum(np.broadcast_to(mx, (h, w)), np.broadcast_to(my, (h, w)))
+    return np.maximum(np.broadcast_to(mx, (h, w)), np.broadcast_to(my, (h, w)))
 
-    blurred = np.asarray(
-        Image.fromarray(b.astype(np.uint8)).filter(ImageFilter.GaussianBlur(radius))
+
+def _blur_uint8(a, radius):
+    return np.asarray(
+        Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
+        .filter(ImageFilter.GaussianBlur(radius))
     ).astype(np.float32)
+
+
+def grain_pass(arr, band=28.0, detail=1.6, amount=1.0, gain=3.0, shift=0):
+    """Vrátí do zaceleného kříže texturu, kterou tam zacelení rozmazalo.
+
+    Zacelení míchá gaussovské rozostření s maskou kříže -> šev zmizí, ale
+    uprostřed dlaždice vznikne ~2*band široký rozmazaný pruh (měřeno
+    `tile_sharpness.py`: 20/20 dlaždic mělo ve středu ~0.47 ostrosti okolí).
+    Tady se do stejné masky přičte jen **vysokofrekvenční** složka vzorku
+    odjinud z dlaždice: nízké frekvence (to, co dělá šev neviditelný) zůstanou
+    z rozmazané verze, ostrost se vrátí.
+
+    Bezpečné pro wrap: maska je na okrajích nulová (exp(-(384/28)^2) ~ 0), takže
+    se protilehlé okraje nemění. `gain` masku saturuje (3 = plný detail v jádru
+    pruhu, úbytek až v jeho ocasu) — s gaussovským úbytkem byl detail utlumený
+    i tam, kde je rozmazání ještě silné.
+    """
+    h, w = arr.shape[:2]
+    if shift <= 0:
+        shift = max(1, min(h, w) // 4)          # vzorek zdaleka od kříže
+    m = np.clip(cross_mask(arr.shape, band) * gain, 0.0, 1.0)
+    src = np.roll(np.roll(arr, shift, axis=1), shift, axis=0)
+    hf = src - _blur_uint8(src, detail)         # jen vysoké frekvence
+    return arr + hf * (m[:, :, None] * amount)
+
+
+def heal(arr, band=28.0, radius=8.0, edge=16, grain=1.0, detail=1.6, gain=3.0):
+    """Posun o polovinu + zacelení kříže + vrácení textury + srovnání okrajů."""
+    h, w, _ = arr.shape
+    b = np.roll(np.roll(arr, w // 2, axis=1), h // 2, axis=0).astype(np.float32)
+
+    mask = cross_mask(b.shape, band)
+    blurred = _blur_uint8(b, radius)
     out = b * (1 - mask[:, :, None]) + blurred * mask[:, :, None]
+
+    # zpátky ostrost do zaceleného pruhu (jinak je uprostřed vidět rozostřený kříž)
+    if grain > 0:
+        out = grain_pass(out, band, detail, grain, gain)
 
     # srovnání protilehlých okrajů v pásu `edge` px (přesný wrap = 0)
     if edge > 0:
@@ -109,7 +146,7 @@ def process(path, out_path, args, check):
         print(f'  {name:18s} uz je bezesve ({h0:.2f}/{v0:.2f}) -> preskoceno')
         return 0.0, 0.0
 
-    out = heal(a, args.band, args.radius, args.edge)
+    out = heal(a, args.band, args.radius, args.edge, args.grain, args.detail, args.gain)
     h1, v1 = wrap_delta(out)
     hx1, vy1 = cross_step(out)
     loss = 100.0 * (1.0 - hf_energy(out) / max(0.01, hf_energy(a)))
@@ -119,6 +156,25 @@ def process(path, out_path, args, check):
           f'kriz {hx0:5.2f}/{vy0:5.2f} -> {hx1:5.2f}/{vy1:5.2f}   '
           f'ztrata ostrosti {loss:4.1f} %')
     return (h0 + v0) / 2, (h1 + v1) / 2
+
+
+def grain_only(path, out_path, args):
+    """Dodatečné vrácení textury do už zacelené dlaždice (bez posunu a okrajů).
+
+    Pro sady, které už prošly starým `heal` (rozmazaný kříž uprostřed) — přesně
+    to je případ dlaždic ve hře. Wrap ani okraje se nemění, jen se do středového
+    pásu přidá vysokofrekvenční detail.
+    """
+    img = Image.open(path).convert('RGB')
+    a = np.asarray(img).astype(np.float32)
+    out = grain_pass(a, args.band, args.detail, args.grain, args.gain)
+    h0, v0 = wrap_delta(a)
+    h1, v1 = wrap_delta(out)
+    Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).save(
+        out_path, quality=args.quality)
+    print(f'  {os.path.basename(path):18s} wrap {h0:5.2f} -> {h1:5.2f}   '
+          f'HF {hf_energy(a):5.2f} -> {hf_energy(out):5.2f}')
+    return h1
 
 
 def main():
@@ -131,6 +187,14 @@ def main():
     ap.add_argument('--quality', type=int, default=95)
     ap.add_argument('--skip-below', type=float, default=1.0,
                     help='kdyz je wrap pod timto, nechat soubor byt')
+    ap.add_argument('--grain', type=float, default=1.0,
+                    help='kolik textury vratit do zaceleneho krize (0 = vypnuto)')
+    ap.add_argument('--detail', type=float, default=1.6,
+                    help='polomer, od ktereho se bere "detail" (vyssi = hrubsi)')
+    ap.add_argument('--gain', type=float, default=3.0,
+                    help='saturace masky pro detail (vyssi = plny detail i v ocasu pruhu)')
+    ap.add_argument('--grain-pass', action='store_true',
+                    help='jen vratit texturu do uz zacelenych dlaždic (bez posunu)')
     ap.add_argument('--check', action='store_true', help='jen zmerit, nemenit')
     args = ap.parse_args()
 
@@ -142,6 +206,20 @@ def main():
 
     out_dir = args.out or args.dir
     os.makedirs(out_dir, exist_ok=True)
+
+    if args.grain_pass:
+        print(f'[textura] {len(files)} souboru z {args.dir} -> {out_dir} '
+              f'(grain {args.grain:.2f}, detail {args.detail:.1f})')
+        wraps = []
+        for path in files:
+            ext = '.png' if path.lower().endswith('.png') else '.jpg'
+            out_path = path if out_dir == args.dir else os.path.join(
+                out_dir, os.path.splitext(os.path.basename(path))[0] + ext)
+            wraps.append(grain_only(path, out_path, args))
+        print(f'\nprumer wrap po vraceni textury: {np.mean(wraps):6.2f}')
+        print('VYSLEDEK: ' + ('OK' if np.mean(wraps) <= 2.5 else 'CHYBA - wrap vysoky'))
+        return 0 if np.mean(wraps) <= 2.5 else 1
+
     print(('[kontrola] ' if args.check else '[heal] ') +
           f'{len(files)} souboru z {args.dir}' +
           ('' if args.check else f' -> {out_dir}'))

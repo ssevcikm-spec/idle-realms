@@ -41,6 +41,9 @@ assets/art_candidates/
 # === Kandidáti spritů v jiném motivu (srovnává se okem, nasadí se po výběru) ===
 assets/props_kronika/
 
+# === Kandidáti dlaždic v jiném motivu (srovnává se okem, nasadí se po výběru) ===
+assets/tiles_kronika/
+
 # === Python cache (skripty v scripts/ si dělají __pycache__) ===
 __pycache__/
 *.pyc
