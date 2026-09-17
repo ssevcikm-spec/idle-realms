@@ -33,9 +33,60 @@
   // Cesta k assetům jde přepsat (G.AI_TILE_DIR nastaveným PŘED načtením tohoto
   // skriptu) — používá to náhledová stránka `tools/tiles/preview.html`.
   G.AI_TILE_DIR = G.AI_TILE_DIR || 'assets/tiles/';
-  const SRC = G.AI_TILE_DIR;
   const REPEAT = 6;              // jedna textura pokryje 6 dlaždic (perioda)
   const BLEND_X = 29, BLEND_Y = 43;  // periody váhy prolnutí (nesoudělné s 6)
+
+  /**
+   * Sady dlaždic, mezi kterými jde přepnout v debug panelu (Mapa — vzhled).
+   * První je vždy ta nasazená. Kandidátské sady jsou gitignored a v čistém
+   * checkoutu neexistují — `setTileSet` proto před přepnutím zkusí jeden
+   * soubor načíst a když chybí, sadu **nepřepne** (jinak by hra tiše spadla
+   * na kreslenou cestu a nebylo by poznat, že přepnutí neprošlo).
+   */
+  G.TILE_SETS = G.TILE_SETS || [
+    { id: 'base',        dir: G.AI_TILE_DIR,                     name: 'současná' },
+    { id: 'kronika',     dir: 'assets/tiles_kronika/final/',     name: 'kronika-ilustrace' },
+    { id: 'kronika-tex', dir: 'assets/tiles_kronika_tex/final/', name: 'kronika-textura' }
+  ];
+
+  /** Id aktivní sady dlaždic (neznámé id spadne na první sadu). */
+  G.tileSet = function () {
+    const s = (G.state && G.state.settings) || {};
+    const list = G.TILE_SETS || [];
+    if (list.some(x => x.id === s.tileSet)) return s.tileSet;
+    return (list[0] && list[0].id) || 'base';
+  };
+
+  /** Adresář aktivní sady (s koncovým lomítkem). */
+  G.tileSetDir = function () {
+    const list = G.TILE_SETS || [];
+    const id = G.tileSet();
+    const set = list.filter(x => x.id === id)[0] || list[0];
+    return (set && set.dir) || G.AI_TILE_DIR;
+  };
+
+  /** Přepne sadu dlaždic (a znovu je načte). Vrací použitou sadu, nebo null. */
+  G.setTileSet = function (id, done) {
+    const set = (G.TILE_SETS || []).filter(x => x.id === id)[0];
+    if (!set || !G.state) return null;
+    const apply = () => {
+      if (!G.state.settings) G.state.settings = {};
+      G.state.settings.tileSet = set.id;
+      const A = G.AI_TILES;
+      A.tiles = {}; A.ready = false; A.loaded = 0; A.failed = 0; A.loading = false;
+      if (G.tileStyle() === 'ai' && G.loadAiTiles) G.loadAiTiles();
+      if (G.drawWorldFrame) G.drawWorldFrame();
+      if (done) done(set);
+    };
+    // v Node/testech Image není — tam se přepne rovnou (testy si Image stubbují)
+    if (typeof Image !== 'function') { apply(); return set; }
+    const probe = new Image();
+    let answered = false;
+    probe.onload = () => { if (!answered) { answered = true; apply(); } };
+    probe.onerror = () => { if (!answered) { answered = true; if (done) done(null); } };
+    probe.src = set.dir + TERRAINS[0] + '-1.jpg';
+    return set;
+  };
 
   G.AI_TILES = {
     ready: false, loading: false, tiles: {}, loaded: 0, failed: 0,
@@ -80,6 +131,7 @@
     if (A.ready || A.loading) { if (done) done(A); return; }
     if (typeof Image !== 'function') { if (done) done(A); return; }
     A.loading = true;
+    const src = G.tileSetDir ? G.tileSetDir() : G.AI_TILE_DIR;
     const jobs = [];
     for (const t of TERRAINS) for (const n of [1, 2]) jobs.push([t, n]);
 
@@ -89,7 +141,7 @@
       const img = new Image();
       img.onload = () => { imgs[terrain + '-' + n] = img; step(); };
       img.onerror = () => { A.failed++; step(); };
-      img.src = SRC + terrain + '-' + n + '.jpg';
+      img.src = src + terrain + '-' + n + '.jpg';
     }
 
     function step() {

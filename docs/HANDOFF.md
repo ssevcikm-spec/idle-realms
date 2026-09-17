@@ -33,6 +33,7 @@ powershell.exe -ExecutionPolicy Bypass -File scripts/check-globals.ps1   # musí
 powershell.exe -ExecutionPolicy Bypass -File scripts/check-actions.ps1   # 0 mrtvých data-action/data-change
 node test/headless-smoke.js                                              # "VYSLEDEK: OK"
 node test/tile-window.js                                                 # dlaždice: okno je spojité
+node test/tile-sets.js                                                   # dlaždice: přepínání sad je bezpečné
 node test/tiles-preview.js                                               # náhled dlaždic se spustí
 node test/foundry.js                                                     # světová vrstva: plán a kreslení
 node test/foundry-game.js                                                # foundry v běžící hře

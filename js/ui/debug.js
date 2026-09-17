@@ -53,6 +53,8 @@
         </div>
         <div class="dbg-section"><div class="dbg-label">Mapa — vzhled</div>
           <div class="dbg-row" id="dbg-styles"></div>
+          <div class="dbg-row" id="dbg-tilesets"></div>
+          <div class="dbg-note">sada dlaždic — kandidáti (<code>assets/tiles_kronika*/final/</code>) vznikají mimo repo; když složka chybí, přepnutí se nepovede a zůstane předchozí sada</div>
           <div class="dbg-note">foundry = krajina kreslená ve světových souřadnicích (bezešvá, neopakuje se)</div>
           <div class="dbg-row" id="dbg-unitstyles"></div>
           <div class="dbg-note">vzhled postav je nezávislý na mapě (foundry + malované postavy jde kombinovat)</div>
@@ -145,6 +147,13 @@
     el.innerHTML = STYLE_STEPS.map(([v, name]) =>
       `<button class="dbg-btn ${v === cur ? 'active' : ''}" data-dbg="tilestyle" data-v="${v}">${name}</button>`
     ).join('');
+    const sEl = document.getElementById('dbg-tilesets');
+    if (sEl) {
+      const sCur = G.tileSet ? G.tileSet() : '';
+      sEl.innerHTML = (G.TILE_SETS || []).map(s =>
+        `<button class="dbg-btn ${s.id === sCur ? 'active' : ''}" data-dbg="tileset" data-v="${s.id}" title="${s.dir}">${s.name}</button>`
+      ).join('');
+    }
     const uEl = document.getElementById('dbg-unitstyles');
     if (uEl) {
       const uCur = G.unitStyle ? G.unitStyle() : 'code';
@@ -233,6 +242,14 @@
     else if (a === 'tilestyle') {
       if (G.setTileStyle) G.setTileStyle(el.dataset.v);
       buildStyleButtons();
+    }
+    else if (a === 'tileset') {
+      // sada dlaždic má smysl jen v malovaném vzhledu — když je zapnutý kreslený,
+      // přepni na malovaný, ať je výměna vidět; když sada chybí, zůstane předchozí
+      if (G.setTileSet) G.setTileSet(el.dataset.v, (set) => {
+        if (set && G.tileStyle && G.tileStyle() !== 'ai' && G.setTileStyle) G.setTileStyle('ai');
+        buildStyleButtons();
+      });
     }
     else if (a === 'unitstyle') {
       if (G.setUnitStyle) G.setUnitStyle(el.dataset.v);

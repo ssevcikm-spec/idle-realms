@@ -48,7 +48,11 @@ Otevři `index.html` v prohlížeči. Nebo `python3 -m http.server 8000`.
   jestli má okno vyskakovat `vždy`, `jen boss a elita`, nebo `nikdy (tiše)`.
 - **☰ v horní liště** — menu (zpět do hry, nová hra, obtížnost, přepínač příběhových popupů, smazání savu), zavře i `Esc`
 - **Lišta surovin** pod HUD — co máš; na mobilu se posouvá prstem, šipkou ▸/▾ ji sbalíš
-- **Klávesa D** — debug (rychlost času, měřítko mapy: dlaždice 46–80 px, výška postav 60–115 %)
+- **Klávesa D** — debug (rychlost času, měřítko mapy: dlaždice 46–80 px, výška postav 60–115 %).
+  V sekci **Mapa — vzhled** je i přepínač vzhledu mapy (`kreslený` / `malovaný` / `foundry`)
+  a **sada dlaždic**: když si vedle `assets/tiles/` položíš další sadu
+  (`assets/tiles_kronika/final/`, `assets/tiles_kronika_tex/final/`), přepneš mezi nimi
+  v běžící hře a hned vidíš rozdíl — chybějící sadu hra odmítne přepnout a nechá předchozí
 
 Hra se při načtení stránky **rovnou rozjede z uložené pozice** (menu se neukazuje);
 úvodní obrazovka s volbou obtížnosti se objeví jen při prvním spuštění nebo po smazání savu.
