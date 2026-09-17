@@ -270,13 +270,29 @@ souřadnicích.** Tři kroky:
    **jen vysokofrekvenční** složku vzorku odjinud z dlaždice: nízké frekvence
    (to, co drží šev neviditelný) zůstanou z rozmazané verze, ostrost se vrátí.
    Maska je na okrajích nulová (exp(−(384/16)²) ≈ 0), takže wrap zůstává přesně 0.
-   Naměřeno: ostrost pásu **0,47 → 0,95**, seam/zrno **0,77**, wrap **1,93**.
 
-   **Co zůstává:** nízké frekvence jsou v pásu ±16 px pořád proložené, takže
-   tvary přes střed (květy, stébla) jsou mírně deformované — vision to vidí jako
-   „jemnou svislou šmouhu". Odstranit to jde jen tím, že by dlaždice šev vůbec
-   neměla: kresleným základem ve foundry (§11) nebo skutečně tilovacím
-   generátorem. Je to argument pro route C, ne proti ní.
+   **Množství je adaptivní** (`--grain auto`, výchozí). Pevné číslo fungovalo pro
+   jednu sadu a druhou (hladší textury) přeostřilo — naměřeno **1,40**, tedy
+   rušivější pruh, než jaký vznikl. `auto` spočítá dávku pro každou dlaždici:
+   energie nezávislých složek se sčítá ve druhé mocnině (`ref² = base² + (a·inc)²`),
+   takže se dávka dopočítá tak, aby pás dorovnal referenci. Referencí je
+   **posunutá raw dlaždice** (stejné místo, jen nezacelené) — medián zbytku
+   dlaždice měří u nehomogenních textur (les, hory) spíš obsah než vadu.
+
+   **Poctivá čísla** (`tile_sharpness.py --ref <raw>`, tedy „kolik detailu hojení
+   na tom místě ubralo"): dlaždice ve hře **0,90** (5 z 20 pod 0,85, nejhorší
+   water-1 **0,68**), kandidáti kroniky **0,89** (nejhorší snow-1 **0,61**).
+   Proti mediánu zbytku dlaždice vyjde 0,94, respektive 1,34 — proto je obsahová
+   reference směrodatná. Seam/zrno 0,78 (kronika 1,00), wrap 1,93 (kronika 0,72).
+
+   **Co zůstává:** rozmazání nízkých frekvencí je nutné, aby schod po posunu
+   zmizel — vypůjčené zrno vrátí texturu, ale ne **obsah** (u sněhu a vody je
+   místní struktura bohatší než vzorek odjinud, takže pás zůstane o 10–30 %
+   chudší). Vision to vidí jako „jemnou šmouhu". Odstraní to jen dlaždice, která
+   šev vůbec nemá:
+   - **kreslený základ ve foundry** (§11) — žádný šev nevzniká, je to route C;
+   - **inpaint švu** (ComfyUI je nainstalované, `scripts/gen_tiles_local.py`) —
+     místo rozmazání se kříž nechá domalovat modelem, detail zůstane.
 2. **Kreslení je výřez** (`G.tileDraw`): okno 128 px (= 1/6 textury 768 px) se
    posouvá o jedno okno na dlaždici světa. Sousední dlaždice jsou tedy sousední
    výřezy téhož spojitého obrazu — šev nemůže vzniknout. Naměřeno: seam/zrno
@@ -293,7 +309,8 @@ Výchozí hodnota je 0; kterou použít, se má rozhodnout **okem** v náhledu.
 | Nástroj | Co dělá |
 |---|---|
 | `scripts/check-tiles.py` | metriky: `wrap`, `seam/zrno`, `perioda`, barva vs. cíl terénu, kontrast v 46 px, odlišnost terénů. Umí nasimulovat schéma skládání (`random`/`parity`/`sliding`/`sliding2`) a uložit mozaiku jako PNG. |
-| `scripts/tile_sharpness.py` | ostrost pásu kolem středu proti mediánu zbytku dlaždice — hlídá, že se šev nevyřešil rozmazáním (`--limit`, výchozí 0,85). |
+| `scripts/tile_sharpness.py` | ostrost pásu kolem středu — hlídá, že se šev nevyřešil rozmazáním (`--limit`, výchozí 0,85). S `--ref <raw adresář>` měří **obsahovou** referenci (stejné místo z raw dlaždice) = „kolik detailu tu hojení ubralo"; bez ní proti mediánu zbytku dlaždice. |
+| `scripts/compare_tiles.py` | srovnávací HTML dvou sad dlaždic: každá dlaždice **zopakovaná 4×4** (v jednom obrázku šev nepoznáš) + 1:1. Pro „líbí / nelíbí" rozhodnutí uživatele. |
 | `tools/tiles/preview.html` | náhled v prohlížeči z **reálného kódu hry**: kontaktní list terénů (46/64/192 px), mozaiky 12×12, detaily švů 2× zvětšené, slider prolnutí, diagnostika s čísly. Otevři přes lokální server, nebo Chrome s `--allow-file-access-from-files` (jinak canvas taintuje a měření se přeskočí). |
 | `node test/tile-window.js` | geometrie kreslení: okna navazují, obtáčejí se na torusu, nepřetékají, fallback na kreslenou cestu, váhy prolnutí sčítají na 1. |
 | `node test/tiles-preview.js` | náhledová stránka se spustí bez chyby a spočítá diagnostiku. |

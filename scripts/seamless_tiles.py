@@ -98,8 +98,72 @@ def grain_pass(arr, band=16.0, detail=1.6, amount=0.9, gain=3.0, shift=0):
     return arr + hf * (m[:, :, None] * amount)
 
 
-def heal(arr, band=16.0, radius=8.0, edge=16, grain=0.9, detail=1.6, gain=3.0):
-    """Posun o polovinu + zacelení kříže + vrácení textury + srovnání okrajů."""
+def _band_hf(a, measure=40, guard=80):
+    """(střed, medián středu, reference) vysokofrekvenční energie pro sloupce i řádky.
+
+    Reference = medián zbytku dlaždice. `střed` je průměr pásu +-`measure` px
+    kolem středu. Pro **obsahovou** referenci (stejné místo z raw dlaždice) se
+    hodí medián pásu: v raw dlaždici je přesně ve středu jednopixelový schod po
+    posunu, a ten by průměr vychýlil.
+    """
+    g = a.mean(axis=2) if a.ndim == 3 else a
+    col = np.abs(np.diff(g, axis=1)).mean(axis=0)
+    row = np.abs(np.diff(g, axis=0)).mean(axis=1)
+    out = []
+    for prof in (col, row):
+        n = len(prof)
+        c = n // 2
+        inner = prof[max(0, c - measure):c + measure + 1]
+        mask = np.ones(n, dtype=bool)
+        mask[max(0, c - guard):min(n, c + guard + 1)] = False
+        out.append((float(inner.mean()), float(np.median(inner)),
+                    float(np.median(prof[mask]))))
+    return out
+
+
+def auto_amount(base, unit, measure=40, guard=80, bias=1.05, ref=None):
+    """Kolik jednotkového detailu přidat, aby pás ostrostí dorovnal referenci.
+
+    Energie nezávislých složek se sčítá ve **druhé mocnině**, takže
+    `ref^2 = base^2 + (a*inc)^2`. Pevné množství fungovalo pro jednu sadu a pro
+    druhou (hladší textury) dělalo ve středu rušivější pruh — naměřeno 1,40.
+
+    Když je k dispozici `ref` (posunutá **raw** dlaždice), bere se medián pásu
+    na **stejném místě** — to je správná otázka „kolik detailu tu hojení ubralo".
+    Medián zbytku dlaždice měří u nehomogenních textur (les, hory) spíš obsah než
+    vadu. `bias` mírně přestřelí kvůli JPEG (měří se na floatech, čte se JPEG).
+    """
+    ref_hf = _band_hf(ref, measure, guard) if ref is not None else None
+    ratios = []
+    for i, ((b, _, median), (u, _, _)) in enumerate(
+            zip(_band_hf(base, measure, guard), _band_hf(unit, measure, guard))):
+        r = ref_hf[i][1] if ref_hf is not None else median
+        inc2 = max(0.0, u * u - b * b)
+        if inc2 <= 1e-9 or r <= 1e-6:
+            ratios.append(1.0)
+            continue
+        ratios.append(float(np.sqrt(max(0.0, r * r - b * b) / inc2)))
+    return float(np.clip(float(np.mean(ratios)) * bias, 0.0, 1.2))
+
+
+def apply_grain(arr, band, detail, gain, amount, measure=40, guard=80, ref=None):
+    """Přidá detail; `amount` může být číslo, 'auto' (viz `auto_amount`) nebo 0."""
+    if amount in (0, 0.0, None, 'none'):
+        return arr, 0.0
+    unit = grain_pass(arr, band, detail, 1.0, gain)
+    if amount == 'auto':
+        a = auto_amount(arr, unit, measure, guard, ref=ref)
+    else:
+        a = float(amount)
+    return arr + (unit - arr) * a, a
+
+
+def heal(arr, band=16.0, radius=8.0, edge=16, grain='auto', detail=1.6, gain=3.0):
+    """Posun o polovinu + zacelení kříže + vrácení textury + srovnání okrajů.
+
+    Vrací `(obraz, použitá dávka textury)` — dávka se hodí do logu, protože
+    v režimu 'auto' se počítá pro každou dlaždici zvlášť.
+    """
     h, w, _ = arr.shape
     b = np.roll(np.roll(arr, w // 2, axis=1), h // 2, axis=0).astype(np.float32)
 
@@ -108,8 +172,8 @@ def heal(arr, band=16.0, radius=8.0, edge=16, grain=0.9, detail=1.6, gain=3.0):
     out = b * (1 - mask[:, :, None]) + blurred * mask[:, :, None]
 
     # zpátky ostrost do zaceleného pruhu (jinak je uprostřed vidět rozostřený kříž)
-    if grain > 0:
-        out = grain_pass(out, band, detail, grain, gain)
+    # referencí je posunutá raw dlaždice `b` — stejné místo, jen ne rozmazané
+    out, used = apply_grain(out, band, detail, gain, grain, ref=b)
 
     # srovnání protilehlých okrajů v pásu `edge` px (přesný wrap = 0)
     if edge > 0:
@@ -125,7 +189,7 @@ def heal(arr, band=16.0, radius=8.0, edge=16, grain=0.9, detail=1.6, gain=3.0):
                 np.moveaxis(out, axis, 0)[i] = cur * (1 - weight) + avg * weight
                 cur = np.take(out, n - 1 - i, axis=axis)
                 np.moveaxis(out, axis, 0)[n - 1 - i] = cur * (1 - weight) + avg * weight
-    return out
+    return out, used
 
 
 def process(path, out_path, args, check):
@@ -146,7 +210,7 @@ def process(path, out_path, args, check):
         print(f'  {name:18s} uz je bezesve ({h0:.2f}/{v0:.2f}) -> preskoceno')
         return 0.0, 0.0
 
-    out = heal(a, args.band, args.radius, args.edge, args.grain, args.detail, args.gain)
+    out, used = heal(a, args.band, args.radius, args.edge, args.grain, args.detail, args.gain)
     h1, v1 = wrap_delta(out)
     hx1, vy1 = cross_step(out)
     loss = 100.0 * (1.0 - hf_energy(out) / max(0.01, hf_energy(a)))
@@ -154,7 +218,7 @@ def process(path, out_path, args, check):
         out_path, quality=args.quality)
     print(f'  {name:18s} wrap {h0:6.2f}/{v0:6.2f} -> {h1:4.2f}/{v1:4.2f}   '
           f'kriz {hx0:5.2f}/{vy0:5.2f} -> {hx1:5.2f}/{vy1:5.2f}   '
-          f'ztrata ostrosti {loss:4.1f} %')
+          f'textura {used:4.2f}   ztrata ostrosti {loss:4.1f} %')
     return (h0 + v0) / 2, (h1 + v1) / 2
 
 
@@ -163,17 +227,18 @@ def grain_only(path, out_path, args):
 
     Pro sady, které už prošly starým `heal` (rozmazaný kříž uprostřed) — přesně
     to je případ dlaždic ve hře. Wrap ani okraje se nemění, jen se do středového
-    pásu přidá vysokofrekvenční detail.
+    pásu přidá vysokofrekvenční detail. Pozor: 'auto' tu umí jen **přidat**;
+    když je dlaždice přeostřená (detail už dostala), nedá se to tímhle vzít zpět.
     """
     img = Image.open(path).convert('RGB')
     a = np.asarray(img).astype(np.float32)
-    out = grain_pass(a, args.band, args.detail, args.grain, args.gain)
+    out, used = apply_grain(a, args.band, args.detail, args.gain, args.grain)
     h0, v0 = wrap_delta(a)
     h1, v1 = wrap_delta(out)
     Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).save(
         out_path, quality=args.quality)
     print(f'  {os.path.basename(path):18s} wrap {h0:5.2f} -> {h1:5.2f}   '
-          f'HF {hf_energy(a):5.2f} -> {hf_energy(out):5.2f}')
+          f'textura {used:4.2f}   HF {hf_energy(a):5.2f} -> {hf_energy(out):5.2f}')
     return h1
 
 
@@ -187,8 +252,9 @@ def main():
     ap.add_argument('--quality', type=int, default=95)
     ap.add_argument('--skip-below', type=float, default=1.0,
                     help='kdyz je wrap pod timto, nechat soubor byt')
-    ap.add_argument('--grain', type=float, default=0.9,
-                    help='kolik textury vratit do zaceleneho krize (0 = vypnuto)')
+    ap.add_argument('--grain', default='auto',
+                    help="kolik textury vratit do zaceleneho krize: 'auto' (dorovna "
+                         "ostrost pasu na okoli), cislo, nebo 0 = vypnuto")
     ap.add_argument('--detail', type=float, default=1.6,
                     help='polomer, od ktereho se bere "detail" (vyssi = hrubsi)')
     ap.add_argument('--gain', type=float, default=3.0,
@@ -197,6 +263,8 @@ def main():
                     help='jen vratit texturu do uz zacelenych dlaždic (bez posunu)')
     ap.add_argument('--check', action='store_true', help='jen zmerit, nemenit')
     args = ap.parse_args()
+    if isinstance(args.grain, str) and args.grain != 'auto':
+        args.grain = float(args.grain)
 
     files = sorted(f for f in glob.glob(os.path.join(args.dir, '*.*'))
                    if f.lower().endswith(('.jpg', '.jpeg', '.png')))
@@ -209,7 +277,7 @@ def main():
 
     if args.grain_pass:
         print(f'[textura] {len(files)} souboru z {args.dir} -> {out_dir} '
-              f'(grain {args.grain:.2f}, detail {args.detail:.1f})')
+              f'(grain {args.grain}, detail {args.detail:.1f})')
         wraps = []
         for path in files:
             ext = '.png' if path.lower().endswith('.png') else '.jpg'

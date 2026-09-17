@@ -8,12 +8,16 @@ promptu (bezešvá textura, žádný ústřední motiv), jen s možností přida
 balíčku.
 
 Výstup jsou **surové** textury do zadaného adresáře; teprve pak se ladí barva
-a tvar:
-    python scripts/gen_tiles.py --style kronika --out assets/tiles_kronika
-    python scripts/grade_tiles.py assets/tiles_kronika assets/tiles_kronika
-    python scripts/seamless_tiles.py --dir assets/tiles_kronika
-    python scripts/check-tiles.py --dir assets/tiles_kronika --scheme sliding --repeat 6
-    python scripts/compare_assets.py --old assets/tiles --new assets/tiles_kronika
+a tvar. Meziprodukty se **nechávají** (past 30 v HANDOFF.md) — bez nezacelené
+dlaždice nelze přeladit dávku textury ani změřit obsahovou ostrost. Sada
+kandidátů proto drží `raw/` → `graded/` → `final/`:
+
+    python scripts/gen_tiles.py --style kronika --out assets/tiles_kronika/raw
+    python scripts/grade_tiles.py assets/tiles_kronika/raw assets/tiles_kronika/graded
+    python scripts/seamless_tiles.py --dir assets/tiles_kronika/graded --out assets/tiles_kronika/final
+    python scripts/check-tiles.py --dir assets/tiles_kronika/final --scheme sliding --repeat 6
+    python scripts/tile_sharpness.py assets/tiles_kronika/final --ref assets/tiles_kronika/raw
+    python scripts/compare_tiles.py --old assets/tiles --new assets/tiles_kronika/final
 
 Vyžaduje: pillow (+ numpy u navazujících skriptů) — venv ComfyUI + internet.
 """

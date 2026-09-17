@@ -42,7 +42,10 @@ node test/units-ai.js                                                    # malov
 node test/art-assets.js                                                  # ilustrace: soubory, lookupy, vypínač
 # dlaždice (potřebuje python s pillow+numpy — viz past č. 13):
 python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSLEDEK: OK"
-python scripts/tile_sharpness.py assets/tiles                            # nesmí být nic "ROZMAZANE"
+python scripts/tile_sharpness.py assets/tiles                            # bez "ROZMAZANE"
+#   obsahova reference (raw = assets/tiles_local projde nejdriv grade_tiles.py):
+python scripts/tile_sharpness.py assets/tiles --ref <graded-raw>         # smerodatne cislo
+python scripts/compare_tiles.py --old assets/tiles --new <kandidati>      # srovnani okem (moziky 4x4)
 # vrstva 3 (ilustrace) — pipeline si ověří sama sebe:
 python scripts/check-art.py --selftest                                   # "selftest OK"
 python scripts/check-art.py                                              # assets/art (zatím prázdné = OK)
@@ -209,6 +212,20 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
     obrázek jednou označí za výrazně rozmazaný, podruhé za ostrý). Ber ho jako
     druhé oči vedle čísel, ne jako verdikt. Pozor: `vision` spadne na výpisu
     češtiny do cp1252 konzole — spouštěj s `$env:PYTHONIOENCODING='utf-8'`.
+30. **Nepřepisuj meziprodukt pipeline.** `grade_tiles.py i` `seamless_tiles.py`
+    umí pracovat na místě, takže se snadno stane, že po `grade` → `heal` už
+    neexistuje **nezacelená** dlaždice — a bez ní nelze přeladit dávku textury
+    ani změřit obsahovou ostrost (`tile_sharpness.py --ref`). Přesně to se stalo:
+    muselo se regenerovat 20 dlaždic (~15 min). Sada kandidátů proto drží tři
+    adresáře: `raw/` (generátor) → `graded/` (`grade_tiles.py`) → `final/`
+    (`seamless_tiles.py --out`). U dlaždic ve hře je `raw` v `assets/tiles_local/`
+    (PNG z ComfyUI, gitignored).
+31. **Metrika ostrosti potřebuje obsahovou referenci.** „Pás vs. medián zbytku
+    dlaždice" je rychlé, ale u nehomogenních textur (les, hory, voda) měří obsah:
+    táž dlaždice vyšla jako **rozmazaná 0,50** i **přeostřená 1,34** podle toho,
+    co bylo zrovna ve středu. Směrodatné je srovnat pás se **stejným místem
+    v raw dlaždici** (posunuté o polovinu), mediánem pásu (ve středu raw dlaždice
+    je jednopixelový schod, ten by průměr vychýlil).
 
 ---
 
@@ -222,9 +239,10 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
   units-ai **5** kontrol, deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
 - Dlaždice: assety jsou **torusy** (`wrap` 1,93), kreslí se jako **okno do
-  textury** ve světových souřadnicích — `seam/zrno` 0,77, perioda 6 dlaždic,
-  ostrost pásu kolem středu **0,95** (dřív 0,47 — zacelení švu dlaždici
-  rozmazalo, viz past 28).
+  textury** ve světových souřadnicích — `seam/zrno` 0,78, perioda 6 dlaždic.
+  Ostrost pásu se **obsahovou** referencí **0,90** (dřív 0,47 — zacelení švu
+  dlaždici rozmazalo, viz pasty 28 a 31; 5 dlaždic z 20 je pod 0,85, nejhorší
+  voda 0,68). Dávka textury se počítá pro každou dlaždici zvlášť (`--grain auto`).
 - **Paleta je jedna**: `G.PAL` v `js/render/art.js` je jediný zdroj — bere ji
   kresba, foundry i barevné srovnání malovaných dlaždic (`scripts/tile_palette.py`).
   Nejbližší dvojice terénů **33,1** (dřív 8,3 — hills vs dirt se slévaly).
