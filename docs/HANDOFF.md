@@ -217,11 +217,15 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
 - **Foundry drží paletu**: `G.foundryTerrainColor(terén)` spočítá z plánu
   výslednou barvu krajiny — naměřeno nejbližší dvojice **33,3** (paleta 33,1),
   největší posun barvy **5,2**. Hlídá `test/foundry.js`.
-- **Vrstva 3 (ilustrace) má pipeline**: `scripts/grade_art.py` srovná vygenerovaný
-  obrázek do tónu projektu (nádech + jas + strop sytosti), `scripts/check-art.py`
-  ho změří (nádech ≥ 0,45; neon ≤ 10 %; mimo paletu ≤ 25 %; kontrast ≥ 12) a
-  `--selftest` ověří celou pipeline na syntetickém obrázku. Naměřeno na spritech:
-  nádech 0,61–0,73 → 0,80–0,82, neon 5,4 % → 0 %. Detail: `docs/STYL_GRAFIKY.md` §14.
+- **Vrstva 3 (ilustrace) má pipeline i hotové kresby**: `scripts/grade_art.py`
+  srovná vygenerovaný obrázek do tónu projektu (nádech + jas + strop sytosti),
+  `scripts/check-art.py` ho změří (nádech ≥ 0,45; neon ≤ 10 %; mimo paletu ≤ 25 %;
+  kontrast ≥ 12) a `--selftest` ověří celou pipeline na syntetickém obrázku.
+  `scripts/gen_art.py` vygeneroval **14 ilustrací** (titul, 7 scén z
+  `js/data/progress.js`, 6 portrétů rolí): nádech **0,96–0,97**, mimo paletu
+  **0 %**, kontrast 48–72. Kandidáti pro výběr okem jsou v
+  `assets/art_candidates/index.html` (gitignore, vítěz zeleně).
+  Detail: `docs/STYL_GRAFIKY.md` §14; **zbývá jen napojení do hry** (§14.5).
 - **Krajinné prvky jdou nahradit sprity** (`settings.props`, `G.propStyle`,
   `js/render/units_ai.js` + háčky v `art.js`): stromy, kameny a dekorace foundry
   se použijí z `assets/props/<druh>.png`, jinak se kreslí kódem. Footprinty jsou
@@ -422,10 +426,11 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
      **Zbývá**: přegenerovat základní sprite po volbě balíčku (§6 bod 3).
 5. **Vrstva 3 (ilustrace)** — ✅ **pipeline hotová** (§14): `scripts/grade_art.py`
    srovná vygenerovaný obrázek do palety, `scripts/check-art.py` ho změří
-   (a `--selftest` ověří sám sebe). **Zbývá vygenerovat samotné ilustrace**
-   (titul, 7 scén, portréty) — to potřebuje volbu vzhledu (§6 bod 3) — a napojit
-   je do hry (kde se vykreslí + fallback, když chybí; pozor, `title_screen.js`
-   držela paralelní práce).
+   (a `--selftest` ověří sám sebe). **Ilustrace jsou vygenerované** —
+   `scripts/gen_art.py` vyrobil 14 obrazků (titul, 7 scén, 6 portrétů) v kronikové
+   paletě, všechny procházejí kontrolou. **Zbývá je napojit do hry** (kde se
+   vykreslí + fallback, když chybí; pozor, `ui.js` a `title_screen.js` držela
+   paralelní práce).
 6. **Krajinné prvky jako sprity (props)** — ✅ **hotové včetně spritů** (§16):
    `settings.props` + `assets/props/<druh>.png` (10 druhů vygenerovaných),
    fallback kreslí kódem, výměna nic neposune. **Zbývá**: přegenerovat sprity po

@@ -190,8 +190,9 @@ Zbývá doladit:
 2. **Přegenerovat dlaždice a sprity v pergamenovém stylu** (teď jsou jen
    barevně srovnané): `gen_props.py` / `gen_unit_base.py` s promptem v duchu
    balíčku, pak `grade_tiles.py` + `seamless_tiles.py` a kontroly.
-3. **Ilustrace vrstvy 3** (titul, 7 příběhových scén, portréty) — pipeline
-   hotová (§14), stačí vygenerovat a napojit do hry (§14.4).
+3. **Ilustrace vrstvy 3** (titul, 7 příběhových scén, portréty) — ✅ **hotové**
+   (§14.4: `scripts/gen_art.py`, 14 obrazků v `assets/art`), zbývá je napojit
+   do hry (§14.5).
 4. **Foundry doladit okem** (debug panel **D**) a přesunout jeho kód z `art.js`
    do `js/render/foundry.js`.
 
@@ -668,13 +669,39 @@ Naměřeno na skutečných spritech postav (jako testovací vstup):
 nádech **0,61–0,73 -> 0,80–0,82**, neon **5,4 % -> 0 %**, tón (vzdálenost od tónu
 projektu) **36–102 -> 26–48**, kontrast zůstal.
 
-### 14.4 Co ještě chybí
+### 14.4 Generátor ilustrací *(hotovo 2026-09-16)*
 
-- **Samotné ilustrace** — titul, 7 příběhových scén, portréty. Generují se až po
-  volbě vzhledu (§7); pipeline je připravená, stačí je nasypat do `assets/art`
-  a prohnat `grade_art.py` + `check-art.py`.
-- **Napojení do hry** — kde přesně se titul a scény vykreslí (a jak vypadá
-  fallback, když obrázek chybí), se má dodělat spolu s prvními ilustracemi.
+```
+python scripts/gen_art.py --candidates 2     # 14 obrazků, 2 kandidáti na každý
+python scripts/check-art.py                  # kontrola (rezim illustration)
+python scripts/gen_art.py --rescore          # prevybrat viteze z kandidatu (bez internetu)
+```
+
+Sada odpovídá tomu, co hra opravdu má: **titul**, **7 příběhových scén**
+(popupy z `js/data/progress.js`: Neznámý poutník, Zpráva z hor, Volání lesa,
+Kupecká výzva, Stíny v jeskyni, Rada starších, Nový začátek) a **6 portrétů rolí**
+(vůdce, zásobovač, ranhojič, průzkumník, bojovník, obchodník).
+
+Každý kandidát se **hned srovná do palety** (aby se hodnotilo to, co by se
+použilo) a vybere se nejlepší podle skóre: kontrast v pásu 28–75, minimum
+přesvětlených/utopených pixelů, barvy v paletě a **žádný neon**. Všichni
+kandidáti zůstávají v `assets/art_candidates/` (gitignore) spolu s `index.html` —
+kontaktní list, kde se dá výběr přebít okem (vítěz je zeleně).
+
+**Past, kterou odhalil až první běh:** skóre neon nezohledňovalo, takže vybralo
+dva kandidáty s 15 % a 17 % sytých pixelů a kontrola je shodila. Po přidání
+penalty za neon se z už stažených kandidátů vybralo líp (a u portrétu bojovníka
+bylo potřeba vygenerovat znovu s vyšší silou srovnání).
+
+**Naměřeno u hotové sady 14 ilustrací:** nádech palety **0,96–0,97**, mimo paletu
+**0,0 %**, kontrast **48–72**, neon ≤ 10 % (u většiny do 3 %).
+
+### 14.5 Co ještě chybí
+
+- **Napojení do hry** — kde přesně se titul, scény a portréty vykreslí (a jak
+  vypadá fallback, když obrázek chybí). Blokuje to necommitnutá práce paralelní
+  session v `js/ui/ui.js` a `js/ui/title_screen.js`; jakmile se sejde, je to
+  dvouřádková změna (načíst `assets/art/<id>.png` a nakreslit/nevložit).
 
 ---
 
