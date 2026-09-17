@@ -39,6 +39,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 DST = 'assets/props'
 BG = 'plain flat medium grey background'
 STYLE = 'top-down game sprite, muted earthy fantasy colors, no shadow, no text'
+# Motiv zvoleného balíčku „Žoldnéřská kronika" (pergamen + inkoust). Sprity se
+# jím dají přegenerovat, aby nebyly jen barevně srovnané, ale měly i stejný
+# jazyk linek (docs/STYL_GRAFIKY.md §7).
+STYLE_KRONIKA = ('old chronicle illustration style, sepia and olive ink linework with hatching, '
+                 'aged parchment tones, muted earthy medieval palette')
+STYLES = {'plain': STYLE, 'kronika': STYLE + ', ' + STYLE_KRONIKA}
 
 # druh -> (co nakreslit, cílová výška sprity v px)
 PROPS = [
@@ -133,6 +139,8 @@ def main():
     ap.add_argument('--candidates', type=int, default=3)
     ap.add_argument('--seed', type=int, default=1000)
     ap.add_argument('--out', default=DST)
+    ap.add_argument('--style', default='plain', choices=list(STYLES.keys()),
+                    help='plain = neutrální popis, kronika = pergamen a inkoust (§7)')
     args = ap.parse_args()
 
     want = [k.strip() for k in args.kinds.split(',') if k.strip()]
@@ -142,10 +150,11 @@ def main():
         return 1
 
     os.makedirs(args.out, exist_ok=True)
-    print('generuji %d druhu, %d kandidatu na druh -> %s' % (len(props), args.candidates, args.out))
+    print('generuji %d druhu, %d kandidatu na druh, styl %s -> %s' % (
+        len(props), args.candidates, args.style, args.out))
     ok = 0
     for kind, subject, target_h in props:
-        prompt = '%s, %s, %s' % (subject, STYLE, BG)
+        prompt = '%s, %s, %s' % (subject, STYLES[args.style], BG)
         best, best_score, best_info, best_seed = None, -1.0, {}, None
         for i in range(args.candidates):
             seed = args.seed + i * 7

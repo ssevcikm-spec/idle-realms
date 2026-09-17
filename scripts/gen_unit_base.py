@@ -58,15 +58,22 @@ def main():
     ap.add_argument('--candidates', type=int, default=4)
     ap.add_argument('--seed', type=int, default=2000)
     ap.add_argument('--out', default=DST)
+    ap.add_argument('--style', default='plain', choices=['plain', 'kronika'],
+                    help='kronika přidá pergamen a inkoust (balíček A+D, §7)')
     args = ap.parse_args()
 
+    prompt = PROMPT
+    if args.style == 'kronika':
+        from gen_props import STYLE_KRONIKA
+        prompt = '%s, %s' % (PROMPT, STYLE_KRONIKA)
+
     os.makedirs(args.out, exist_ok=True)
-    print('generuji zakladni postavu (%d kandidatu) -> %s/%s.png' % (
-        args.candidates, args.out, NAME))
+    print('generuji zakladni postavu (%d kandidatu, styl %s) -> %s/%s.png' % (
+        args.candidates, args.style, args.out, NAME))
     best, best_score, best_info, best_seed = None, -1.0, {}, None
     for i in range(args.candidates):
         seed = args.seed + i * 7
-        img = fetch(PROMPT, seed, w=W, h=H)
+        img = fetch(prompt, seed, w=W, h=H)
         if img is None:
             continue
         spr = cutout(img)

@@ -187,9 +187,11 @@ Zbývá doladit:
 
 1. **Linky a šrafování** — na nich pergamen stojí; paleta sama čitelnost drží
    (rozestup 40,5), ale „inkoustový" ráz dodá teprve linka.
-2. **Přegenerovat dlaždice a sprity v pergamenovém stylu** (teď jsou jen
-   barevně srovnané): `gen_props.py` / `gen_unit_base.py` s promptem v duchu
-   balíčku, pak `grade_tiles.py` + `seamless_tiles.py` a kontroly.
+2. **Vybrat a nasadit sprity v pergamenovém motivu** — ✅ **kandidáti hotoví**
+   (§16.2): `assets/props_kronika/` (9 prvků + základní postava) se srovnávacím
+   listem `index.html`; zbývá vybrat okem a přepsat soubory. Dlaždice se stejným
+   postupem (`gen_tiles_local.py` nebo Pollinations → `grade_tiles.py` →
+   `seamless_tiles.py`).
 3. **Ilustrace vrstvy 3** (titul, 7 příběhových scén, portréty) — ✅ **hotové**
    (§14.4: `scripts/gen_art.py`, 14 obrazků v `assets/art`), zbývá je napojit
    do hry (§14.5).
@@ -823,7 +825,34 @@ srovnání: odchylka od tónu projektu **88 → 43,5**, neon např. u koleje **9
 1,4 %**, `mimo paletu` 0,0–0,1 % u všech deseti.
 
 **Zatím nenapojeno:** vstupy do dolů a jeskyní (`mine`, `cave`) mají vlastní
-kresbu a sprite druh nemají — dodá se s dalšími sprity. Sprity jsou **barevně
+kresbu a sprite druh nemají — dodá se s dalšími sprity.
+
+### 16.2 Motiv (pergamen a inkoust) — kandidáti k výběru
+
+Sprity v `assets/props` jsou jen **barevně srovnané** na kroniku. Aby měly
+i stejný jazyk linek, umí generátor přidat styl balíčku:
+
+```
+python scripts/gen_props.py --style kronika --candidates 2 --out assets/props_kronika --seed 5000
+python scripts/gen_unit_base.py --style kronika --candidates 5 --out assets/props_kronika --seed 6100
+python scripts/grade_art.py --in assets/props_kronika --out assets/props_kronika --strength 0.6
+python scripts/check-art.py --dir assets/props_kronika --mode props
+python scripts/compare_assets.py --old assets/props --new assets/props_kronika
+```
+
+Vygenerovaná sada je v `assets/props_kronika/` (gitignore) a **čeká na výběr
+okem** — `compare_assets.py` vyrobí kontaktní list „staré vs nové" pro každý
+druh (`assets/props_kronika/index.html`). Naměřeno u nové sady: nádech palety
+0,92–0,97, mimo paletu 0 %, kontrast 27–59, všech 10 souborů (9 prvků + základní
+postava) prochází kontrolou.
+
+Dvě věci, které se u motivu ukázaly: **trs trávy** model v kronikovém stylu
+vyrobil jako skoro celoplošný obraz (podíl popředí 0,86–0,95) a skóre ho správně
+odmítlo — v sadě proto chybí; a **základní postava** potřebovala 5 kandidátů
+(první tři se nepovedlo vyříznout), než vyšla.
+
+Až se sada vybere, nasadí se přepsáním souborů a znovu `grade_art.py` +
+`check-art.py`. Sprity jsou **barevně
 srovnané** na zvolený balíček (§17); jejich úplné přegenerování v pergamenovém
 stylu je další krok (tři příkazy výše).
 

@@ -38,6 +38,9 @@ assets/units_gen/
 # === Kandidáti ilustrací (vybírá se z nich okem, do repa patří jen vítězové) ===
 assets/art_candidates/
 
+# === Kandidáti spritů v jiném motivu (srovnává se okem, nasadí se po výběru) ===
+assets/props_kronika/
+
 # === Python cache (skripty v scripts/ si dělají __pycache__) ===
 __pycache__/
 *.pyc
