@@ -111,7 +111,10 @@
      musí ladit s paletou — na to je `scripts/grade_art.py`. */
 
   const PROP_KINDS = ['tree','pine','boulder','tuft','bush','pebble','reed','drift','ripple','rut'];
-  const PROP_SRC = 'assets/props/';
+  // Cesta jde přepsat (G.AI_PROP_DIR nastaveným PŘED načtením) — používá to
+  // náhledová stránka v tools/tiles, která kvůli relativním cestám leží jinde.
+  G.AI_PROP_DIR = G.AI_PROP_DIR || 'assets/props/';
+  const PROP_SRC = G.AI_PROP_DIR;
 
   G.AI_PROPS = { ready:false, loading:false, sprites:{}, loaded:0, failed:0, tried:false };
 

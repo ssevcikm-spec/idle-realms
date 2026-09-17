@@ -96,8 +96,12 @@ try {
     { filename: 'art.js' });
   vm.runInThisContext(fs.readFileSync(path.join(ROOT, 'js/render/tiles_ai.js'), 'utf8'),
     { filename: 'tiles_ai.js' });
+  vm.runInThisContext(fs.readFileSync(path.join(ROOT, 'js/render/units_ai.js'), 'utf8'),
+    { filename: 'units_ai.js' });
   vm.runInThisContext(blocks[1], { filename: 'preview-inline-2.js' });
-  while (pendingImg.length) pendingImg.shift().onload();
+  while (pendingImg.length) pendingImg.shift().onload();   // dlaždice
+  // props se dotahují zvlášť (a v testu žádné soubory nejsou)
+  while (pendingImg.length) pendingImg.shift().onerror();
 } catch (e) {
   runtimeErrors.push(e && e.message || String(e));
 }
@@ -120,11 +124,13 @@ check('postavily se vsechny panely', () => {
   const foundry = byId['foundry'] ? byId['foundry'].children.length : 0;
   const palette = byId['palette'] ? byId['palette'].children.length : 0;
   const figures = byId['figures'] ? byId['figures'].children.length : 0;
+  const props = byId['props'] ? byId['props'].children.length : 0;
   assert(seams === 5, 'panelu svy: ' + seams + ' (ceka se 5)');
   assert(mosaics === 4, 'panelu mozaiky: ' + mosaics + ' (ceka se 4 bez prolnuti)');
   assert(sheet === 30, 'kontaktni list: ' + sheet + ' (ceka se 30 = 10 terenu x 3 velikosti)');
   assert(foundry === 3, 'panelu foundry: ' + foundry + ' (ceka se 3)');
   assert(palette === 10, 'swatchu palety: ' + palette + ' (ceka se 10 terenu)');
+  assert(props === 10, 'panelu props: ' + props + ' (ceka se 10 druhu)');
   // počet panelů postav se odvozuje z tabulky rolí (ta se může rozrůst)
   const roleCount = Object.keys(global.window.Game.ROLES || {}).length;
   assert(figures === 12 + roleCount,

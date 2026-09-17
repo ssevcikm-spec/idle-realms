@@ -16,7 +16,15 @@ nesmysl, který by čísla vychýlil).
 Použití:
     python scripts/check-art.py                      # projde assets/art
     python scripts/check-art.py --dir assets/units   # libovolný adresář
+    python scripts/check-art.py --dir assets/props --mode props
     python scripts/check-art.py --selftest           # ověří sama sebe
+
+Dva režimy, protože ilustrace a jednotlivé sprity mají různé nároky:
+- `illustration` (výchozí) — celá scéna má mít **nádech palety** (`nadech` ≥ 0,45).
+- `props` — samostatný objekt (závěj, pěna, skála) být teplý nemusí; důležité je,
+  že jeho barvy leží **v paletě** (`mimo` ≤ 25 %) a nejsou neonové. Limit nádechu
+  je proto mírnější (≥ 0,20); naměřeno: bílá závěj má nádech 0,41 a modravá pěna
+  0,38, přitom obojí je z palety (voda je modrá, sníh světlý).
 
 `--selftest` vyrobí v paměti „neonový" obrázek (magenta/limetka + průhledný
 okraj), prožene ho `scripts/grade_art.py` a ověří, že neonu ubylo, kompozice
@@ -38,27 +46,30 @@ from tile_palette import tone  # jediný zdroj = js/render/art.js (G.PAL)
 import grade_art
 
 EXTS = ('.png', '.jpg', '.jpeg', '.webp')
-LIM_CAST = 0.45
-LIM_NEON = 0.10
-LIM_GAMUT = 0.25
-LIM_CONTRAST = 12.0
+# (nadech, neon, mimo paletu, kontrast)
+LIMITS = {
+    'illustration': (0.45, 0.10, 0.25, 12.0),
+    'props':        (0.20, 0.10, 0.25, 8.0),
+}
+LIM_CAST, LIM_NEON, LIM_GAMUT, LIM_CONTRAST = LIMITS['illustration']
 
 
-def check_image(path):
+def check_image(path, mode='illustration'):
+    lim_cast, lim_neon, lim_gamut, lim_contrast = LIMITS[mode]
     img = Image.open(path)
     has_alpha = img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info)
     arr = np.asarray(img.convert('RGBA' if has_alpha else 'RGB')).astype(np.float32)
     alpha = arr[:, :, 3] if has_alpha else None
     st = grade_art.stats(arr[:, :, :3], alpha)
     fails = []
-    if st['cast'] < LIM_CAST:
-        fails.append('nadech %.2f < %.2f (jiná barevnost)' % (st['cast'], LIM_CAST))
-    if st['sat_high'] > LIM_NEON:
-        fails.append('neon %.1f %% > %.0f %%' % (st['sat_high'] * 100, LIM_NEON * 100))
-    if st['gamut'] > LIM_GAMUT:
-        fails.append('mimo paletu %.1f %% > %.0f %%' % (st['gamut'] * 100, LIM_GAMUT * 100))
-    if st['contrast'] < LIM_CONTRAST:
-        fails.append('kontrast %.1f < %.0f (ploché)' % (st['contrast'], LIM_CONTRAST))
+    if st['cast'] < lim_cast:
+        fails.append('nadech %.2f < %.2f (jiná barevnost)' % (st['cast'], lim_cast))
+    if st['sat_high'] > lim_neon:
+        fails.append('neon %.1f %% > %.0f %%' % (st['sat_high'] * 100, lim_neon * 100))
+    if st['gamut'] > lim_gamut:
+        fails.append('mimo paletu %.1f %% > %.0f %%' % (st['gamut'] * 100, lim_gamut * 100))
+    if st['contrast'] < lim_contrast:
+        fails.append('kontrast %.1f < %.0f (ploché)' % (st['contrast'], lim_contrast))
     ok = not fails
     print('  %-26s %s  nadech %4.2f  neon %4.1f %%  mimo %4.1f %%  kontrast %5.1f' % (
         os.path.basename(path), 'OK  ' if ok else 'CHYBA',
@@ -133,6 +144,8 @@ def selftest():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--dir', default='assets/art')
+    ap.add_argument('--mode', default='illustration', choices=list(LIMITS.keys()),
+                    help='illustration = celá scéna, props = jednotlivé sprity')
     ap.add_argument('--selftest', action='store_true')
     args = ap.parse_args()
 
@@ -148,13 +161,14 @@ def main():
         print('zadne ilustrace v', args.dir, '- kontrola nema co merit (OK)')
         return 0
 
-    print('ilustrace v %s (%d souboru):' % (args.dir, len(files)))
-    bad = [f for f in files if not check_image(f)]
+    print('%s v %s (%d souboru, rezim %s):' % (
+        'props' if args.mode == 'props' else 'ilustrace', args.dir, len(files), args.mode))
+    bad = [f for f in files if not check_image(f, args.mode)]
     print()
     if bad:
         print('VYSLEDEK: CHYBY (%d z %d) - spust scripts/grade_art.py' % (len(bad), len(files)))
         return 1
-    print('VYSLEDEK: OK - ilustrace drzi paletu')
+    print('VYSLEDEK: OK - drzi paletu')
     return 0
 
 

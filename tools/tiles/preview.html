@@ -112,6 +112,17 @@
 </p>
 <div class="grid" id="packages"></div>
 
+<h2>Krajinné prvky (props)</h2>
+<p class="note">
+  Stromy, skály a dekorace mohou být <b>alfa sprity</b> z
+  <code>assets/props/&lt;druh&gt;.png</code> (přepínač ve hře: debug panel
+  <b>D</b> → „prvky kreslené / malované"). Sprite se do změřeného footprintu
+  vpasuje se zachováním poměru stran, takže krajina po výměně neuskáče.
+  Generuje je <code>scripts/gen_props.py</code> (Pollinations + vyříznutí
+  pozadí + výběr nejlepšího kandidáta), srovnává <code>grade_art.py</code>.
+</p>
+<div class="grid" id="props"></div>
+
 <h2>Kontaktní list terénů</h2>
 <div class="list" id="sheet"></div>
 
@@ -128,11 +139,12 @@
 <h2>Měření</h2>
 <pre id="diag">počítám…</pre>
 
-<script>window.Game = { AI_TILE_DIR: '../../assets/tiles/' };</script>
+<script>window.Game = { AI_TILE_DIR: '../../assets/tiles/', AI_PROP_DIR: '../../assets/props/' };</script>
 <script src="../../js/data/character.js"></script>
 <script src="../../js/systems/groups.js"></script>
 <script src="../../js/render/art.js"></script>
 <script src="../../js/render/tiles_ai.js"></script>
+<script src="../../js/render/units_ai.js"></script>
 <script>
 (function () {
   const G = window.Game;
@@ -475,6 +487,48 @@
     return { pal: pal, rawDist: rawDist, k: k, params: p };
   }
 
+  /** Vykreslí sprity krajinných prvků (ať je vidět, co vzniklo). */
+  function renderProps() {
+    const box = document.getElementById('props');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!G.loadAiProps) return;
+    G.AI_PROPS.ready = false; G.AI_PROPS.loading = false; G.AI_PROPS.tried = false;
+    G.AI_PROPS.sprites = {}; G.AI_PROPS.loaded = 0; G.AI_PROPS.failed = 0;
+    G.state = G.state || { settings: {} };
+    G.state.settings.props = 'ai';
+    G.loadAiProps(function (A) {
+      const kinds = ['tree','pine','boulder','bush','reed','pebble','tuft','drift','ripple','rut'];
+      for (const kind of kinds) {
+        const spr = A.sprites[kind];
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        const c = document.createElement('canvas');
+        c.width = 96; c.height = 96;
+        const ctx = c.getContext('2d');
+        if (spr) {
+          // vpasovat do čtverce se zachováním poměru stran (jako ve hře)
+          const ar = spr.width / spr.height;
+          let w = 88, h = 88;
+          if (w / h > ar) w = h * ar; else h = w / ar;
+          ctx.drawImage(spr, (96 - w) / 2, (96 - h) / 2, w, h);
+        } else {
+          ctx.strokeStyle = '#5a5040';
+          ctx.strokeRect(4.5, 4.5, 87, 87);
+          ctx.fillStyle = '#7a7060';
+          ctx.font = '11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('chybí', 48, 52);
+        }
+        cell.appendChild(c);
+        const lab = document.createElement('div');
+        lab.textContent = kind + (spr ? '' : ' (soubor není)');
+        cell.appendChild(lab);
+        box.appendChild(cell);
+      }
+    });
+  }
+
   /** Nejbližší dvojice základních barev dané palety (čitelnost). */
   function minDistanceOf(pal) {
     let best = { d: 1e9, a: '', b: '' };
@@ -658,6 +712,7 @@
     renderPalette();
     renderFigures();
     renderPackages();
+    renderProps();
   }
 
   // ---------- měření (stejná matematika jako scripts/check-tiles.py) ----------

@@ -43,6 +43,7 @@ python scripts/check-tiles.py --scheme sliding --repeat 6                # "VYSL
 # vrstva 3 (ilustrace) — pipeline si ověří sama sebe:
 python scripts/check-art.py --selftest                                   # "selftest OK"
 python scripts/check-art.py                                              # assets/art (zatím prázdné = OK)
+python scripts/check-art.py --dir assets/props --mode props              # sprity prvků
 ```
 
 - **Commit + push po každé fázi**, Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`).
@@ -202,7 +203,7 @@ python scripts/check-art.py                                              # asset
 - 59 JS souborů, **704** definovaných/used globálů `G.*` (check-globals čisté;
   část přírůstku je z paralelní práce na výbavě postav).
 - Testy: headless-smoke **77** + tile-window **10** + tiles-preview **5** +
-  foundry **19** + foundry-game **13** + figures **12** + props **10** kontrol,
+  foundry **19** + foundry-game **13** + figures **12** + props **11** kontrol,
   deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
 - Dlaždice: assety jsou **torusy** (`wrap` 1,87), kreslí se jako **okno do
@@ -223,7 +224,10 @@ python scripts/check-art.py                                              # asset
 - **Krajinné prvky jdou nahradit sprity** (`settings.props`, `G.propStyle`,
   `js/render/units_ai.js` + háčky v `art.js`): stromy, kameny a dekorace foundry
   se použijí z `assets/props/<druh>.png`, jinak se kreslí kódem. Footprinty jsou
-  změřené z kódové kresby, takže výměna nic neposune (test: těžiště 0,0 px).
+  změřené z kódové kresby a sprite se do boxu vpasuje se zachováním poměru stran,
+  takže výměna nic neposune (test: těžiště 0,0 px). **10 spritů je vygenerovaných**
+  (`scripts/gen_props.py` → Pollinations → vyříznutí → výběr kandidáta;
+  `grade_art.py` do palety; `check-art.py --mode props`), pro **současnou** paletu.
   Detail: `docs/STYL_GRAFIKY.md` §16.
 - **Foundry** (nový vzhled mapy, Stage 1): krajina jako funkce světa — plochý
   podklad + světové štětce + přechody terénů + dekorace. Plán **0,15 ms/snímek**,
@@ -419,11 +423,11 @@ python scripts/check-art.py                                              # asset
    (titul, 7 scén, portréty) — to potřebuje volbu vzhledu (§6 bod 3) — a napojit
    je do hry (kde se vykreslí + fallback, když chybí; pozor, `title_screen.js`
    držela paralelní práce).
-6. **Krajinné prvky jako sprity (props)** — ✅ **plumbing hotová** (§16):
-   `settings.props` + `assets/props/<druh>.png` (strom, skála, trs, rákosí,
-   závěj, kolej, kamínek, pruh na vodě), fallback kreslí kódem, výměna nic
-   neposune. **Zbývá vyrobit sprity** (volba vzhledu) a doladit `mine`/`cave`,
-   které mají vlastní kresbu.
+6. **Krajinné prvky jako sprity (props)** — ✅ **hotové včetně spritů** (§16):
+   `settings.props` + `assets/props/<druh>.png` (10 druhů vygenerovaných),
+   fallback kreslí kódem, výměna nic neposune. **Zbývá**: přegenerovat sprity po
+   volbě balíčku (`gen_props.py` + `grade_art.py` + `check-art.py`) a doladit
+   `mine`/`cave`, které mají vlastní kresbu.
 7. **Drobné budoucí rozšíření**: vlastní sklad a obrana základny (karavany na
    základně už jezdí), dosah dílen jako kruh na mapě, posuvník výšky mapy.
 

@@ -143,7 +143,25 @@ check('vymena spritu neposune krajinu (teziste zustane)', () => {
   }
 });
 
-check('stromy a skaly se nahradi sprity ve vsech druzich uzlu', () => {
+check('sprite si drzi pomer stran (nedeformuje se)', () => {
+  // vysoký úzký sprite (32x96) se musí vpasovat do boxu, ne roztáhnout
+  G.state.settings.props = 'ai';
+  G.AI_PROPS.sprites.tree = { width: 32, height: 96, _src: 'tree-tall' };
+  G.AI_PROPS.sprites.pine = { width: 32, height: 96, _src: 'pine-tall' };
+  const ops = drawNode('forest');
+  assert(ops.drawImage.length > 0, 'vysoký sprite se nekreslil');
+  for (const a of ops.drawImage) {
+    const ratio = a[2] / a[3];
+    assert(Math.abs(ratio - 32 / 96) < 0.02,
+      'sprite se zdeformoval: poměr ' + ratio.toFixed(2) + ' (má být 0.33)');
+    assert(a[3] <= 26 * 1.5 + 0.01, 'sprite přetekl box na výšku: ' + a[3].toFixed(1));
+    assert(a[2] <= 28 * 1.5 + 0.01, 'sprite přetekl box na šířku: ' + a[2].toFixed(1));
+  }
+  G.AI_PROPS.sprites.tree = { width: 64, height: 64, _src: 'tree' };
+  G.AI_PROPS.sprites.pine = { width: 64, height: 64, _src: 'pine' };
+});
+
+check('skala, raselini a ostatni prvky maji taky sprity', () => {
   giveSprites();
   // napojené jsou stromy (tree/pine) a kameny (boulder); vstupy do dolů a jeskyní
   // mají vlastní kresbu a sprite druh zatím nemají (viz docs §16)

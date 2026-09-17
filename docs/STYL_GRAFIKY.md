@@ -708,7 +708,7 @@ spadne to.
 
 ---
 
-## 16. Props — krajinné prvky jako alfa sprity *(hotová plumbing, 2026-09-16)*
+## 16. Props — krajinné prvky jako alfa sprity *(hotovo včetně spritů, 2026-09-16)*
 
 Poslední vrstva, kterou má dělat AI („AI jen na alfa sprity“): **krajinné prvky**
 (strom, skála, trs, rákosí, závěj…). Hra je umí nakreslit kódem a když je
@@ -734,9 +734,41 @@ přepnout (a `assets/props` prohnat `scripts/grade_art.py`, aby sprity držely
 paletu).
 
 **Footprinty jsou změřené z kódové kresby** (např. strom 28×26 jednotek, kotva na
-základně), takže výměna sprite za kresbu nic neposune — hlídá to `test/props.js`
-(10 kontrol, mimo jiné že **těžiště kresby se posune o 0,0 px**) a že chybějící
+základně) a sprite se do boxu **vepasuje se zachováním poměru stran** (roztahovat
+cizí obrázek na změřený box by ho zdeformovalo) — hlídá to `test/props.js`
+(11 kontrol, mimo jiné že **těžiště kresby se posune o 0,0 px**) a že chybějící
 soubory se nezkoušejí znovu každý snímek (`tried`).
 
+### 16.1 Generování spritů
+
+```
+python scripts/gen_props.py --candidates 3                          # stromy/skály/…
+python scripts/grade_art.py --in assets/props --out assets/props    # do palety
+python scripts/check-art.py --dir assets/props --mode props         # kontrola
+```
+
+`gen_props.py` dělá čtyři věci: stáhne kandidáty (Pollinations, zdarma, bez
+klíče), vyřízne pozadí **stejnou logikou jako u postav** (`process_units.py`:
+polarita podle jasu středu vs. okraje, prahování, největší souvislá oblast
+uprostřed), **vybere nejlepšího kandidáta** (skóre = plnost obdélníku − trest za
+nalepení na okraj − trest za těžiště mimo střed) a zmenší na cílovou výšku.
+Pozadí je středně šedé (ne krémové jako u postav), aby šly vyříznout i světlé
+věci (závěj, pěna).
+
+Proč vybírat z kandidátů: model občas vyrobí scénu místo jednoho objektu a
+vyříznutí pak vrátí celý výřez — skóre to pozná podle podílu popředí a nalepení
+na okraj. Naměřeno při generování 10 druhů: `podil` 0,38–0,77, `plnost` 0,40–0,79,
+`okraj` 0,00 (kompaktní objekty uprostřed), 3 z 30 kandidátů se vůbec nepovedlo
+vyříznout (model dal scénu) — proto se dělají 3 kandidáti.
+
+**Kontrola má dva režimy** (`--mode illustration|props`), protože jednotlivý
+objekt má jiné nároky než celá scéna: ilustrace má mít *nádech* palety
+(`nadech` ≥ 0,45), ale bílá závěj nebo modravá pěna teplé být nemusí — u nich se
+hlídá, že barvy leží **v paletě** (`mimo` ≤ 25 %) a nejsou neonové. Naměřeno po
+srovnání: odchylka od tónu projektu **88 → 43,5**, neon např. u koleje **99 % →
+1,4 %**, `mimo paletu` 0,0–0,1 % u všech deseti.
+
 **Zatím nenapojeno:** vstupy do dolů a jeskyní (`mine`, `cave`) mají vlastní
-kresbu a sprite druh nemají — dodá se spolu s prvními sprity, až bude styl.
+kresbu a sprite druh nemají — dodá se s dalšími sprity. Sprity jsou vygenerované
+pro **současnou** paletu; po volbě balíčku (§7) se přegenerují (stačí znovu
+pustit tři příkazy výše).

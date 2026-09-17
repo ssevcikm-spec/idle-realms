@@ -63,12 +63,16 @@
    * Zkusí nakreslit krajinný prvek jako AI sprite (alfa PNG) místo kresby.
    * Vrací true, když kreslil. Kotva je stejná jako u kódové kresby:
    * `bottom` = (x, y) je střed základny (strom, rákosí), jinak střed prvku.
-   * Footprint je změřený z kódové kresby, aby výměna nic neposunula ani
-   * nezvětšila.
+   *
+   * Sprite se do daného boxu **vepasuje** (zachová si vlastní poměr stran) —
+   * roztahovat cizí obrázek na změřený footprint by ho zdeformovalo.
    */
-  function propSprite(ctx, kind, x, y, w, h, bottom) {
+  function propSprite(ctx, kind, x, y, boxW, boxH, bottom) {
     const spr = G.aiPropSprite && G.aiPropSprite(kind);
     if (!spr) return false;
+    const ar = (spr.width && spr.height) ? spr.width / spr.height : boxW / boxH;
+    let w = boxW, h = boxW / ar;
+    if (h > boxH) { h = boxH; w = boxH * ar; }
     ctx.drawImage(spr, x - w / 2, bottom ? y - h : y - h / 2, w, h);
     return true;
   }
