@@ -977,6 +977,17 @@ Tohle je pro uživatele, který si chce experimentovat.
 
 ### 18.0 Nejjednodušší cesta: jeden příkaz
 
+**V cmd** (a funguje i v PowerShellu) — obal `make_tile_set.cmd` si sám přepne
+konzoli na UTF-8 a najde správný Python, takže se nemusí nic nastavovat:
+
+```bat
+cd /d C:\idle-realm
+scripts\make_tile_set.cmd --name kronika-tex --style kronika-tex
+```
+
+**V PowerShellu** totéž napřímo (pozor: `&` je jen PowerShell; v cmd se píše
+cesta bez něj):
+
 ```powershell
 cd C:\idle-realm
 & 'D:\ComfyUI\venv-comfy\Scripts\python.exe' scripts\make_tile_set.py --name moje --style kronika-tex
@@ -986,9 +997,8 @@ Skript udělá celou pipeline sám (vygeneruje → pozná, jestli to nejsou scé
 srovná barvy → zacelí šev → změří) a na konci **vypíše, jak si sadu zobrazit**.
 Trvá ~15 minut (20 obrázků). Na rychlé vyzkoušení stačí dva terény:
 
-```powershell
-& 'D:\ComfyUI\venv-comfy\Scripts\python.exe' scripts\make_tile_set.py `
-    --name zkouska --only grass,water --variants 1
+```bat
+scripts\make_tile_set.cmd --name zkouska --only grass,water --variants 1
 ```
 
 Tip: `--name kronika-tex` (nebo `kronika`) **přepíše kandidátskou sadu, která už

@@ -51,6 +51,7 @@ python scripts/tile_flatness.py <kandidati>                              # neni 
 #   kdyz scena je, odeber kompozici (poradi: flatten -> grade -> heal):
 python scripts/flatten_tiles.py <kandidati>/raw <kandidati>/flat --radius 48
 #   a kdyz to nechces delat rucne, vsechno najednou (i s kontrolou scen):
+#   (z cmd pouzij obal scripts\make_tile_set.cmd, ktery si nastavi UTF-8 a Python)
 python scripts/make_tile_set.py --name <nazev> --style kronika-tex
 # vrstva 3 (ilustrace) — pipeline si ověří sama sebe:
 python scripts/check-art.py --selftest                                   # "selftest OK"
