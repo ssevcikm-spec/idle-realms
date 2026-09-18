@@ -50,6 +50,8 @@ python scripts/compare_tiles.py --old assets/tiles --new <kandidati>      # srov
 python scripts/tile_flatness.py <kandidati>                              # neni to omylem obrazek sceny?
 #   kdyz scena je, odeber kompozici (poradi: flatten -> grade -> heal):
 python scripts/flatten_tiles.py <kandidati>/raw <kandidati>/flat --radius 48
+#   a kdyz to nechces delat rucne, vsechno najednou (i s kontrolou scen):
+python scripts/make_tile_set.py --name <nazev> --style kronika-tex
 # vrstva 3 (ilustrace) — pipeline si ověří sama sebe:
 python scripts/check-art.py --selftest                                   # "selftest OK"
 python scripts/check-art.py                                              # assets/art (zatím prázdné = OK)

@@ -42,8 +42,9 @@ assets/art_candidates/
 assets/props_kronika/
 
 # === Kandidáti dlaždic v jiném motivu (srovnává se okem, nasadí se po výběru) ===
-assets/tiles_kronika/
-assets/tiles_kronika_tex/
+# `assets/tiles_*/` pokrývá i vlastní sady z `scripts/make_tile_set.py`
+# (nasazená sada je `assets/tiles/`, ta se neignoruje)
+assets/tiles_*/
 
 # === Python cache (skripty v scripts/ si dělají __pycache__) ===
 __pycache__/

@@ -973,8 +973,31 @@ v pergamenovém motivu.
 
 ## 18. Kuchařka: jak si grafiku vygenerovat sám *(2026-09-17)*
 
-Tohle je pro uživatele, který si chce experimentovat. Všechno jde spustit
-z terminálu ve `C:\idle-realm`; Python na obrázky je
+Tohle je pro uživatele, který si chce experimentovat.
+
+### 18.0 Nejjednodušší cesta: jeden příkaz
+
+```powershell
+cd C:\idle-realm
+& 'D:\ComfyUI\venv-comfy\Scripts\python.exe' scripts\make_tile_set.py --name moje --style kronika-tex
+```
+
+Skript udělá celou pipeline sám (vygeneruje → pozná, jestli to nejsou scény →
+srovná barvy → zacelí šev → změří) a na konci **vypíše, jak si sadu zobrazit**.
+Trvá ~15 minut (20 obrázků). Na rychlé vyzkoušení stačí dva terény:
+
+```powershell
+& 'D:\ComfyUI\venv-comfy\Scripts\python.exe' scripts\make_tile_set.py `
+    --name zkouska --only grass,water --variants 1
+```
+
+Tip: `--name kronika-tex` (nebo `kronika`) **přepíše kandidátskou sadu, která už
+má tlačítko v debug panelu hry** — pak si ji zobrazíš jedním kliknutím, bez
+editace kódu. Vlastní jméno udělá `assets/tiles_<jméno>/final/` a skript vypíše
+řádek, který se má vložit do `G.TILE_SETS` (`js/render/tiles_ai.js`).
+
+Zbytek sekce popisuje totéž ručně a vysvětluje, co se uvnitř děje. Všechno jde
+spustit z terminálu ve `C:\idle-realm`; Python na obrázky je
 `D:\ComfyUI\venv-comfy\Scripts\python.exe` (má pillow + numpy; systémový
 Python 3.12 je **nemá** — past 13 v `docs/HANDOFF.md`).
 
