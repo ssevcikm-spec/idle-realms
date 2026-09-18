@@ -61,6 +61,46 @@ def prompt_texture(subject, style=''):
     return (base + (', ' + style if style else '')).strip()
 
 
+def load_prompts(path):
+    """Načte vlastní prompty: (šablona, {terén: prompt}).
+
+    Formát (viz `scripts/tile_prompts.txt`) — řádky `klíč = hodnota`, `#` je
+    komentář:
+        template = ... {subject} ... {style} ...   (pro všechny terény)
+        forest   = celý vlastní prompt pro terén forest
+    """
+    tpl, per = None, {}
+    with open(path, encoding='utf-8') as fh:
+        for line in fh:
+            line = line.split('#', 1)[0].strip()
+            if not line or '=' not in line:
+                continue
+            key, val = line.split('=', 1)
+            key, val = key.strip().lower(), val.strip()
+            if not val:
+                continue
+            if key == 'template':
+                tpl = val
+            elif key in TERRAINS:
+                per[key] = val
+            else:
+                print('  (prompty: neznamy klic "%s" - preskakuji)' % key, flush=True)
+    return tpl, per
+
+
+def build_prompt(terrain, style, tpl=None, per=None):
+    """Prompt pro terén: vlastní > šablona > vestavěný. Vrací (prompt, zdroj)."""
+    per = per or {}
+    if terrain in per:
+        return per[terrain], 'vlastni'
+    if tpl:
+        p = tpl.replace('{subject}', TERRAINS[terrain]).replace('{style}', style)
+        if style and '{style}' not in tpl:
+            p = (p + ', ' + style).strip().rstrip(',')
+        return p, 'sablona'
+    return prompt_texture(TERRAINS[terrain], style), 'vestaveny'
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', default='assets/tiles_kronika/raw')
@@ -68,6 +108,8 @@ def main():
     ap.add_argument('--style', default='plain', choices=list(STYLES),
                     help='kronika-tex = motiv kroniky popsaný jako textura')
     ap.add_argument('--only', default='', help='jen tyto terény (čárkou)')
+    ap.add_argument('--prompts', default=None,
+                    help='soubor s vlastnimi prompty (viz scripts/tile_prompts.txt)')
     ap.add_argument('--seed', type=int, default=SEED)
     args = ap.parse_args()
 
@@ -77,15 +119,24 @@ def main():
         print('neznamy teren; zname: ' + ', '.join(TERRAINS))
         return 1
 
+    tpl, per = (None, {})
+    if args.prompts:
+        if not os.path.exists(args.prompts):
+            print('soubor s prompty neexistuje: %s' % args.prompts)
+            return 1
+        tpl, per = load_prompts(args.prompts)
+        print('vlastni prompty: %s (%d pro konkretni teren, sablona: %s)'
+              % (args.prompts, len(per), 'ano' if tpl else 'ne'), flush=True)
+
     os.makedirs(args.out, exist_ok=True)
     style = STYLES[args.style]
     print('generuji %d terenu x %d textur (styl %s) -> %s' % (
         len(terrains), args.variants, args.style, args.out), flush=True)
     ok, failed = 0, []
     for i, terrain in enumerate(terrains):
-        prompt = prompt_texture(TERRAINS[terrain], style)
+        prompt, src = build_prompt(terrain, style, tpl, per)
         note = ' POZOR: prompt je dlouhy, Pollinations ho odrizne' if len(prompt) > 350 else ''
-        print('  [%s] prompt %d znaku%s' % (terrain, len(prompt), note), flush=True)
+        print('  [%s] prompt %d znaku (%s)%s' % (terrain, len(prompt), src, note), flush=True)
         for v in range(1, args.variants + 1):
             seed = args.seed + i * 137 + v * 1000
             img = fetch(prompt, seed, w=W, h=H)

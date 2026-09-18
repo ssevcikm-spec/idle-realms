@@ -64,6 +64,8 @@ def main():
     ap.add_argument('--only', default='', help='jen tyto tereny (grass,water) - na rychly test')
     ap.add_argument('--variants', type=int, default=2, help='textur na teren (hra pouziva 1 a 2)')
     ap.add_argument('--radius', type=float, default=48.0, help='odecteni kompozice (px)')
+    ap.add_argument('--prompts', default=None,
+                    help='soubor s vlastnimi prompty (vzor: scripts/tile_prompts.txt)')
     ap.add_argument('--no-flatten', action='store_true',
                     help='neodecitat kompozici, i kdyz dlaždice vypadaji jako sceny')
     args = ap.parse_args()
@@ -81,6 +83,8 @@ def main():
            '--variants', str(args.variants)]
     if args.only:
         gen += ['--only', args.only]
+    if args.prompts:
+        gen += ['--prompts', args.prompts]
     if not run(gen, '1/5 generuji textury (Pollinations)'):
         print('\nVYSLEDEK: CHYBA - textury se nevygenerovaly (internet? zkus to znovu)')
         return 1

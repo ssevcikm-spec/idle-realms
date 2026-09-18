@@ -1,0 +1,50 @@
+# ============================================================================
+#  VLASTNÍ PROMPTY PRO DLAŽDICE  (pro scripts/gen_tiles.py / make_tile_set.py)
+# ============================================================================
+#
+#  Jak to použít:
+#     scripts\make_tile_set.cmd --name moje --prompts scripts\tile_prompts.txt
+#     (nebo: python scripts/gen_tiles.py --prompts scripts/tile_prompts.txt --out ...)
+#
+#  Formát: řádky "klíč = hodnota". Vše za # je komentář. Prázdný řádek se ignoruje.
+#
+#    template = ...          <- společná šablona pro VŠECHNY terény
+#    <terén>  = ...          <- celý vlastní prompt pro JEDEN terén (přebije šablonu)
+#
+#  V šabloně jde použít:
+#    {subject}  = předmět terénu (např. "short wild grass with tiny wildflowers")
+#    {style}    = styl z --style (plain / kronika / kronika-tex); když v šabloně
+#                 není, připojí se na konec sám
+#
+#  DŮLEŽITÉ (změřeno, docs/STYL_GRAFIKY.md §8.6):
+#   * Pollinations odřezává prompty nad ~350 znaků. Skript vypíše délku u každého
+#     terénu a varuje, když to přeteče. Subjekt patří na začátek.
+#   * Promptem se NEDÁ řídit kompozice: i s "no horizon, no sky, no central
+#     object" vyrobil model 14 z 20 dlaždic jako obrázek krajiny. Když se to
+#     stane, řeší to až `flatten_tiles.py` (odečte velké plochy) — v rámci
+#     `make_tile_set.py` se to udělá samo.
+#   * Dlaždice pro MAPU (celou krajinu) nemá ukazovat detail jedné věci
+#     (kapradí, kamínky), ale povrch, který drží pohromadě na 46 px a neláme se
+#     na hranicích biomů. To je otevřený úkol — viz docs/HANDOFF_GRAFIKA.md.
+#
+#  Terény, které jde takhle pojmenovat (přesně takto):
+#    grass, forest, deep_forest, hills, mountain, water, swamp, snow, road, dirt
+#
+# ---------------------------------------------------------------------------
+#  Výchozí šablona (když ji necháš, chová se to jako doteď):
+# ---------------------------------------------------------------------------
+
+template = Seamless tileable {subject} texture, top-down orthographic ground texture for a 2D game map, flat even lighting, no horizon, no sky, no central object, no vignette, no border, uniform detail readable at 46x46 px, {style}
+
+# ---------------------------------------------------------------------------
+#  Příklady vlastních promptů pro jeden terén (odkomentuj a uprav):
+# ---------------------------------------------------------------------------
+
+# Les jako KORUNY STROMŮ z ptačí perspektivy (ne kapradí na zemi):
+# forest = Seamless tileable texture of a dense mixed forest canopy seen from directly above, masses of dark green and olive crowns touching each other, small gaps showing dark ground, top-down orthographic, flat even lighting, no horizon, no sky, no central object, no vignette, uniform detail readable at 46x46 px
+
+# Travnatá pláň bez jednotlivých květin (drží pohromadě, ne "kapradiny"):
+# grass = Seamless tileable texture of open grassland seen from directly above, even short grass with subtle dry patches and faint mowing streaks, top-down orthographic, flat even lighting, no single large flowers, no horizon, no sky, no central object, uniform detail readable at 46x46 px
+
+# Voda jako Hladina (ne kaleidoskop):
+# water = Seamless tileable texture of still dark river water seen from directly above, small even ripples, faint reflections, top-down orthographic, flat even lighting, no horizon, no sky, no central object, no vignette, uniform detail readable at 46x46 px

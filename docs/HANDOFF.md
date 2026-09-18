@@ -3,6 +3,11 @@
 > **Datum:** 2026-09-16
 > **Účel:** kompletní kontext pro nový chat/agenta, aby mohl pokračovat bez čtení
 > celé historie. Tohle je živý dokument — při každém větším kroku ho aktualizuj.
+>
+> **Grafika má vlastní handoff: `docs/HANDOFF_GRAFIKA.md`** (stav 2026-09-17) —
+> zadání, rozhodnutí route C, doslovná zpětná vazba uživatele k vzhledu,
+> naměřená čísla, mapa assetů, vlastní prompty a otevřené úkoly (přechody mezi
+> terény, perspektiva/měřítko detailu). Kdo jde na grafiku, začne tam.
 
 ---
 

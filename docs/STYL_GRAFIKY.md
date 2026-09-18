@@ -1011,6 +1011,28 @@ spustit z terminálu ve `C:\idle-realm`; Python na obrázky je
 `D:\ComfyUI\venv-comfy\Scripts\python.exe` (má pillow + numpy; systémový
 Python 3.12 je **nemá** — past 13 v `docs/HANDOFF.md`).
 
+**Kam padá výstup:** sada vždy do `assets/tiles_<jméno>/final/` (u jmen
+`kronika` a `kronika-tex` do odpovídajících kandidátských složišť). Uvnitř sady
+jsou meziprodukty `raw/` → `flat/` → `graded/` → `final/`; **`raw/` se nemazat**
+(past 30 — bez nezacelené dlaždice nejde nic přeladit). Nasazená sada, kterou
+čte hra, je `assets/tiles/`.
+
+### 18.0b Vlastní prompt (když chceš psát prompty sám)
+
+```bat
+scripts\make_tile_set.cmd --name moje --prompts scripts\tile_prompts.txt
+```
+
+`scripts/tile_prompts.txt` je obyčejný textový soubor: `template = …` je společná
+šablona pro všechny terény (`{subject}` se nahradí předmětem terénu, `{style}`
+stylem z `--style`), a `grass = …` je celý vlastní prompt pro jeden terén, který
+šablonu přebije. Skript u každého terénu vypíše **délku promptu a jeho zdroj**
+(`vlastni` / `sablona` / `vestaveny`) a varuje, když prompt přeteče ~350 znaků.
+
+Pozor na měřítko: dlaždice má na 46 px zobrazovat **povrch krajiny z ptačí
+perspektivy** (les = koruny stromů, ne kapradí), ne detail jedné věci.
+Víc v `docs/HANDOFF_GRAFIKA.md` §2 a §3.
+
 ### 18.1 Dvě cesty k obrázkům
 
 | | **ComfyUI** (lokálně, `D:\ComfyUI`) | **Pollinations** (online, zdarma) |
