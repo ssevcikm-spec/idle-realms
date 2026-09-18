@@ -1001,6 +1001,23 @@ Trvá ~15 minut (20 obrázků). Na rychlé vyzkoušení stačí dva terény:
 scripts\make_tile_set.cmd --name zkouska --only grass,water --variants 1
 ```
 
+**Kterým generátorem se to vygeneruje, vybírá `--backend`:**
+
+| `--backend` | Generátor | Čas (20 obrázků) |
+|---|---|---|
+| `pollinations` (výchozí) | online, bez klíče, stačí internet | ~15 min |
+| `local` | **ComfyUI** + SDXL na tvém Radeonu (musí běžet server, §18.1) | ~30–50 min |
+
+```bat
+REM lokálně — stejná pipeline, jen jiný generátor (a stejné vlastní prompty)
+scripts\make_tile_set.cmd --name moje --backend local --prompts scripts\tile_prompts.txt
+```
+
+Vlastní prompty, `--style` i seedy platí pro **oba** backendy: skládá je
+`scripts/tile_styles.py`, takže sada z ComfyUI a sada z Pollinations se dají
+srovnávat. Liší se jen základ věty — Pollinations odřezává prompty nad ~350
+znaků, SDXL ne.
+
 Tip: `--name kronika-tex` (nebo `kronika`) **přepíše kandidátskou sadu, která už
 má tlačítko v debug panelu hry** — pak si ji zobrazíš jedním kliknutím, bez
 editace kódu. Vlastní jméno udělá `assets/tiles_<jméno>/final/` a skript vypíše
@@ -1039,24 +1056,43 @@ Víc v `docs/HANDOFF_GRAFIKA.md` §2 a §3.
 |---|---|---|
 | Co to je | SDXL model na tvé RX 6600, server `http://127.0.0.1:8188` | veřejná služba, stačí internet |
 | Kdy | chceš kvalitu a mít to pod kontrolou (model, kroky, seed) | chceš rychle vyzkoušet motiv nebo nápad |
-| Rychlost | ~105–144 s na obrázek (768×768) | jednotky sekund |
+| Rychlost | ~60–144 s na obrázek (768×768) | jednotky sekund |
+| Přepínač | `make_tile_set.cmd --backend local` | `make_tile_set.cmd --backend pollinations` (výchozí) |
 | Skript | `scripts/gen_tiles_local.py`, `scripts/gen_units_local.py` | `scripts/gen_tiles.py`, `scripts/gen_props.py`, `scripts/gen_art.py` |
-| Pozor | ComfyUI musí běžet (`python main.py --port 8188`) | odřezává prompty nad ~350 znaků, občas vrátí 500 (skript to zkouší znovu) |
+| Pozor | ComfyUI musí běžet; výsledek se stahuje přes HTTP `/view` | odřezává prompty nad ~350 znaků, občas vrátí 500 (skript to zkouší znovu) |
 
-**ComfyUI spustíš** takto (setup je popsaný v §9, tady jen start):
+**ComfyUI spustíš** takto (setup je popsaný v §9, tady jen start). Pozor:
+`main.py` je v `D:\ComfyUI\ComfyUI`, ne v `D:\ComfyUI`:
 
 ```powershell
-cd D:\ComfyUI
-.\venv-comfy\Scripts\python.exe main.py --port 8188
+Start-Process 'D:\ComfyUI\venv-comfy\Scripts\python.exe' `
+  -ArgumentList 'main.py','--port','8188' `
+  -WorkingDirectory 'D:\ComfyUI\ComfyUI' -WindowStyle Hidden
 # pak v prohlížeči http://127.0.0.1:8188 (pokud chceš klikat místo skriptu)
+# nebo napřímo (okno se zavře s terminálem):
+cd D:\ComfyUI\ComfyUI
+& 'D:\ComfyUI\venv-comfy\Scripts\python.exe' main.py --port 8188
 ```
 
-**Vygenerovat dlaždice v ComfyUI** (stejná cesta, jak vznikla nasazená sada):
+**Vygenerovat dlaždice v ComfyUI** (stejná cesta, jak vznikla nasazená sada).
+Nejjednodušší je nechat si udělat i zbytek pipeline — `--backend local`:
+
+```bat
+cd /d C:\idle-realm
+scripts\make_tile_set.cmd --name moje --backend local
+REM nasazenou sadu presne reprodukuje: --backend local --style plain
+REM (vychozi styl je kronika-tex, takze bez --style plain vyjdou jine obrazky)
+```
+
+Jen generátor (bez pipeline), když chceš surová PNG do vlastní složky:
 
 ```powershell
 cd C:\idle-realm
-& 'D:\ComfyUI\venv-comfy\Scripts\python.exe' scripts\gen_tiles_local.py
-# výstup: assets/tiles_local/*.png (gitignored); seznam terénů a promptů je v tom skriptu
+$py = 'D:\ComfyUI\venv-comfy\Scripts\python.exe'
+& $py scripts\gen_tiles_local.py --out assets/moje_dlazdice/raw --variants 2
+# --style plain | kronika | kronika-tex ; --only grass,water ; --seed 13242
+# graf se posílá do ComfyUI, obrázek se stahuje přes /view (cesta k outputu
+# ComfyUI se nehádá — server ji může mít přepsanou přes --output-directory)
 ```
 
 **Vygenerovat dlaždice přes Pollinations** (bez ComfyUI, stačí internet):

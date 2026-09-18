@@ -159,6 +159,7 @@ assets/props/*.png            krajinné prvky (verzované), assets/props_kronika
 assets/units/*.png            postavy (verzované), assets/units_gen/ = surové rendry
 assets/art/*.png              ilustrace vrstvy 3 (verzované), assets/art_candidates/ = kandidáti
 tools/tiles/preview.html      náhled z reálného kódu hry (kontaktní list, mozaiky, diagnostika)
+scripts/tile_styles.py        SPOLEČNÉ prompty a styly obou generátorů (Pollinations i ComfyUI)
 scripts/tile_prompts.txt      VLASTNÍ PROMPTY (viz §6)
 ```
 
@@ -181,13 +182,56 @@ scripts\make_tile_set.cmd --name moje --prompts scripts\tile_prompts.txt
 - `grass = …` — celý vlastní prompt pro jeden terén (přebije šablonu).
 
 Skript u každého terénu vypíše **délku promptu a jeho zdroj** (`vlastni` /
-`sablona` / `vestaveny`) a varuje, když prompt přeteče ~350 znaků (Pollinations
-delší odřezává). Bez `--prompts` se chová jako dřív.
+`sablona` / `vestaveny`). Bez `--prompts` se chová jako dřív.
+
+**Kterým generátorem se to vygeneruje, vybírá `--backend`:**
+
+| `--backend` | Generátor | Kdy | Čas |
+|---|---|---|---|
+| `pollinations` (výchozí) | online, bez klíče | rychlé zkoušení motivu | jednotky s na dlaždici |
+| `local` | **ComfyUI** + SDXL (Juggernaut XL) na RX 6600 | chceš kvalitu a mít to pod kontrolou (model, kroky, seed) | ~1–2 min na dlaždici, celá sada 30–50 min |
+
+Vlastní prompty, `--style` i seedy platí pro **oba** backendy — skládá je
+`scripts/tile_styles.py`, takže sada z ComfyUI a sada z Pollinations se dají
+srovnávat (liší se jen základem věty: Pollinations odřezává prompty nad ~350
+znaků, SDXL ne).
 
 Varianta bez cmd obalu (PowerShell):
 ```powershell
 & 'D:\ComfyUI\venv-comfy\Scripts\python.exe' scripts\make_tile_set.py --name moje --prompts scripts\tile_prompts.txt
 ```
+
+### 6.1 Lokálně v ComfyUI (`--backend local`)
+
+ComfyUI musí běžet (viz §9 v `docs/STYL_GRAFIKY.md`); když neběží nebo v něm
+není model z `--ckpt`, skript to řekne a vypíše, co ComfyUI nabízí.
+
+```bat
+cd /d C:\idle-realm
+REM celych 10 terenu x 2 textury (~30-50 min)
+scripts\make_tile_set.cmd --name moje --backend local
+
+REM s vlastnim promptem
+scripts\make_tile_set.cmd --name moje --backend local --prompts scripts\tile_prompts.txt
+
+REM rychla zkouska (2 tereny, 1 textura, ~2-4 min)
+scripts\make_tile_set.cmd --name zkouska --backend local --only grass,water --variants 1
+```
+
+Tři věci, které se u lokální cesty chovají jinak než u online:
+
+- **Délka promptu nevadí** — varování na ~350 znaků je vlastnost Pollinations.
+- **Obrázek se stahuje přes HTTP `/view`**, ne ze disku. Kam ComfyUI píše
+  výstupy, závisí na tom, jak bylo spuštěné (`--output-directory`), a nedá se to
+  spolehlivě uhodnout; `/view` je oficiální endpoint a vrátí tentýž soubor.
+  Soubory v ComfyUI se **nemažou** (skript si je jen zkopíruje).
+- **Předpona souboru je unikátní na běh** (`--prefix`). ComfyUI cachuje hotové
+  grafy: se stejným prefixem by druhý běh negeneroval a vrátil starý výsledek.
+
+Seedy: výchozí `--seed 13242` dává u celé sady **tytéž seedy jako nasazená sada**
+(`13242 + i*137 + 1000` pro v1, `+2000` pro v2). Přesná reprodukce nasazené sady
+je ale `--backend local --style plain` — výchozí styl v `make_tile_set.py` je
+`kronika-tex`, který se do promptu přidá taky.
 
 ---
 
@@ -239,6 +283,16 @@ Varianta bez cmd obalu (PowerShell):
   (`git -c http.sslBackend=openssl push origin main`).
 - **Python na obrázky je jen** `D:\ComfyUI\venv-comfy\Scripts\python.exe`
   (pillow + numpy). Systémový Python 3.12 je nemá.
+- **Generátor dlaždic se vybírá `--backend`** (`pollinations` / `local`), ne
+  jiným skriptem: prompty, styly i seedy skládá `scripts/tile_styles.py` pro oba.
+  Lokální cesta navíc potřebuje **běžící ComfyUI** a stahuje výsledek přes HTTP
+  `/view` (cesta k výstupní složce ComfyUI není předvídatelná — server ji může
+  mít přepsanou přes `--output-directory`). Předpona souboru je unikátní na běh,
+  protože ComfyUI cachuje grafy a se stejnou předponou by **negeneroval**.
+- **Pipeline je na formátu nezávislá**: `flatten_tiles.py`, `grade_tiles.py`,
+  `seamless_tiles.py`, `check-tiles.py`, `tile_flatness.py`, `tile_sharpness.py`
+  vezmou `.png` i `.jpg` a do `raw/` tak může téct PNG z ComfyUI (je to
+  bezstratové, takže měření ostrosti není zkreslené).
 - **Textové soubory needituj přes PowerShell** (přepíše je v UTF-16).
   V cmd nastav `chcp 65001` + `PYTHONIOENCODING=utf-8`, nebo použij obal
   `scripts\make_tile_set.cmd`.
@@ -264,13 +318,16 @@ Varianta bez cmd obalu (PowerShell):
 ## 10. Užitečné příkazy (zkopírovat)
 
 ```bat
-REM nová sada dlaždic jedním příkazem (cmd; ~15 min)
+REM nová sada dlaždic jedním příkazem (cmd; ~15 min, online)
 scripts\make_tile_set.cmd --name moje --style kronika-tex
 
-REM rychlý test (2 terény, ~2 min)
+REM totéž lokálně v ComfyUI (chce běžící server; ~30-50 min)
+scripts\make_tile_set.cmd --name moje --backend local
+
+REM rychlý test (2 terény, ~2 min online / ~2-4 min lokálně)
 scripts\make_tile_set.cmd --name zkouska --only grass,water --variants 1
 
-REM s vlastním promptem
+REM s vlastním promptem (backend se dá přidat k čemukoli)
 scripts\make_tile_set.cmd --name moje --prompts scripts\tile_prompts.txt
 
 REM srovnání sad vedle sebe (mozaiky 4x4)

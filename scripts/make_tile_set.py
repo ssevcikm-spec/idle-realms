@@ -8,16 +8,25 @@ ztroskotá. Tenhle skript je „kuchařka pro blbečka": zavolá pod sebou
 `seamless_tiles.py` a nakonec změří, co vzniklo.
 
 Co dělá samo:
-- vygeneruje textury (Pollinations, zdarma, bez klíče),
+- vygeneruje textury — **online** (Pollinations, zdarma, bez klíče) nebo
+  **lokálně** (ComfyUI + SDXL; `--backend local`),
 - **pozná, jestli generátor nevyrobil scénu místo textury** (`tile_flatness.py`)
   a když ano, odečte kompozici (`flatten_tiles.py`) — jinak dlaždice vypadají
   dobře v jednom obrázku, ale v mozaice je z nich poznat horizont a ústřední motiv,
 - srovná barvy na paletu hry a zacelí šev (aby dlaždice tileovaly),
 - vypíše, co změřilo a **jak si sadu zobrazit ve hře**.
 
+Který backend: `--backend pollinations` (výchozí, jednotky sekund na obrázek) nebo
+`--backend local` (ComfyUI musí běžet na `http://127.0.0.1:8188`; ~1–2 min na
+obrázek, ale kvalita a seed jsou pod kontrolou). Prompt se skládá v obou
+případech ze stejných dílů (`tile_styles.py`), takže sady jdou srovnávat.
+
 Příklady:
     # vlastní sada z motivu kroniky (dlaždice se objeví jako assets/tiles_moje/final)
     python scripts/make_tile_set.py --name moje --style kronika-tex
+
+    # totéž, ale lokálně v ComfyUI (stejná cesta jako nasazená sada)
+    python scripts/make_tile_set.py --name moje --backend local
 
     # přepsat kandidátskou sadu, která už má tlačítko v debug panelu hry
     python scripts/make_tile_set.py --name kronika-tex --style kronika-tex
@@ -68,6 +77,15 @@ def main():
                     help='soubor s vlastnimi prompty (vzor: scripts/tile_prompts.txt)')
     ap.add_argument('--no-flatten', action='store_true',
                     help='neodecitat kompozici, i kdyz dlaždice vypadaji jako sceny')
+    ap.add_argument('--backend', default='pollinations', choices=['pollinations', 'local'],
+                    help='pollinations = online (rychle, bez instalace); '
+                         'local = ComfyUI na http://127.0.0.1:8188 (pomalejsi, pod kontrolou)')
+    ap.add_argument('--host', default='http://127.0.0.1:8188',
+                    help='adresa ComfyUI pro --backend local')
+    ap.add_argument('--ckpt', default=None,
+                    help='model v ComfyUI pro --backend local (vychozi z gen_tiles_local.py)')
+    ap.add_argument('--steps', type=int, default=None,
+                    help='kroky sampleru pro --backend local (vychozi 20)')
     args = ap.parse_args()
 
     base = SLOTS[args.name][0] if args.name in SLOTS else 'assets/tiles_%s' % args.name
@@ -76,17 +94,40 @@ def main():
     graded, final = base + '/graded', base + '/final'
 
     print('sada      : %s  ->  %s' % (label, final))
+    print('generator : %s' % ('ComfyUI (lokalne, %s)' % args.host
+                              if args.backend == 'local' else 'Pollinations (online)'))
     print('styl      : %s   terenu: %s   textur na teren: %d'
           % (args.style, args.only or 'vsech 10', args.variants))
+    if args.backend == 'local':
+        print('            pozor: lokalne ~1-2 min na obrazek, tedy i 30-50 min na celou sadu')
 
-    gen = [os.path.join(HERE, 'gen_tiles.py'), '--style', args.style, '--out', raw,
-           '--variants', str(args.variants)]
+    if args.backend == 'local':
+        gen = [os.path.join(HERE, 'gen_tiles_local.py'), '--style', args.style,
+               '--out', raw, '--variants', str(args.variants), '--host', args.host]
+        if args.ckpt:
+            gen += ['--ckpt', args.ckpt]
+        if args.steps:
+            gen += ['--steps', str(args.steps)]
+        label_gen = '1/5 generuji textury (ComfyUI, lokalne)'
+    else:
+        gen = [os.path.join(HERE, 'gen_tiles.py'), '--style', args.style, '--out', raw,
+               '--variants', str(args.variants)]
+        label_gen = '1/5 generuji textury (Pollinations)'
     if args.only:
         gen += ['--only', args.only]
     if args.prompts:
         gen += ['--prompts', args.prompts]
-    if not run(gen, '1/5 generuji textury (Pollinations)'):
-        print('\nVYSLEDEK: CHYBA - textury se nevygenerovaly (internet? zkus to znovu)')
+    if not run(gen, label_gen):
+        if args.backend == 'local':
+            print('\nVYSLEDEK: CHYBA - textury se nevygenerovaly.')
+            print('  ComfyUI musi bezet na %s (a mit model z --ckpt):' % args.host)
+            print("    Start-Process 'D:\\ComfyUI\\venv-comfy\\Scripts\\python.exe' `")
+            print("      -ArgumentList 'main.py','--port','8188' "
+                  "-WorkingDirectory 'D:\\ComfyUI\\ComfyUI' -WindowStyle Hidden")
+            print('  bez ComfyUI zkus online variantu: --backend pollinations')
+        else:
+            print('\nVYSLEDEK: CHYBA - textury se nevygenerovaly (internet? zkus to znovu)')
+            print('  kvalitnejsi cestou je lokalni ComfyUI: --backend local')
         return 1
 
     # Je to plocha textura, nebo omylem obrazek sceny? (0 = v poradku)

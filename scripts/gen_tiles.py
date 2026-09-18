@@ -35,70 +35,13 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gen_props import fetch                    # stejné stahování jako u prvků
-from gen_tiles_local import TERRAINS           # stejné předměty terénů
+# Předměty, styly a skládání promptu jsou SPOLEČNÉ s gen_tiles_local.py
+# (ComfyUI) — jinak by se sady z obou generátorů nedaly srovnávat.
+from tile_styles import (TERRAINS, STYLES, LIMIT_ONLINE,   # noqa: F401 (re-export)
+                         build_prompt, load_prompts, prompt_texture)
 
 W, H = 768, 768
 SEED = 7000
-
-# Styl = jen to, co se přidá za texturu terénu; prázdný = bez stylu.
-STYLES = {
-    'plain': '',
-    # ilustrační podání kroniky: u dlaždic propadlo (dělá z textury scenérii)
-    'kronika': ('old chronicle illustration style, sepia and olive ink linework '
-                'with hatching'),
-    # týž motiv, ale popsaný jako textura (viz docstring a §8.6)
-    'kronika-tex': ('grim medieval ink linework and hatching, desaturated sepia '
-                    'and olive earth tones'),
-}
-
-
-def prompt_texture(subject, style=''):
-    """Krátký prompt na **plochou** texturu (drží se do ~350 znaků)."""
-    base = ('Seamless tileable %s texture, top-down orthographic ground texture '
-            'for a 2D game map, flat even lighting, no horizon, no sky, no central '
-            'object, no vignette, no border, uniform detail readable at 46x46 px'
-            % subject)
-    return (base + (', ' + style if style else '')).strip()
-
-
-def load_prompts(path):
-    """Načte vlastní prompty: (šablona, {terén: prompt}).
-
-    Formát (viz `scripts/tile_prompts.txt`) — řádky `klíč = hodnota`, `#` je
-    komentář:
-        template = ... {subject} ... {style} ...   (pro všechny terény)
-        forest   = celý vlastní prompt pro terén forest
-    """
-    tpl, per = None, {}
-    with open(path, encoding='utf-8') as fh:
-        for line in fh:
-            line = line.split('#', 1)[0].strip()
-            if not line or '=' not in line:
-                continue
-            key, val = line.split('=', 1)
-            key, val = key.strip().lower(), val.strip()
-            if not val:
-                continue
-            if key == 'template':
-                tpl = val
-            elif key in TERRAINS:
-                per[key] = val
-            else:
-                print('  (prompty: neznamy klic "%s" - preskakuji)' % key, flush=True)
-    return tpl, per
-
-
-def build_prompt(terrain, style, tpl=None, per=None):
-    """Prompt pro terén: vlastní > šablona > vestavěný. Vrací (prompt, zdroj)."""
-    per = per or {}
-    if terrain in per:
-        return per[terrain], 'vlastni'
-    if tpl:
-        p = tpl.replace('{subject}', TERRAINS[terrain]).replace('{style}', style)
-        if style and '{style}' not in tpl:
-            p = (p + ', ' + style).strip().rstrip(',')
-        return p, 'sablona'
-    return prompt_texture(TERRAINS[terrain], style), 'vestaveny'
 
 
 def main():
@@ -135,7 +78,8 @@ def main():
     ok, failed = 0, []
     for i, terrain in enumerate(terrains):
         prompt, src = build_prompt(terrain, style, tpl, per)
-        note = ' POZOR: prompt je dlouhy, Pollinations ho odrizne' if len(prompt) > 350 else ''
+        note = (' POZOR: prompt je dlouhy, Pollinations ho odrizne'
+                if len(prompt) > LIMIT_ONLINE else '')
         print('  [%s] prompt %d znaku (%s)%s' % (terrain, len(prompt), src, note), flush=True)
         for v in range(1, args.variants + 1):
             seed = args.seed + i * 137 + v * 1000
