@@ -109,17 +109,19 @@ class Comfy:
         return None
 
 
-def workflow(pos, seed, ckpt=CKPT, prefix='tilegen', steps=STEPS, cfg=CFG):
+def workflow(pos, seed, ckpt=CKPT, prefix='tilegen', steps=STEPS, cfg=CFG, neg=NEG):
     """Graf pro ComfyUI: checkpoint → dva CLIPTextEncode → KSampler → VAEDecode → SaveImage.
 
     `prefix` je unikátní na běh: ComfyUI cachuje hotové grafy, takže se stejným
     prefixem by druhý běh **negeneroval** a vrátil by starý výsledek.
+    `neg` je negativní prompt — v pozitivním promptu SDXL negace („no stones“)
+    skoro neposlouchá, tudy to jde.
     """
     return {
         '4': {'class_type': 'CheckpointLoaderSimple', 'inputs': {'ckpt_name': ckpt}},
         '5': {'class_type': 'EmptyLatentImage', 'inputs': {'width': W, 'height': H, 'batch_size': 1}},
         '6': {'class_type': 'CLIPTextEncode', 'inputs': {'text': pos, 'clip': ['4', 1]}},
-        '7': {'class_type': 'CLIPTextEncode', 'inputs': {'text': NEG, 'clip': ['4', 1]}},
+        '7': {'class_type': 'CLIPTextEncode', 'inputs': {'text': neg, 'clip': ['4', 1]}},
         '3': {'class_type': 'KSampler', 'inputs': {'seed': seed, 'steps': steps, 'cfg': cfg,
             'sampler_name': 'euler', 'scheduler': 'normal', 'denoise': 1.0,
             'model': ['4', 0], 'positive': ['6', 0], 'negative': ['7', 0], 'latent_image': ['5', 0]}},
@@ -190,11 +192,11 @@ def fetch_image(comfy, img, dst, comfy_output):
 
 
 def generate_one(comfy, ckpt, name, prompt, variant, seed, out_dir, comfy_output,
-                 prefix, steps, cfg, timeout):
+                 prefix, steps, cfg, timeout, neg=NEG):
     """Posli jeden graf do ComfyUI, pockej na vysledek, uloz ho do out_dir."""
     t0 = time.time()
     try:
-        pid = comfy.api('/prompt', {'prompt': workflow(prompt, seed, ckpt, prefix, steps, cfg)}
+        pid = comfy.api('/prompt', {'prompt': workflow(prompt, seed, ckpt, prefix, steps, cfg, neg)}
                         ).get('prompt_id')
     except urllib.error.HTTPError as e:
         body = e.read().decode('utf-8', 'replace')
@@ -261,6 +263,9 @@ def main():
     ap.add_argument('--steps', type=int, default=STEPS)
     ap.add_argument('--cfg', type=float, default=CFG)
     ap.add_argument('--timeout', type=int, default=TIMEOUT, help='limit na jeden obrazek (s)')
+    ap.add_argument('--negative', default=NEG,
+                    help='negativni prompt (vychozi: %s...); tudy se dari odstranit '
+                         'napr. "cracks, cobblestone, macro, close-up"' % NEG[:40])
     ap.add_argument('--prefix', default=None,
                     help='predpona souboru v ComfyUI (vychozi unikatni na beh)')
     args = ap.parse_args()
@@ -302,7 +307,8 @@ def main():
         for v in range(1, args.variants + 1):
             seed = args.seed + i * 137 + v * 1000
             if generate_one(comfy, args.ckpt, terrain, prompt, v, seed, args.out,
-                            comfy_output, prefix, args.steps, args.cfg, args.timeout):
+                            comfy_output, prefix, args.steps, args.cfg, args.timeout,
+                            args.negative):
                 ok += 1
             else:
                 failed.append('%s-%d' % (terrain, v))

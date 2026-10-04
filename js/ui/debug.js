@@ -70,6 +70,11 @@
             <button class="dbg-btn" data-dbg="foundry-reset">výchozí</button>
           </div>
           <div class="dbg-note" id="dbg-foundry-note"></div>
+          <div class="dbg-row" id="dbg-foundry-overlay"></div>
+          <div class="dbg-note">foundry přes dlaždice = hrany a dekorace ve světových souřadnicích nad malovanou mapou (schová ostré hrany terénů)</div>
+          <div class="dbg-row" id="dbg-tile-trans"></div>
+          <div class="dbg-row" id="dbg-tile-spread"></div>
+          <div class="dbg-note" id="dbg-trans-note"></div>
         </div>
         <div class="dbg-section"><div class="dbg-label">Svět</div>
           <div class="dbg-row" id="dbg-events"></div>
@@ -176,6 +181,39 @@
       ).join('');
     }
     buildFoundryButtons();
+    buildTileTransitionButtons();
+  }
+
+  /** Přechody terénů v malovaném vzhledu: síla a šířka zóny (ukládá se). */
+  const TRANS_STEPS = [0, 0.35, 0.7, 1.0];
+  const SPREAD_STEPS = [1, 2, 3];
+  function buildTileTransitionButtons() {
+    const A = G.AI_TILES || null;
+    if (!A) return;
+    const tEl = document.getElementById('dbg-tile-trans');
+    if (tEl) {
+      const cur = A.transition || 0;
+      tEl.innerHTML = TRANS_STEPS.map(v =>
+        `<button class="dbg-btn ${Math.abs(v - cur) < 0.001 ? 'active' : ''}" ` +
+        `data-dbg="tile-trans" data-v="${v}">${v === 0 ? 'ostré hrany' : v}</button>`
+      ).join('');
+    }
+    const sEl = document.getElementById('dbg-tile-spread');
+    if (sEl) {
+      const cur = A.spread || 2;
+      sEl.innerHTML = SPREAD_STEPS.map(v =>
+        `<button class="dbg-btn ${v === cur ? 'active' : ''}" data-dbg="tile-spread" ` +
+        `data-v="${v}" title="zóna ${v} dlaždice">zóna ${v}</button>`
+      ).join('');
+    }
+    const note = document.getElementById('dbg-trans-note');
+    if (note) {
+      const tr = A.transition || 0;
+      note.textContent = 'přechody terénů: ' + (tr === 0
+        ? 'vyp (ostré hrany mezi terény)'
+        : Math.round(tr * 100) + ' % • zóna ' + (A.spread || 2) + ' dlaždice') +
+        ' — dlaždice se prolije se sousedním terénem, hranici rozbíjí šum';
+    }
   }
 
   /** Ladění foundry: štětce, dekorace, hustota a přechody (ukládá se). */
@@ -193,6 +231,15 @@
     }
     const eEl = document.getElementById('dbg-foundry-edge');
     if (eEl) eEl.className = 'dbg-btn' + (G.FOUNDRY.edge ? ' active' : '');
+    const oEl = document.getElementById('dbg-foundry-overlay');
+    if (oEl) {
+      const OV = [[0, 'foundry vyp'], [1, 'foundry: hrany'], [2, 'foundry: plný']];
+      const cur = G.FOUNDRY.overlay || 0;
+      oEl.innerHTML = OV.map(([v, name]) =>
+        `<button class="dbg-btn ${v === cur ? 'active' : ''}" data-dbg="foundry" ` +
+        `data-k="overlay" data-v="${v}">${name}</button>`
+      ).join('');
+    }
     const note = document.getElementById('dbg-foundry-note');
     if (note) {
       note.textContent = 'štětce ' + G.FOUNDRY.daub + ' dlaždice • dekorace ' + G.FOUNDRY.deco +
@@ -266,6 +313,14 @@
     else if (a === 'foundry') {
       if (G.setFoundry) G.setFoundry(el.dataset.k, parseFloat(el.dataset.v));
       buildFoundryButtons();
+    }
+    else if (a === 'tile-trans') {
+      if (G.setTileTransition) G.setTileTransition(parseFloat(el.dataset.v));
+      buildTileTransitionButtons();
+    }
+    else if (a === 'tile-spread') {
+      if (G.setTileSpread) G.setTileSpread(parseInt(el.dataset.v, 10));
+      buildTileTransitionButtons();
     }
     else if (a === 'foundry-edge') {
       if (G.setFoundry) G.setFoundry('edge', G.FOUNDRY.edge ? 0 : 1);

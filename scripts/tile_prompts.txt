@@ -34,7 +34,9 @@
 #  Výchozí šablona (když ji necháš, chová se to jako doteď):
 # ---------------------------------------------------------------------------
 
-template = Seamless tileable {subject} texture, top-down orthographic ground texture for a 2D game map, flat even lighting, no horizon, no sky, no central object, no vignette, no border, uniform detail readable at 46x46 px, {style}
+# template = Seamless tileable {subject} texture, top-down orthographic ground texture for a 2D game map, flat even lighting, no horizon, no sky, no central object, no vignette, no border, uniform detail readable at 46x46 px, {style}
+
+template = {subject} top view, flat even lighting, no edge, no horizon, no sky, no central object, no vignette, no border, uniform detail
 
 # ---------------------------------------------------------------------------
 #  Příklady vlastních promptů pro jeden terén (odkomentuj a uprav):

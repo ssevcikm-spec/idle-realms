@@ -37,6 +37,16 @@ STYLES = {
     # týž motiv, ale popsaný jako textura (viz STYL_GRAFIKY.md §8.6)
     'kronika-tex': ('grim medieval ink linework and hatching, desaturated sepia '
                     'and olive earth tones'),
+    # Kreslený („hand drawn“), sada `tiles_drawn` z 20. 9. 2026. Nese navíc
+    # MĚŘÍTKO, protože samotný BASE_LOCAL měřítko neuhlídá: naměřeno, že všech
+    # pět kontrolovaných dlaždic vyšlo jako **záběr z ~1–2 m** (jednotlivé
+    # kameny, květiny a praskliny místo masy) — vision to potvrdil u hills,
+    # mountain, water, snow i swamp. Proto je tu i „no individual …“.
+    'drawn': ('hand drawn game map texture seen from a high altitude aerial view, '
+              'landscape scale masses and patches instead of single objects, '
+              'no individual stones, no individual flowers, no single large object, '
+              'fine uniform detail, muted earthy palette, ink linework with subtle '
+              'hatching, matte finish'),
 }
 
 # Základ věty pro online generátor (Pollinations): krátký, musí se vejít do limitu.

@@ -735,7 +735,11 @@
     daub: 1.0,      // dlaždic na jeden štětec podkladu
     deco: 2.2,      // dlaždic na jednu dekoraci
     edge: 1,        // 1 = kreslit přechody terénů
-    quality: 1      // <1 = řidší štětce (přehledový LOD)
+    quality: 1,     // <1 = řidší štětce (přehledový LOD)
+    // Foundry jako VRSTVA nad malovanými dlaždicemi (0 = vyp, 1 = jen hrany,
+    // 2 = hrany + štětce). Řeší ostré hrany mezi terény: hrany a dekorace jsou
+    // funkce světa, takže je dlaždicová mřížka nerozděluje.
+    overlay: 0
   };
   /** Meze pro ladění — z panelu se nedá dostat mimo rozumný rozsah. */
   const FOUNDRY_LIMITS = { daub:[0.6, 2.6], deco:[1.2, 6.0], quality:[0.25, 1] };
@@ -747,6 +751,9 @@
   G.setFoundry = function (key, value) {
     if (G.FOUNDRY[key] === undefined) return false;
     if (key === 'edge') G.FOUNDRY.edge = value ? 1 : 0;
+    else if (key === 'overlay') {
+      G.FOUNDRY.overlay = Math.max(0, Math.min(2, Math.round(parseFloat(value) || 0)));
+    }
     else {
       const lim = FOUNDRY_LIMITS[key];
       let v = parseFloat(value);
@@ -766,7 +773,7 @@
   G.applyFoundrySettings = function () {
     const s = (G.state && G.state.settings && G.state.settings.foundry) || null;
     if (s) {
-      for (const k of ['daub', 'deco', 'edge', 'quality']) {
+      for (const k of ['daub', 'deco', 'edge', 'quality', 'overlay']) {
         if (s[k] !== undefined) G.FOUNDRY[k] = s[k];
       }
     }
@@ -925,10 +932,17 @@
     }
   }
 
-  /** Vykreslí dlaždici terénu jako plochu podkladu (foundry). */
-  G.foundryGround = function (ctx, view) {
+  /**
+   * Vykreslí podklad foundry: štětce (kind 0) a přechody terénů (kind 1).
+   *
+   * `only === 'edges'` vynechá štětce. Používá se, když je foundry **vrstva nad
+   * malovanými dlaždicemi** (`settings.foundry.overlay` = 1): hrany terénů
+   * a dekorace chceme, ale barevný nádech štětců přes hotové textury ne —
+   * jinak by foundry dlaždice přebil.
+   */
+  G.foundryGround = function (ctx, view, only) {
     foundryPlan(view, function (kind, sx, sy, size, p1, p2, p3, p4) {
-      if (kind === 0) paintDaub(ctx, sx, sy, size, p1, p2, p3);
+      if (kind === 0) { if (only !== 'edges') paintDaub(ctx, sx, sy, size, p1, p2, p3); }
       else paintEdge(ctx, sx, sy, size, p1, p2, p3, p4);
     }, 0);
   };

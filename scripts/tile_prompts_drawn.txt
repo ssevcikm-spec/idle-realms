@@ -1,0 +1,179 @@
+# ============================================================================
+#  SADA "DRAWN" — vlastní prompty pro všech 10 terénů (styl: kreslený)
+#  VERZE 2 — po prvním běhu (20. 9. 2026), opravené měřítko a barvy
+# ============================================================================
+#
+#  JAK SPUSTIT (lokálně, ComfyUI + SDXL):
+#
+#     scripts\make_tile_set.cmd --name drawn --backend local --style plain ^
+#         --prompts scripts\tile_prompts_drawn.txt
+#
+#  PŘEGENEROVAT JEN TO, CO PROPADLO (nechá ostatní raw dlaždice být a znovu
+#  prožene pipeline všemi dvaceti):
+#
+#     scripts\make_tile_set.cmd --name drawn --backend local --style plain ^
+#         --prompts scripts\tile_prompts_drawn.txt ^
+#         --only hills,mountain,road,dirt,water --variants 2 --seed 23000 ^
+#         --negative "cracks, cracked mud, dry clay, cobblestone, pavement, stone wall, pebbles, boulders, gravel, macro, close-up, extreme detail, mosaic, vignette, horizon, sky"
+#
+#  POZOR: `--negative` je novinka (20. 9.) — v pozitivním promptu SDXL negace
+#  („no stones“) skoro neposlouchá, tudy to jde. Když ho vynecháš, použije se
+#  výchozí z `gen_tiles_local.py` (text, watermark, blurry, photo, horizon, sky…).
+#
+#  (--seed měň, když chceš jiný výsledek; stejný seed + stejný prompt = stejný
+#   obrázek. `--style plain` je schválně: terény s vlastním promptem styl
+#   z `tile_styles.py` ignorují. Nově jde i `--style drawn`, což je tentýž
+#   kreslený vzhled VČETNĚ měřítka — hodí se pro terény bez vlastního promptu.)
+#
+# ----------------------------------------------------------------------------
+#  CO UKÁZAL PRVNÍ BĚH (měření + vision, 20. 9.)
+# ----------------------------------------------------------------------------
+#  Odesláno 20 dlaždic. Odchylka barvy od palety hry (limit 22) a verdikt:
+#
+#    forest-1/2       5,7 / 5,6     OK — NEMĚNIT
+#    deep_forest-1/2 10,3 / 12,3    OK — NEMĚNIT
+#    swamp-1/2       31,2 / 25,9    mírně mimo (srovná grade)
+#    dirt-1/2        36,2 / 34,4    mírně mimo (srovná grade)
+#    mountain-1/2    28,3 / 32,3    mimo + správné měřítko chybí
+#    grass-1/2       49,1 / 50,7    moc tmavě zelená (cíl je olivová #82803f)
+#    hills-1/2       51,2 / 55,7    VYŘADIT (rozpraskaná suchá půda, kameny zblízka)
+#    water-1/2       61,8 / 66,8    VYŘADIT (vyschlý jíl místo modré hladiny)
+#    snow-1/2       105,4/100,5     VYŘADIT (bílá "kola" s hnědou půdou; snow-1 je
+#                                   podle `tile_flatness.py` navíc scéna)
+#    road-1/2       114,6/110,7     VYŘADIT (má být světle písková, vyšla tmavá)
+#
+#  Vision (`vision --mode asset`, 5 dlaždic) řekl u VŠECH PĚTI totéž: je to
+#  **záběr zblízka na plochu o velikosti 0,5–2 m** — jednotlivé kameny, kamenné
+#  pláty, květiny, trsy rákosu; u wody „popraskané vysušené bláto/jíl“, u sněhu
+#  „bílé popraskané pláty v tmavě hnědé půdě“. To je přesně to, co má dlaždice
+#  podle `docs/HANDOFF_GRAFIKA.md` §3 (P2) NEDĚLAT: mapa má ukazovat povrch
+#  krajiny (les = koruny stromů, hory = skalní masiv), ne detail jedné věci.
+#
+#  DRUHÝ BĚH (20. 9. odpoledne) — přegenerováno 6 terénů (hills, mountain,
+#  water, snow, road, grass), posouzeno uživatelem:
+#
+#    sníh      VELMI DOBRÝ   (odchylka od palety 78 — číslo s vkusem nesouvisí!)
+#    tráva 1   SKVĚLÁ        (25)
+#    voda 2    poměrně dobrá, „vzor není dost dobrý" (26)
+#    hlína     vůbec         (36, z 1. běhu, nikdy nepřegenerovaná)
+#    hora      vůbec         (18 = číslo v pořádku, motiv ne)
+#    kopce     vůbec         (28)
+#    cesta     nic           (63)
+#
+#  Vision k propadlým (POPIS sedí na uživatelův dojem, verdikt ne):
+#    hills-1    „popraskaná vyschlá hlína, spára za spárou… 1–2 m; slovo gullies
+#                model čte jako mikro-praskliny v bahně“
+#    mountain-1 „shluk opracovaných kamenů, kamenná dlažba… 1–3 m“
+#    road-1     „vysušená jílovitá hlína, koleje chybí úplně… 0,5 m“
+#
+#  Co se zkoušelo a NEPOMOHLO:
+#    * silnější flatten (--radius 250) — flatten odebírá jen plochy VĚTŠÍ než
+#      poloměr, takže větší poloměr naopak víc detailu ZACHOVÁ; směr byl špatný
+#      (výsledek je v assets/tiles_drawn_exp/final250),
+#    * přebarvit strukturu prospělých dlaždic (tráva→kopce, sníh→hora,
+#      voda→cesta) — vision to pořád vidí jako makro („tkanina/sádra“,
+#      „vodní kaustika“); mozaika k posouzení okem je
+#      assets/tiles_drawn_exp/srovnani.html,
+#    * čtyři měřicí metriky na „správný motiv“ (autokorelace motivu, tvrdá linka,
+#      zrcadlová souměrnost, dominantní velikost prvku) — ANI JEDNA
+#      nediskriminuje: přijatá sada má stejné nebo horší hodnoty. Motiv se měřit
+#      nedá; rozhoduje oko. Vision je dobrý POPISOVAČ, ale špatný ROZHODČÍ —
+#      u sněhu a trávy, které se líbí, taky říká „nepoužitelné“.
+#
+#  Třetí pokus stojí na dvou nových věcech: `--negative` (skutečný negativní
+#  prompt, ten se ještě nepoužil) a na rámečku „hand drawn topographic map“
+#  s KONKRÉTNÍM měřítkem v metrech („the frame covers about one square
+#  kilometre“) — obecné „aerial view“ model ignoroval.
+#
+#  TŘI PŘÍČINY, KTERÉ JSEM SI ZPŮSOBIL V PROMPTECH SÁM:
+#
+#  1. **Chybělo měřítko.** „top-down ground texture“ SDXL neříká, z jaké výšky.
+#     Musí tam být `high altitude aerial view` a hlavně popis MASY („a continuous
+#     expanse of…“), ne výčet předmětů.
+#  2. **Slova, která tahají záběr k zemi** — `gravel`, `cracks`, `stone plates`,
+#     `patches`, `pebbles`, `ripples`, `individual stems`. Vyměněno za masu
+#     a plochy, které zabírají velkou část obrazu.
+#  3. **V každém promptu bylo „muted earthy palette“** — a to u vody, sněhu
+#     a cesty aktivně bojuje proti jejich barvě. Proto jsou teď barvy popsané
+#     pro každý terén zvlášť (voda studená modrá, sníh přesvětlená bílá,
+#     cesta vybělená písková) a „earthy“ tam, kde nemá co dělat, není.
+#
+#  Poznámka k negacím: SDXL na „no stones“ reaguje slabě (negace v pozitivním
+#  promptu není příkaz). Proto je každá věta postavená POZITIVNĚ („a continuous
+#  mass of…“) a zákaz je jen pojistka na konci.
+#
+#  Co měřit po regeneraci: `python scripts\tile_drop_check.py --dir
+#  assets\tiles_drawn\raw` (barva vs. paleta musí spadnout pod 22 — když ne,
+#  dlaždice se přebarvuje víc, než je zdravé) a na měřítko vision, protože to
+#  žádná metrika nechytí (zkoušel jsem autokorelaci motivu — nevyšla, chytá jen
+#  zrno kresby, všech 20 dlaždic mělo 0,8 %).
+# ----------------------------------------------------------------------------
+
+# Šablona je tu jen jako ukázka formátu (zakomentovaná se ignoruje).
+# template = hand drawn top-down ground texture of {subject}, seen from a high altitude aerial view, landscape scale masses and patches instead of single objects, orthographic, repeating seamlessly, flat even lighting, no horizon, no sky, no central object, no vignette, no border, uniform fine detail, muted earthy palette, ink linework with subtle hatching, matte finish, game map tile {style}
+
+# ----------------------------------------------------------------------------
+#  TERÉNY, KTERÉ PROŠLY — NEMĚNIT (forest, deep_forest)
+# ----------------------------------------------------------------------------
+
+# Barva 5,7 / 5,6 od palety = nejlepší ze sady. Koruny stromů jako masa, ne
+# jednotlivé listy. (Ponecháno z verze 1, jen s měřítkem z výšky.)
+forest = hand drawn top-down ground texture of a dense mixed forest canopy seen from a high altitude aerial view, a closed mass of dark olive tree crowns filling the whole frame, crowns overlapping into one continuous surface with thin dark gaps, no single tree, no individual leaves, orthographic, repeating seamlessly, flat even lighting, no horizon, no sky, no central object, no vignette, no border, uniform fine detail, dark olive and mossy green tones around #484e21, hand drawn ink linework with subtle hatching, matte finish, game map tile
+
+# Barva 10,3 / 12,3 od palety. Téměř zavřené koruny jehličnanů.
+deep_forest = hand drawn top-down ground texture of an almost closed dark evergreen canopy seen from a high altitude aerial view, one continuous mass of crowded pine and fir crowns filling the whole frame, deep shadow between crowns, no individual trees, no visible trunks, orthographic, repeating seamlessly, flat even lighting, no horizon, no sky, no central object, no vignette, no border, uniform fine detail, very dark brown green tones around #332611, hand drawn ink linework with heavy hatching, matte finish, game map tile
+
+# ----------------------------------------------------------------------------
+#  TERÉNY, KTERÉ PROPADLY — PŘEPSANÉ (hills, mountain, water, snow, road, grass)
+# ----------------------------------------------------------------------------
+
+# BYLO: rozpraskaná suchá půda a kameny zblízka (paleta 51/56, vision: 1–2 m,
+# „kamenná dlažba s balvany“). TEĎ: zvlněná plocha z výšky, kde každá skvrna
+# zabírá velkou část obrazu; kameny a praskliny jsou zakázané jmenovitě.
+hills = hand drawn topographic map of gently undulating dry upland seen from directly above, soft rolling landforms, broad fields of ochre earth and dry summer grass covering the whole frame, each field many times the size of a house, soft smooth shading, the frame covers about one square kilometre, no cracks, no stones, no dry mud, no individual objects, no close up detail, orthographic, repeating seamlessly, flat even lighting, no horizon, no sky, no central object, no vignette, no border, uniform fine detail, warm ochre and tan tones around #b78a4e, hand drawn ink linework with very light hatching, matte finish, game map tile
+
+# BYLO: kamenné pláty zblízka (paleta 28/32, vision: „velké popraskané kamenné
+# pláty“). TEĎ: souvislý skalní masiv, hřbety a osypy místo jednotlivých kamenů.
+mountain = hand drawn topographic map of an alpine mountain range seen from directly above, long continuous ridge lines and broad erosion patterns, grey rock with soft shading, wide valleys and scree fields spanning the whole frame, the frame covers several square kilometres, no cobblestones, no pavement, no stone wall, no individual rocks, no cracks, orthographic, repeating seamlessly, flat even lighting, no horizon, no sky, no central object, no vignette, no border, uniform fine detail, warm grey stone tones around #8d8177, not blue grey, hand drawn ink linework with very light hatching, matte finish, game map tile
+
+# BYLO: vyschlý jíl (paleta 62/67, vision: „popraskané vysušené bláto“).
+# TEĎ: studená modrá hladina bez zeminy — a proto tu NENÍ „earthy palette“.
+water = hand drawn map of calm deep water seen from directly above, an even unbroken sheet of cold steel blue water with very fine uniform ripples, uniform colour from edge to edge, no shore, no mud, no clay, no caustics, no foam, no waves, no sun glare, orthographic, repeating seamlessly, flat even lighting, no horizon, no sky, no central object, no vignette, no border, fine uniform detail, cold blue tones around #465d88, hand drawn ink linework with very light hatching, matte finish, game map tile
+
+# BYLO: bílá „kola“ s hnědou půdou (paleta 100/105, snow-1 navíc scéna).
+# TEĎ: souvislá sněhová pokrývka bez holé země, přesvětlená a bez tmavé kresby.
+snow = hand drawn top-down ground texture of unbroken snow cover seen from a high altitude aerial view, one continuous white sheet of snow filling the whole frame, faint wind drifts and soft pale blue shadows, even surface from edge to edge, no bare ground, no brown soil, no rocks, no patches of earth, no circles, no footprints, orthographic, repeating seamlessly, flat even lighting, no horizon, no sky, no central object, no vignette, no border, fine uniform detail, very light off white and pale blue tones around #f2efe6, high key, very light hatching only, matte finish, game map tile
+
+# BYLO: tmavá dlaždice místo světlé (paleta 115/111). TEĎ: vybělená písková
+# cesta, koleje jedním směrem (osa X), aby na sebe dlaždice navazovaly.
+road = hand drawn topographic map of a pale sandy dirt track seen from directly above, a broad even track crossing the whole frame, long parallel wheel ruts running in one direction only, fine dust between the ruts, the frame covers about two hundred metres, no cracked mud, no dry clay plates, no stones, no field texture, orthographic, repeating seamlessly, flat even lighting, no horizon, no sky, no central object, no vignette, no border, fine uniform detail, very pale bleached tan tones around #deb693, bright, hand drawn ink linework with very light hatching, matte finish, game map tile
+
+# BYLO: moc tmavě zelená a detailní (paleta 49/51, vision: „stébla, kvítky,
+# 0,5 m“). TEĎ: plocha louky z výšky, skvrny suché trávy místo květin.
+grass = hand drawn top-down ground texture of open grassland seen from a high altitude aerial view, a continuous field of summer grass filling the whole frame with large soft patches of dry straw and faint mowing streaks, every patch spanning a large part of the image, no individual flowers, no single blades, no stones, orthographic, repeating seamlessly, flat even lighting, no horizon, no sky, no central object, no vignette, no border, uniform fine detail, muted olive and straw yellow tones around #82803f, not lush dark green, hand drawn ink linework with subtle hatching, matte finish, game map tile
+
+# ----------------------------------------------------------------------------
+#  TERÉNY, KTERÉ VYŠLY DOBŘE — lehká úprava měřítka (swamp, dirt)
+# ----------------------------------------------------------------------------
+
+# Uživatel: „bažina je lepší“ — atmosféra zůstává, jen z výšky a bez velkých
+# trsů (vision je viděl jako 1,5–2 m a při opakování by dělaly mřížku).
+swamp = hand drawn top-down ground texture of murky swamp seen from a high altitude aerial view, a continuous expanse of standing muddy water filling the whole frame with large patches of algae film, small mud islets and low reed beds spread evenly, wet muddy surface, no single large plants, no tall grass tufts, no lily pads, orthographic, repeating seamlessly, flat even lighting, no horizon, no sky, no central object, no vignette, no border, uniform fine detail, murky brown green tones around #6c622f, hand drawn ink linework with subtle hatching, matte finish, game map tile
+
+# Paleta 36/34 — srovná grade; měřítko doladěno stejně jako u ostatních.
+dirt = hand drawn topographic map of packed bare earth seen from directly above, a continuous uniform expanse of reddish brown packed dirt with fine even grit spread evenly, the frame covers about fifty metres, no stones, no cracked mud, no dry clay plates, no large footprints, orthographic, repeating seamlessly, flat even lighting, no horizon, no sky, no central object, no vignette, no border, uniform fine detail, reddish brown earth tones around #9a5937, hand drawn ink linework with subtle hatching, matte finish, game map tile
+
+# ----------------------------------------------------------------------------
+#  CO SE BUDE MĚŘIT (a co je verdikt)
+# ----------------------------------------------------------------------------
+#   kontrast v 46 px      >= 5     má na skutečné velikosti vůbec detail
+#   horizont/střed/makro  <= 0,045 / 0,075 / 0,12   není to scéna místo textury
+#   barva vs. paleta      <= 22    srovná grade_tiles.py (nad 22 už přebarvuje moc)
+#   wrap                  <= 2,5   torus (surová dlaždice to nesplní, zacelí se)
+#   seam/zrno             <= 1,6   šev není vidět víc než zrno
+#   ostrost po zacelení   >= 0,85  šev se nevyřešil rozmazáním (past 28/31)
+#
+#  Měřítko („je to krajina, nebo kameny zblízka?“) žádná metrika nechytí —
+#  na to je vision a oko. Mozaika 4x4 pro rozhodnutí líbí/nelíbí:
+#     python scripts\compare_tiles.py --old assets\tiles --new assets\tiles_drawn\final ^
+#         --out assets\tiles_drawn\srovnani.html

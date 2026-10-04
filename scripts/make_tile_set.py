@@ -45,6 +45,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 PY = sys.executable or 'python'
+sys.path.insert(0, HERE)
+from tile_styles import STYLES  # noqa: E402  (styly drzi na jednom miste)
 
 # Sady, které už mají tlačítko v debug panelu hry (G.TILE_SETS v tiles_ai.js).
 SLOTS = {
@@ -68,8 +70,9 @@ def main():
                     help="nazev sady: 'kronika'/'kronika-tex' prepise kandidata s tlacitkem ve hre,"
                          " jine jmeno udela vlastni slozku assets/tiles_<nazev>")
     ap.add_argument('--style', default='kronika-tex',
-                    choices=['plain', 'kronika', 'kronika-tex'],
-                    help='kronika-tex = motiv kroniky popsany jako textura (u dlazdic nejlepsi)')
+                    choices=list(STYLES),
+                    help='kronika-tex = motiv kroniky popsany jako textura (u dlazdic nejlepsi); '
+                         'drawn = kresleny s doladěným měřítkem krajiny')
     ap.add_argument('--only', default='', help='jen tyto tereny (grass,water) - na rychly test')
     ap.add_argument('--variants', type=int, default=2, help='textur na teren (hra pouziva 1 a 2)')
     ap.add_argument('--radius', type=float, default=48.0, help='odecteni kompozice (px)')
@@ -86,6 +89,16 @@ def main():
                     help='model v ComfyUI pro --backend local (vychozi z gen_tiles_local.py)')
     ap.add_argument('--steps', type=int, default=None,
                     help='kroky sampleru pro --backend local (vychozi 20)')
+    ap.add_argument('--seed', type=int, default=None,
+                    help='zaklad seedu pro --backend local (vychozi 13242; tim se reprodukuje'
+                         ' nasazena sada, jiny seed = jine obrazky)')
+    ap.add_argument('--cfg', type=float, default=None,
+                    help='cfg pro --backend local (vychozi 6,0; nizsi = volnejsi, vyssi ='
+                         ' doslovejsi a kontrastnejsi)')
+    ap.add_argument('--negative', default=None,
+                    help='negativni prompt pro --backend local (vychozi z gen_tiles_local.py);'
+                         ' tudy se dari odstranit nezadouci motiv, napr.'
+                         ' "cracks, cobblestone, macro, close-up, dry clay"')
     args = ap.parse_args()
 
     base = SLOTS[args.name][0] if args.name in SLOTS else 'assets/tiles_%s' % args.name
@@ -108,10 +121,22 @@ def main():
             gen += ['--ckpt', args.ckpt]
         if args.steps:
             gen += ['--steps', str(args.steps)]
+        if args.seed is not None:
+            gen += ['--seed', str(args.seed)]
+        if args.cfg is not None:
+            gen += ['--cfg', str(args.cfg)]
+        if args.negative:
+            gen += ['--negative', args.negative]
         label_gen = '1/5 generuji textury (ComfyUI, lokalne)'
     else:
         gen = [os.path.join(HERE, 'gen_tiles.py'), '--style', args.style, '--out', raw,
                '--variants', str(args.variants)]
+        if args.seed is not None:
+            gen += ['--seed', str(args.seed)]
+        if args.cfg is not None:
+            print('  (--cfg plati jen pro --backend local, tady se ignoruje)')
+        if args.negative:
+            print('  (--negative plati jen pro --backend local, tady se ignoruje)')
         label_gen = '1/5 generuji textury (Pollinations)'
     if args.only:
         gen += ['--only', args.only]

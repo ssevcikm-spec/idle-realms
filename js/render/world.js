@@ -366,7 +366,11 @@
     ctx.fillStyle = '#1b1a17'; ctx.fillRect(0, 0, cw, ch);
     // Foundry = krajina jako funkce SVĚTA: plochý podklad po dlaždicích a přes
     // něj světové štětce, přechody terénů a dekorace (js/render/art.js).
+    // `G.FOUNDRY.overlay` navíc pustí foundry jako VRSTVU nad malovanými
+    // dlaždicemi — hrany terénů a dekorace pak nejsou svázané s dlaždicovou
+    // mřížkou, takže zmizí ostré hrany mezi terény (voda/louka atd.).
     const foundry = G.tileStyle && G.tileStyle() === 'foundry' && G.foundryGround;
+    const overlay = !foundry && !!G.foundryGround && !!(G.FOUNDRY && G.FOUNDRY.overlay > 0);
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       if (x < 0 || y < 0 || x >= w.w || y >= w.h) continue;
       const name = w.terrainAt(x, y);
@@ -379,13 +383,15 @@
       const art = (G.tileArt || G.getTileArt)(name, v);
       ctx.drawImage(art, tx, ty, tilePx + 0.5, tilePx + 0.5);
     }
-    if (foundry && mode !== 'far') {
+    if ((foundry || overlay) && mode !== 'far') {
       const view = {
         x0:x0, x1:x1, y0:y0, y1:y1, ox:ox, oy:oy, tilePx:tilePx, mode:mode,
         quality: mode === 'detail' ? 1 : 0.45,
         terrainAt: foundryTerrainAt
       };
-      G.foundryGround(ctx, view);
+      // Režim vrstvy umí vynechat štětce (jen hrany) — plný nádech foundry by
+      // hotové textury dlaždic přebil.
+      G.foundryGround(ctx, view, (overlay && G.FOUNDRY.overlay === 1) ? 'edges' : null);
       G.foundryDeco(ctx, view);
     }
     // Cesty se kreslí zvlášť a spojitě — dlaždice sama neví, kterým směrem cesta vede.
