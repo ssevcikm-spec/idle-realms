@@ -48,7 +48,7 @@
     const f = G.FACTIONS[fid];
     if (winner.isPlayer) {
       G.log(`🎉 ${f.icon} ${f.name}: Vyhrál jsi volby! Program: ${G.POLITICAL_PROGRAMS[winner.program].name}.`);
-      G.state.resources.renown += 30;
+      G.gainRenown(30);
       if (!G.state.stats.electionsWon) G.state.stats.electionsWon = 0;
       G.state.stats.electionsWon++;
     } else {

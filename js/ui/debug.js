@@ -334,8 +334,8 @@
     }
     else if (a === 'speed') { speed = parseFloat(el.dataset.speed); buildSpeedButtons(); }
     else if (a === 'gold') G.state.resources.gold += 500;
-    else if (a === 'renown') G.state.resources.renown += 10;
-    else if (a === 'renown25') G.state.resources.renown += 25;
+    else if (a === 'renown') G.gainRenown(10);
+    else if (a === 'renown25') G.gainRenown(25);
     else if (a === 'mat') G.matAdd(el.dataset.mat, 25, 'common');
     else if (a === 'event') G.startEvent(el.dataset.event, true);
     else if (a === 'skip-day') {
@@ -379,7 +379,7 @@
         if (!G.state.achievements.unlocked.includes(ach.id)) {
           G.state.achievements.unlocked.push(ach.id);
           if (ach.reward.gold) G.state.resources.gold += ach.reward.gold;
-          if (ach.reward.renown) G.state.resources.renown += ach.reward.renown;
+          if (ach.reward.renown) G.gainRenown(ach.reward.renown);
         }
       }
       G.log('🏆 Cíle odemčeny (debug).', 'info');

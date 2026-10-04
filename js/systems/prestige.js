@@ -8,6 +8,19 @@
     generations: 1     // nový požadavek: alespoň 1 dokončená generace
   };
 
+  /**
+   * Jediné místo, kde roste renomé. Dřív se `resources.renown +=` psalo na
+   * osmi místech v pěti souborech — a průzkumný záměr „připrav se na dědictví"
+   * neměl žádné API, kterým by se dal splnit (brána K1 to našla jako mrtvý krok).
+   */
+  G.gainRenown = function (amount) {
+    const n = Number(amount) || 0;
+    if (n <= 0) return 0;
+    if (!G.state.resources) G.state.resources = {};
+    G.state.resources.renown = (G.state.resources.renown || 0) + n;
+    return n;
+  };
+
   G.prestigeXpMult = function () {
     const lvl = (G.state.prestige && G.state.prestige.level) || 0;
     return 1 + 0.15 * lvl;

@@ -107,7 +107,7 @@
       // odměny
       const rw = def.reward || {};
       if (rw.xp) G.addUnitXp(unit, rw.xp);
-      if (rw.renown) G.state.resources.renown += rw.renown;
+      if (rw.renown) G.gainRenown(rw.renown);
       if (rw.mood) G.addMood(unit, rw.mood);
       if (rw.trait && !unit.traits.some(t => t.id === rw.trait)) {
         // najdi v poolu a přidej

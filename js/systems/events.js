@@ -435,7 +435,7 @@
     const renown = q.reward.renown || 0;
     const rep = q.reward.rep || 0;
     G.state.resources.gold += gold;
-    G.state.resources.renown += renown;
+    G.gainRenown(renown);
     if (q.factionId && rep) G.addRep(q.factionId, rep);
     G.addSettlementRep(settlementId, 8);
     for (const u of G.state.units) G.addSkillXp(u, 'crafting', 3 + (q.reward.renown || 0));
@@ -637,7 +637,7 @@
         if (G.matCount(e.material) >= e.qty) G.matRemove(e.material, e.qty);
       } else if (e.type === 'gold') G.state.resources.gold = Math.max(0, G.state.resources.gold + e.value);
       else if (e.type === 'cost_gold') G.state.resources.gold = Math.max(0, G.state.resources.gold - e.value);
-      else if (e.type === 'renown') G.state.resources.renown += e.value;
+      else if (e.type === 'renown') G.gainRenown(e.value);
       else if (e.type === 'bonus_rep') { if (G.addRep) G.addRep(e.faction, e.value); }
       else if (e.type === 'set_flag') {
         if (!G.state.story) G.state.story = { completed:[], flags:{} };
@@ -678,7 +678,7 @@
       G.state.achievements.unlocked.push(a.id);
       const rw = a.reward || {};
       if (rw.gold) { G.state.resources.gold += rw.gold; G.state.stats.goldEarned = (G.state.stats.goldEarned || 0) + rw.gold; }
-      if (rw.renown) G.state.resources.renown += rw.renown;
+      if (rw.renown) G.gainRenown(rw.renown);
       G.log(`🏆 Cíl splněn: ${a.name}${rw.gold || rw.renown ? ` (+${rw.gold || 0} 🪙, +${rw.renown || 0} ⭐)` : ''}`);
     }
   };
@@ -731,7 +731,7 @@
       } else if (e.type === 'mood') {
         if (G.addMood) G.addMood(unit, e.value || 5);
       } else if (e.type === 'renown') {
-        G.state.resources.renown += (e.value || 1);
+        G.gainRenown((e.value || 1));
       } else if (e.type === 'gold') {
         const g = Array.isArray(e.value) ? G.randInt(e.value[0], e.value[1]) : (e.value || 5);
         G.state.resources.gold = Math.max(0, G.state.resources.gold + g);

@@ -175,7 +175,7 @@
         for (const u of units) G.addUnitXp(u, ev.value);
         break;
       case 'renown':
-        G.state.resources.renown += ev.value;
+        G.gainRenown(ev.value);
         break;
       case 'heal':
         for (const u of units) u.mood = Math.min(100, u.mood + 5);
@@ -204,7 +204,7 @@
         drops.push(`${q}× ${G.MATERIALS[r.material] ? G.MATERIALS[r.material].icon : '💎'} ${G.MATERIALS[r.material] ? G.MATERIALS[r.material].name : r.material}`);
       }
       const renown = tpl.renownReward || 0;
-      if (renown) G.state.resources.renown += renown;
+      if (renown) G.gainRenown(renown);
       for (const u of units) {
         G.addUnitXp(u, tpl.xpReward || 50);
         G.addMood(u, 8);

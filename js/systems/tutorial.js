@@ -69,12 +69,12 @@
     ts.stepIdx++;
     const rw = step.reward || {};
     if (rw.gold) G.state.resources.gold += rw.gold;
-    if (rw.renown) G.state.resources.renown += rw.renown;
+    if (rw.renown) G.gainRenown(rw.renown);
     if (rw.log) G.log(rw.log, 'story');
     if (ts.stepIdx >= G.TUTORIAL_STEPS.length) {
       ts.active = false;
       G.state.settings.tutorial = false;
-      G.state.resources.renown += 5;
+      G.gainRenown(5);
       G.log('🎉 Tutoriál dokončen! Bonus: +5 ⭐ navíc.', 'story');
     } else {
       const next = G.TUTORIAL_STEPS[ts.stepIdx];

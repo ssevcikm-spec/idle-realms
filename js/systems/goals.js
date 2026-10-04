@@ -188,7 +188,34 @@
   };
 
   /**
-   * Práce potřebná na JEDEN kus materiálu, v jednotkách `unitWorkRate`.
+ * ODKUD se materiál vůbec dá získat, když ho nelze vyrobit prací: lov (drop
+ * nepřítele), drop z aktivity, odměna z expedice, nákup v sídle nebo stavba
+ * na základně. Bez tohoto by brána K1 označila „zásoba šperku" za mrtvý
+   * záměr — ačkoli šperk v repu je.
+   */
+  G.materialSource = function (mat) {
+    const out = [];
+    for (const aid in G.ACTIVITIES) {
+      const d = G.ACTIVITIES[aid];
+      if (d.drops && d.drops[mat]) out.push({ type: 'activity', id: aid });
+    }
+    for (const eid in G.ENEMIES) {
+      const e = G.ENEMIES[eid];
+      if (e.drops && e.drops.some(d => d.material === mat)) out.push({ type: 'enemy', id: eid });
+    }
+    for (const xid in G.EXPEDITIONS) {
+      const x = G.EXPEDITIONS[xid];
+      if (x.rewardPool && x.rewardPool.some(r => r.material === mat)) out.push({ type: 'expedition', id: xid });
+    }
+    if (G.TRADED && G.TRADED.indexOf(mat) !== -1) out.push({ type: 'trade', id: mat });
+    for (const bid in G.BASE_BUILDINGS) {
+      const b = G.BASE_BUILDINGS[bid];
+      if (b.produces === mat) out.push({ type: 'building', id: bid });
+    }
+    return out;
+  };
+
+  /** Práce potřebná na JEDEN kus materiálu, v jednotkách `unitWorkRate`.
    * Recept je započítán po vstupech (chleba = 2 obilí = 12 jednotek práce),
    * cyklus v receptech je možný jen při chybě dat → 0, ne vymyšlené číslo.
    */
@@ -262,12 +289,12 @@
       mk(goal, 'equip', {
         what: 'weapon', slot: 'weapon', minTier: 2, units: party, needed: party,
         label: `${party}× zbraň (tier 2)`,
-        satisfiedBy: [{ type: 'recipe', id: 'sword' }, { type: 'item', id: 'sword' }]
+        satisfiedBy: [{ type: 'recipe', id: 'sword' }, { type: 'slot', id: 'weapon', minTier: 2 }]
       });
       mk(goal, 'equip', {
         what: 'armor', slot: 'armor', minTier: 2, units: party, needed: party,
         label: `${party}× zbroj (tier 2)`,
-        satisfiedBy: [{ type: 'recipe', id: 'armor' }, { type: 'item', id: 'armor' }]
+        satisfiedBy: [{ type: 'recipe', id: 'armor' }, { type: 'slot', id: 'armor', minTier: 2 }]
       });
       mk(goal, 'skill', {
         what: 'combat', id: 'combat', level: 6, units: party, needed: party,
