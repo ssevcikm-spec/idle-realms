@@ -3,6 +3,8 @@
   const TICK = 1 / 10;
   const MAX_CATCHUP = 24;
   const OFFLINE_CAP_S = 4 * 3600;
+// 4 h při kroku 0,1 s = 144 000 ticků; rezerva nad to, aby hodiny za dvě nepřetékly.
+const OFFLINE_MAX_STEPS = 200000;
   let running = false, paused = false, acc = 0, lastTs = 0;
   G.simulating = false;
 
@@ -57,8 +59,14 @@
     let remaining = total;
     G.simulating = true;
     let guard = 0;
-    while (remaining > 0 && guard++ < 30000) {
-      const dt = Math.min(1, remaining);
+    // K3 (parita): krok je STEJNÝ jako v živém běhu. Dřív tady byla sekunda
+    // proti desáté sekundě živého běhu a to tiše měnilo hru: systémy s vlastním
+    // intervalem (autonomie, nálada, odpočinek) přehrávají v jednom kroku jiné
+    // podmínky než ve dvou — a prahy (nálada < 20 = odmítne práci, výdrž < 25)
+    // to rozdíl násobí dál. Naměřeno před opravou: 57 % rozdílu v vykonané práci
+    // za hodinu. Teď běží offline stejná posloupnost ticků jako hra.
+    while (remaining > 0 && guard++ < OFFLINE_MAX_STEPS) {
+      const dt = Math.min(TICK, remaining);
       G.tick(dt);
       remaining -= dt;
     }

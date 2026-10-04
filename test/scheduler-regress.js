@@ -157,6 +157,10 @@ function run(withDirective, playerGoal) {
     // žádný záměr a žádná směrnice — jinak by směrnice založila záměr sama (Fáze A)
     G.setDirective('focusMaterial', null);
     G.state.goals.length = 0;
+    // Tvrzení, na kterém stojí celý scénář A: bez záměrů není COUKEJ přes co
+    // váhu násobit. Kdyby tu byl nějaký krok, scénář A by měřil jinou věc,
+    // než tvrdí.
+    if (G.listActiveSteps().length !== 0) throw new Error('scénář A má nesplněný krok, ale neměl by mít žádný');
   }
   if (playerGoal) G.newGoal('stock', playerGoal, { priority: 80, silent: true });
   const seq = [];
@@ -211,6 +215,12 @@ check('záměr hráče opravdu přesouvá práci (jinak je zvýhodňování krok
     'záměr na vlákno nezvýšil práci na vlákno (' + (C.hist.gather_fiber || 0) + ' proti ' + (A.hist.gather_fiber || 0) + ')');
 });
 
+check('scénář A opravdu nemá žádný krok (jinak bychom neměřili „chování bez záměrů")', () => {
+  const G = boot();
+  G.setDirective('focusMaterial', null);
+  G.state.goals.length = 0;
+  assert(G.listActiveSteps().length === 0, 'scénář A má ' + G.listActiveSteps().length + ' nesplněných kroků');
+});
 const base = fs.existsSync(FIXTURE) ? JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) : null;
 if (RECORD) {
   if (!fs.existsSync(path.dirname(FIXTURE))) fs.mkdirSync(path.dirname(FIXTURE), { recursive: true });
@@ -218,7 +228,9 @@ if (RECORD) {
     recordedFrom: FROM,
     seed: SEED, rounds: ROUNDS,
     A: got.A, B: got.B, C: got.C,
-    note: 'Otisk sekvence volení práce. Přepisovat jen změně, která je míněna (viz základní komentář).'
+    note: 'Otisk sekvence volení práce. Přepisovat jen změně, která je míněna (viz základní komentář). ' +
+      'Pozor: změna může přijít i z jiného systému než rozdělovac — v B5 se změnila nálada ' +
+      '(psychology.js: skupinové zásoby) a tím se posunul i scénář A, který záměry nemá.'
   }, null, 2) + '\n');
   console.log('  ..reference zapsána: ' + FIXTURE);
 } else {

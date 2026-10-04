@@ -247,7 +247,11 @@
       for (let i = 0; i < (tpl.weight || 1); i++) pool.push(id);
     }
     if (!pool.length) return;
-    startWorldEvent(pool[G.randInt(0, pool.length - 1)]);
+    // TADY BYLO `startWorldEvent(...)` BEZE JMENNÍKA — a taková funkce v repu
+    // není (je jen `G.startWorldEvent`), takže když spadl náhodný světový
+    // děj, hra shodila ReferenceError a běh offline se zastavil. Chyba byla
+    // tichá přes celý běh smoke testu, protože k události nedojde za 200 ticků.
+    G.startEvent(pool[G.randInt(0, pool.length - 1)]);
   }
   G.startEvent = function (templateId, force) {
     const tpl = G.WORLD_EVENTS[templateId]; if (!tpl) return null;

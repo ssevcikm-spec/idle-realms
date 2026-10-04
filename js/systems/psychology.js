@@ -60,14 +60,16 @@
       // odpočinek
       if (u.resting) delta += 0.6;
 
-      // hlad (skupinové zásoby)
-      if (u.groupId) {
-        const g = G.getGroup(u.groupId);
-        if (g && g.supplies) {
-          if (g.supplies.food <= 0) delta -= 0.4;
-          else delta += 0.05;
-        }
-      }
+      // ZÁSOBA SKUPINY — VYNECHÁNO ZAMĚR NĚ.
+      // Tady bylo `if (g.supplies.food <= 0) delta -= 0.4;`, ale `supplies`
+      // se zakládá na nule (groups.js:18) a NIKDO JE NEDOPLŇUJE — ve hře
+      // je není ani jedno jiné místo, které by do nich psalo. Každá postava ve
+      // skupině tak dostávala trvalou pokutu −0.4 nálady za sekundu, spadla
+      // pod 20 a `unitRefusesWork` ji vyřadil z práce; pak se z toho zotavovala
+      // a zase upadla. Offline běh to ukázal jako rozchod 57 % vykonané práce
+      // proti živému běhu. Bez zdroje té zásoby je větev mrtvá, a mrtvá
+      // větev je zde nebezpečná — ne šetřivá.
+      // Když zásoby někdo začne opravdu doplnovat, přijde sem zpět.
 
       // zranění
       if (u.injuries && u.injuries.length) delta -= 0.15 * u.injuries.length;

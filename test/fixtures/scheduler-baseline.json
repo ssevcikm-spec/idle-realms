@@ -1,9 +1,9 @@
 {
-  "recordedFrom": "test zápisu",
+  "recordedFrom": "po oprave skupinovych zalob (psychology.js, faze B5) — rozdiel proti predchozi referenci neni z rozdilovace, ale z nalady",
   "seed": 20260910,
   "rounds": 3000,
-  "A": "bccb0f6d",
-  "B": "fab4b997",
-  "C": "4f848bbd",
-  "note": "Otisk sekvence volení práce. Přepisovat jen změně, která je míněna (viz základní komentář)."
+  "A": "4eeab294",
+  "B": "66150787",
+  "C": "9ebdaa7e",
+  "note": "Otisk sekvence volení práce. Přepisovat jen změně, která je míněna (viz základní komentář). Pozor: změna může přijít i z jiného systému než rozdělovac — v B5 se změnila nálada (psychology.js: skupinové zásoby) a tím se posunul i scénář A, který záměry nemá."
 }
