@@ -54,6 +54,9 @@
     };
     G.goalList().push(goal);
     if (opts.silent !== true) G.log(`🎯 Nový záměr: ${goal.label}`, 'work');
+    // Plán vzniká hned, jakmile je na co se podívat. Když se záměr zakládá
+    // ještě před načtením světa (migrace savu), plán doplní `tickGoals`.
+    if (G.WORLD && G.state && G.state.materials && G.state.units) G.planNewGoal(goal);
     return goal;
   };
 
@@ -162,10 +165,324 @@
     const existing = G.directiveGoal();
     if (existing) {
       // směrnice je zkratka nad záměrem: mění záměr, ne vzniká druhý
-      if (existing.params.qty !== qty) existing.params.qty = qty;
+      if (existing.params.qty !== qty) { existing.params.qty = qty; G.planGoal(existing); }
       return existing;
     }
     return G.newGoal('stock', { material: dir.focusMaterial, qty: qty },
       { priority: 40, via: 'directive', silent: true });
+  }
+
+  /* ---------- Fáze B1: plánovač — záměr na kroky ----------
+     Čistá funkce stavu: { záměr, stav světa } → kroky. Bez náhody, bez
+     side effectů (ARCHITEKTURA_PREMISA §3.3). Kroky se pak měří zvlášť
+     (`measureStep`), aby „kolik je splněno" nebylo uložený dohad. */
+
+  /** První aktivita, která přímo vyrábí materiál (null = jen recept / nelze). */
+  G.activityForMaterial = function (mat) {
+    for (const aid in G.ACTIVITIES) {
+      const a = G.ACTIVITIES[aid];
+      if (!a.output) continue;
+      for (const o of a.output) if (o.material === mat) return a;
+    }
+    return null;
+  };
+
+  /**
+   * Práce potřebná na JEDEN kus materiálu, v jednotkách `unitWorkRate`.
+   * Recept je započítán po vstupech (chleba = 2 obilí = 12 jednotek práce),
+   * cyklus v receptech je možný jen při chybě dat → 0, ne vymyšlené číslo.
+   */
+  G.materialWork = function (mat, seen) {
+    if (!mat) return 0;
+    seen = seen || {};
+    if (seen[mat]) return 0;
+    seen[mat] = true;
+    const act = G.activityForMaterial(mat);
+    if (act) {
+      let qty = 0;
+      for (const o of (act.output || [])) if (o.material === mat) qty = Math.max(qty, o.qty || 1);
+      return (act.workPerUnit || 4) / Math.max(1, qty);
+    }
+    const rid = G.PRODUCTION_RECIPES ? G.PRODUCTION_RECIPES[mat] : null;
+    const r = rid && G.RECIPES[rid];
+    if (!r || !r.inputs) return 0;
+    let work = 0;
+    for (const inp of r.inputs) work += G.materialWork(inp.material, seen) * inp.qty;
+    const out = (r.output && r.output.qty) || 1;
+    return work / Math.max(1, out);
+  };
+
+  /** Suroviny, kterých krok potřebuje — plán je nárok, práci dodá hra. */
+  function stepMaterials(step) {
+    if (step.kind !== 'have') return [];
+    if (step.what === 'food') return [{ material: 'bread', qty: step.needed }];
+    if (step.what === 'material' && step.material) return [{ material: step.material, qty: step.needed }];
+    return [];
+  }
+
+  function mk(goal, kind, extra) {
+    const n = goal.plan.length + 1;
+    const s = Object.assign({
+      id: goal.id + '.s' + n, of: goal.id, kind: kind,
+      qty: 0, needed: 0, done: false, blockedBy: null
+    }, extra);
+    s.satisfiedBy = s.satisfiedBy || [];
+    goal.plan.push(s);
+    return s;
+  }
+
+  /**
+   * Rozloží záměr na kroky. Vrací nové pole `goal.plan` (starý zahazuje).
+   * Krok bez `satisfiedBy` je mrtvý záměr — to má chytit brána K1, ne hráč.
+   */
+  G.planGoal = function (goal) {
+    goal.plan = [];
+    if (!goal || !goal.params) return goal.plan;
+    const p = goal.params;
+    if (goal.kind === 'stock') {
+      const qty = Math.max(1, p.qty || 30);
+      mk(goal, 'have', {
+        what: 'material', material: p.material, needed: qty, qty: 0,
+        label: `${qty}× ${G.MATERIALS[p.material] ? G.MATERIALS[p.material].name : p.material}`,
+        satisfiedBy: [{ type: 'material', id: p.material }]
+      });
+    }
+    else if (goal.kind === 'train') {
+      const need = Math.max(1, p.minUnits || 1);
+      mk(goal, 'skill', {
+        what: 'skill', id: p.skill, level: p.level, units: need, needed: need,
+        label: `${need}× ${G.SKILLS[p.skill] ? G.SKILLS[p.skill].name : p.skill} ${p.level}`,
+        satisfiedBy: [{ type: 'skill', id: p.skill }]
+      });
+    }
+    else if (goal.kind === 'campaign') {
+      const tpl = G.EXPEDITIONS[p.expeditionId];
+      if (!tpl) return goal.plan;           // neznámá expedice = žádný plán, ne plan pro všechno
+      const party = Math.max(G.EXPEDITION_MIN_PARTY || 2, p.minPartySize || G.EXPEDITION_MIN_PARTY || 2);
+      mk(goal, 'equip', {
+        what: 'weapon', slot: 'weapon', minTier: 2, units: party, needed: party,
+        label: `${party}× zbraň (tier 2)`,
+        satisfiedBy: [{ type: 'recipe', id: 'sword' }, { type: 'item', id: 'sword' }]
+      });
+      mk(goal, 'equip', {
+        what: 'armor', slot: 'armor', minTier: 2, units: party, needed: party,
+        label: `${party}× zbroj (tier 2)`,
+        satisfiedBy: [{ type: 'recipe', id: 'armor' }, { type: 'item', id: 'armor' }]
+      });
+      mk(goal, 'skill', {
+        what: 'combat', id: 'combat', level: 6, units: party, needed: party,
+        label: `${party}× bojovnictví 6`,
+        satisfiedBy: [{ type: 'skill', id: 'combat' }]
+      });
+      mk(goal, 'have', {
+        what: 'food', needed: G.expeditionFoodCost(p.expeditionId, party), qty: 0,
+        label: 'jídlo na cestu',
+        satisfiedBy: [{ type: 'material', id: 'bread' }, { type: 'material', id: 'fish' }]
+      });
+      mk(goal, 'have', {
+        what: 'material', material: 'potion', needed: party, qty: 0,
+        label: `${party}× lektvar`,
+        satisfiedBy: [{ type: 'material', id: 'potion' }]
+      });
+      mk(goal, 'count', {
+        what: 'partyPower', needed: G.expeditionNeed(p.expeditionId), qty: 0,
+        label: `družina o síle ${G.expeditionNeed(p.expeditionId)}`,
+        satisfiedBy: [{ type: 'api', id: 'expeditionPowerOf' }]
+      });
+      const last = mk(goal, 'expedition', {
+        what: 'depart', expeditionId: p.expeditionId, needed: 1, qty: 0,
+        label: `vyrazit na ${tpl.name}`,
+        satisfiedBy: [{ type: 'api', id: 'startExpedition' }]
+      });
+      // vyrazit bez zbroje a jídla je nesmysl — vše ostatní čeká na odjezd
+      for (let i = 0; i < goal.plan.length - 1; i++) goal.plan[i].blockedBy = last.id;
+    }
+    else if (goal.kind === 'explore') {
+      const ids = p.settlementIds && p.settlementIds.length ? p.settlementIds : null;
+      if (ids) {
+        for (const sid of ids) {
+          mk(goal, 'visit', {
+            what: 'visitSettlement', settlementId: sid, needed: 1, qty: 0,
+            label: `navštívit ${sid}`,
+            satisfiedBy: [{ type: 'api', id: 'visitSettlement' }]
+          });
+        }
+      } else {
+        const visits = Math.max(1, p.minVisits || 1);
+        mk(goal, 'visit', {
+          what: 'visitSettlement', needed: visits, qty: 0,
+          label: `navštívit ${visits} sídel`,
+          satisfiedBy: [{ type: 'api', id: 'visitSettlement' }]
+        });
+      }
+    }
+    else if (goal.kind === 'prestige') {
+      const renown = Math.max(1, p.renown || 100);
+      mk(goal, 'have', {
+        what: 'renown', needed: renown, qty: 0,
+        label: `${renown} renomé`,
+        satisfiedBy: [{ type: 'api', id: 'gainRenown' }]
+      });
+    }
+    for (const s of goal.plan) s.materials = stepMaterials(s);
+    // Podpis parametrů: podle něj se pozná, že plán zastarál (např. hráč
+    // změnil `focusTarget` a plán má pořád staré `needed`).
+    goal.planSig = JSON.stringify(p);
+    return goal.plan;
+  };
+
+  /* ---------- Fáze B2: měření kroku a mezera ----------
+     Krok se neměří v okamžiku plánování — ten je čistý a svět číst nemá.
+     Měření je oddělené, aby „kolik je splněno" vždy odpovídalo STAVU, ne
+     dohodu z chvíle, kdy plán vznikl. */
+
+  /** Postavy, které může plán počítat (živé, dospělé, ne na expedici). */
+  function planUnits() {
+    return (G.state.units || []).filter(u => u && !u.dead && !u.isChild && !u.onExpedition);
+  }
+
+  /** Kolik postav má v daném slotu předmět dané (nebo vyšší) úrovně. */
+  G.equippedCount = function (slot, minTier) {
+    let n = 0;
+    for (const u of planUnits()) {
+      const it = u.equipment && u.equipment[slot];
+      if (!it) continue;
+      const def = G.EQUIPMENT[it.itemId];
+      if (!def || def.tier < minTier) continue;
+      if (def.durability > 0 && it.durability <= 0) continue;   // rozbité nepočítáme
+      n++;
+    }
+    return n;
+  };
+
+  /**
+   * Změří krok proti stavu světa a zapíše `qty`/`needed`/`done`.
+   * Nic jiného neupravuje — plán je odhad, měření je fakt.
+   */
+  G.measureStep = function (step, goal) {
+    let qty = 0, needed = step.needed;
+    if (step.kind === 'have') {
+      if (step.what === 'material') qty = G.matCount(step.material);
+      else if (step.what === 'food') qty = G.matCount('bread') + G.matCount('fish');
+      else if (step.what === 'renown') qty = (G.state.resources && G.state.resources.renown) || 0;
+    }
+    else if (step.kind === 'skill') {
+      qty = planUnits().filter(u => G.unitSkill(u, step.id) >= step.level).length;
+      needed = step.needed || step.units || 1;
+    }
+    else if (step.kind === 'equip') {
+      qty = G.equippedCount(step.slot, step.minTier || 1);
+      needed = step.needed || step.units || 1;
+    }
+    else if (step.kind === 'count' && step.what === 'partyPower') {
+      const units = planUnits().slice().sort((a, b) => G.expeditionPowerOf([b]) - G.expeditionPowerOf([a]));
+      const take = step.units || (G.EXPEDITION_MIN_PARTY || 2);
+      qty = Math.round(G.expeditionPowerOf(units.slice(0, take)));
+      needed = step.needed;
+    }
+    else if (step.kind === 'expedition' && step.what === 'depart') {
+      const since = goal && goal.createdAt ? goal.createdAt : 0;
+      qty = (G.state.expeditions || []).some(e =>
+        e.templateId === step.expeditionId && (e.startedAt || 0) >= since) ? 1 : 0;
+      needed = 1;
+    }
+    else if (step.kind === 'visit') {
+      const visited = (G.state.stats && G.state.stats.settlementsVisited) || [];
+      qty = step.settlementId
+        ? (visited.indexOf(step.settlementId) !== -1 ? 1 : 0)
+        : visited.length;
+      needed = step.needed;
+    }
+    step.qty = Math.max(0, Math.min(needed, qty));
+    step.needed = needed;
+    step.done = step.qty >= needed;
+    return step;
+  };
+
+  /** Jednotky práce na JEDNU jednotku kroku (z reálných dat, ne odhadem). */
+  G.stepWorkPerUnit = function (step) {
+    if (step.kind === 'have') {
+      if (step.what === 'material') return G.materialWork(step.material);
+      if (step.what === 'food') {
+        const both = [G.materialWork('bread'), G.materialWork('fish')].filter(x => x > 0);
+        return both.length ? Math.min.apply(null, both) : 0;
+      }
+      return 0;                    // renomé nevyrábíš prací — a mezera u něj je 0 jen proto, že ho nelze vypracovat
+    }
+    if (step.kind === 'skill') return G.xpForLevel ? G.xpForLevel(step.level || 1) : 0;
+    return 0;                      // výbava a odjezd nejsou práce, ale cesta k nim ano
+  };
+
+  /**
+   * MEZERA: kolik jednotek práce ještě chybí do kroku (ARCHITEKTURA_PREMISA
+   * §3.4). Vrací 0, když je krok hotový — a to je jediné, podle čeho se
+   * rozhoduje rozdělovac.
+   */
+  G.stepGap = function (step, goal) {
+    if (!step) return 0;
+    G.measureStep(step, goal);          // vždy přeměřit: uložené `qty` je dohad, ne fakt
+    const missing = Math.max(0, (step.needed || 0) - (step.qty || 0));
+    if (!missing) return 0;
+    return missing * G.stepWorkPerUnit(step);
+  };
+
+  /** Podíl mezery 0–1 — to je veličina, kterou váhy rozdělovace násobí. */
+  G.stepGapFraction = function (step, goal) {
+    if (!step) return 0;
+    G.measureStep(step, goal);
+    const needed = step.needed || 0;
+    if (needed <= 0) return 0;
+    return Math.max(0, Math.min(1, (needed - (step.qty || 0)) / needed));
+  };
+
+  /** Přepočítá celý plán záměru a označí záměr jako splněný. */
+  G.refreshGoal = function (goal) {
+    if (!goal || !goal.plan) return null;
+    for (const s of goal.plan) G.measureStep(s, goal);
+    // Záměr ze směrnice je TRVALÉ přání („drž železo"), ne jednorázovka:
+    // splnění ho neruší, jinak by boost zmizel právě ve chvíli, kdy je
+    // suroviny dost, a hráč by musel směrnici znovu nastavit.
+    if (goal.via !== 'directive' && G.isGoalActive(goal) &&
+        goal.plan.length && goal.plan.every(s => s.done)) {
+      goal.status = 'met';
+      goal.metAt = G.state.time || 0;
+      G.log(`✅ Záměr splněn: ${goal.label}`, 'work');
+    }
+    return goal;
+  };
+
+  /** Všechny NESPLNĚNÉ kroky živých záměrů — vstup rozdělovace. */
+  G.listActiveSteps = function () {
+    const out = [];
+    for (const goal of G.listGoals('active')) {
+      if (!goal.plan || !goal.plan.length) continue;
+      for (const step of goal.plan) if (!step.done) out.push({ goal: goal, step: step });
+    }
+    return out;
+  };
+
+  /** Naplánuje nový záměr hned — plán je součást záměru, ne pozdější doplněk. */
+  G.planNewGoal = function (goal) {
+    G.planGoal(goal);
+    return G.refreshGoal(goal);
+  };
+
+  /** Zaznamená návštěvu sídla (API pro UI i pro průzkumný záměr). */
+  G.visitSettlement = function (id) {
+    if (!G.state.stats) G.state.stats = {};
+    if (!G.state.stats.settlementsVisited) G.state.stats.settlementsVisited = [];
+    const list = G.state.stats.settlementsVisited;
+    if (list.indexOf(id) !== -1) return false;
+    list.push(id);
+    return true;
+  };
+
+  /** Přepočítá plány všech živých záměrů; volá se z rytmu hry. */
+  G.tickGoals = function () {
+    for (const goal of G.listGoals('active')) {
+      // plán bez kroků = záměr z Fáze A; změněné parametry = plán zastaralý
+      if (!goal.plan || !goal.plan.length || goal.planSig !== JSON.stringify(goal.params)) G.planGoal(goal);
+      else G.refreshGoal(goal);
+    }
   };
 })();

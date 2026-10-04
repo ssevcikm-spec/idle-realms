@@ -10,6 +10,9 @@
 
     // Fronta příkazů hráče má přednost před automatickou prací
     if (G.tickOrders) G.tickOrders();
+    // Záměry: přeměření kroků (Fáze B). Musí běžet před výběrem práce —
+    // rozdělovac se řídí mezerou, kterou tu měří.
+    if (G.tickGoals) G.tickGoals();
     // Rozestavěné stavby bez stavitelů zkusí získat nové
     if (G.tickConstruction) G.tickConstruction();
     // Automatická výroba (udržovat zásobu prken, chleba, …)

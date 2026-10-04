@@ -1299,6 +1299,80 @@ check('zamer: stary sav se smernici bez zameru si zamer nedoplni', () => {
   G.setDirective('focusMaterial', null);
 });
 
+check('planner: lov draka ma >= 5 kroku, kazdy krok ma az koho se porida', () => {
+  const goal = G.newGoal('campaign', { expeditionId: 'dragon_hunt', minPartySize: 3 }, { priority: 70 });
+  const plan = G.planGoal(goal);
+  assert(plan.length >= 5, 'lov draka ma jen ' + plan.length + ' kroku (brana zadava >= 5)');
+  for (const s of plan) {
+    assert(!!s.id && !!s.of, 'krok bez id nebo bez vazby na zamer');
+    assert(Array.isArray(s.satisfiedBy) && s.satisfiedBy.length > 0, 'krok ' + s.kind + ' neni splnitelny nici (mrtvy zamer)');
+    assert(s.needed > 0, 'krok ' + s.kind + ' ma needed = 0, nejde ho merit');
+  }
+  assert(plan.some(s => s.kind === 'have' && s.what === 'food'), 'plan neobsahuje krok jidla na cestu');
+  assert(plan.some(s => s.kind === 'expedition'), 'plan nekonci krokem odjezdu');
+  assert(plan.filter(s => s.blockedBy).every(s => plan.some(x => x.id === s.blockedBy)),
+    'krok ceka na krok, ktery v planu neni');
+  G.cancelGoal(goal.id);
+});
+check('planner: stock ma prave jeden krok a da se premerit', () => {
+  const goal = G.newGoal('stock', { material: 'iron_ore', qty: 60 }, {});
+  const plan = G.planGoal(goal);
+  assert(plan.length === 1, 'zamer na zásobu ma ' + plan.length + ' kroku, ma mit 1');
+  const step = plan[0];
+  G.refreshGoal(goal);
+  assert(step.needed === 60, 'krok nezna, kolik je potreba (' + step.needed + ')');
+  assert(step.qty === G.matCount('iron_ore'), 'krok neodpovida skutecnemu stavu skladu');
+  assert(step.done === (step.qty >= 60), 'krok neumi rict, jestli je hotovy');
+  G.cancelGoal(goal.id);
+});
+check('planner: je cisty — neprepise stav a neni to hod na RNG', () => {
+  const goal = G.newGoal('train', { skill: 'combat', level: 7, minUnits: 2 }, {});
+  // Snímek se pořizuje PO založení záměru: jeho vznik stav mění z podstaty,
+  // plánovač už nesmí.
+  const snap = () => JSON.stringify({ m: G.state.materials, u: G.state.units.map(x => x.assignedTaskId), t: G.state.time });
+  const before = snap();
+  const a = JSON.stringify(G.planGoal(goal));
+  const b = JSON.stringify(G.planGoal(goal));
+  assert(a === b, 'dva volani planGoal dala ruzne plany (planner neni deterministicky)');
+  assert(snap() === before, 'planGoal zmenil stav hry');
+  G.cancelGoal(goal.id);
+});
+check('gap: odhad práce vychazi z dat, ne z odhadu', () => {
+  assert(G.materialWork('wood') === 4, 'drevni ma byt 4 jednotky práce na kus, je ' + G.materialWork('wood'));
+  // chleba = flour + grain: 2 obili × 6 (harvest_grain) = 12
+  assert(G.materialWork('bread') === 12, 'chleb ma byt 12 jednotek práce na kus, je ' + G.materialWork('bread'));
+  assert(G.materialWork('iron_ore') === 10, 'zelezo ma byt 10 jednotek prace na kus, je ' + G.materialWork('iron_ore'));
+  assert(G.materialWork('crystal') === 18, 'krystal ma byt 18 jednotek prace na kus, je ' + G.materialWork('crystal'));
+});
+check('gap: mezera klesa, kdyz jednotka pracuje na spravnem uzlu', () => {
+  G.setDirective('focusMaterial', 'wood');
+  // cíl nad dnešní zásobou — test nesmí záviset na tom, s čím hra začíná
+  G.setDirective('focusTarget', G.matCount('wood') + 400);
+  const goal = G.directiveGoal();
+  assert(!!goal, 'zamer ze smernice nevznikl');
+  assert(goal.plan && goal.plan.length === 1, 'zamer ze smernice nema naplanovany zadny krok (' + (goal.plan ? goal.plan.length : 'bez planu') + ')');
+  G.refreshGoal(goal);
+  const step = goal.plan[0];
+  const gap0 = G.stepGap(step, goal);
+  assert(gap0 > 0, 'zamer zacina s mezerou 0 — to neni mezera, to je chyba');
+  let sawWoodTask = false;
+  for (let i = 0; i < 900; i++) {
+    G.tick(0.1);
+    // úkol může doběhnout a postava hned dostane jiný — ptáme se na celÝ běh,
+    // ne na stav v posledním ticku
+    if (!sawWoodTask && G.state.tasks.some(t => (G.ACTIVITIES[t.activityId] || {}).output &&
+        G.ACTIVITIES[t.activityId].output.some(o => o.material === 'wood'))) sawWoodTask = true;
+  }
+  const gap1 = G.stepGap(step, goal);
+  assert(gap1 < gap0, 'mezera neklesla (' + gap0.toFixed(0) + ' → ' + gap1.toFixed(0) + ')');
+  assert(sawWoodTask, 'nikdo nepracoval na uzlu, kde se da drevno sbirat — mezera by nemela klesat');
+  // a je přesně to, co tvrdí definice: (chybí kusů) × (práce na kus)
+  const expect = Math.max(0, step.needed - G.matCount('wood')) * G.stepWorkPerUnit(step);
+  assert(Math.abs(gap1 - expect) < 1e-6,
+    'mezera neni (potreba - skladem) x prace na kus: ' + gap1.toFixed(2) + ' vs ' + expect.toFixed(2));
+  G.setDirective('focusMaterial', null);
+});
+
 console.log('');
 if (failed === 0) { console.log('VYSLEDEK: OK — vse funguje'); process.exit(0); }
 else { console.log('VYSLEDEK: ' + failed + ' chyb'); process.exit(1); }
