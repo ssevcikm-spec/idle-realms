@@ -37,13 +37,7 @@
       if (!g.focus) continue;
       const act = G.ACTIVITIES[g.focus];
       if (!act) { g.focus = null; continue; }
-      const idle = G.groupMembers(g).filter(u =>
-        u && !u.dead && !u.isChild && !u.onExpedition && !u.assignedTaskId && !u.resting
-        && !(G.unitInCombat && G.unitInCombat(u))
-        && !(G.hasSevereInjury && G.hasSevereInjury(u))
-        && !(u.merchantState && u.merchantState.active)
-        && !(G.unitRefusesWork && G.unitRefusesWork(u))
-        && !(u._refuseUntil && G.state.time < u._refuseUntil) && !u.manual);
+      const idle = G.groupMembers(g).filter(G.unitAutoEligible);
       if (!idle.length) continue;
       const node = G.findNodeFor(g.focus, idle.map(u => u.id));
       if (!node) continue;
@@ -55,14 +49,7 @@
     }
 
     for (const u of G.state.units) {
-      if (u.dead || u.isChild || u.onExpedition) continue;
-      if (u.assignedTaskId || u.resting) continue;
-      if (G.unitInCombat && G.unitInCombat(u)) continue;
-      if (u.merchantState && u.merchantState.active) continue;
-      if (G.hasSevereInjury && G.hasSevereInjury(u)) continue;
-      if (G.unitRefusesWork && G.unitRefusesWork(u)) continue;
-      if (u._refuseUntil && G.state.time < u._refuseUntil) continue;
-      if (u.manual) continue;
+      if (!G.unitAutoEligible(u)) continue;
       if (u.groupId) {
         const g = G.getGroup(u.groupId);
         if (g && g.focus) continue;
@@ -182,6 +169,68 @@
   };
   G.getDirective = function (key) {
     return (G.state.directives || {})[key];
+  };
+
+  /* ---------- Fáze C3: hráč si bere postavu na sebe (garance A4) ----------
+     Dřív to byla jedna řádka v UI (`ui.js:879`, `u.manual = !u.manual`), která
+     měnila stav zvenčí. Teď je to API a jediný zdroj pravdy je
+     `G.hasManualControl` — kterou si kreslí i rozdělovac. */
+
+  /** Je postava pod manuální kontrolou hráče? */
+  G.hasManualControl = function (unit) {
+    const u = typeof unit === 'object' && unit ? unit : G.getUnit(unit);
+    return !!(u && u.manual);
+  };
+
+  /**
+   * Smí rozdělovac tuhle postavu přiřadit? JEDEN predikát pro celý rozdělovac
+   * (jednotky i skupiny) — kdyby si každá větev psala vlastní filtr, bráda
+   * „vzití kontroly vyřadí jednotku z rozdělování" by hlídala jen jednu z nich.
+   */
+  G.unitAutoEligible = function (unit) {
+    const u = typeof unit === 'object' && unit ? unit : G.getUnit(unit);
+    if (!u || u.dead || u.isChild || u.onExpedition) return false;
+    if (u.assignedTaskId || u.resting) return false;
+    if (G.unitInCombat && G.unitInCombat(u)) return false;
+    if (G.hasSevereInjury && G.hasSevereInjury(u)) return false;
+    if (u.merchantState && u.merchantState.active) return false;
+    if (G.unitRefusesWork && G.unitRefusesWork(u)) return false;
+    if (u._refuseUntil && G.state.time < u._refuseUntil) return false;
+    if (G.hasManualControl(u)) return false;
+    return true;
+  };
+
+  /**
+   * HRÁČ BERE POSTAVU NA SEBE. Vyřadí ji z rozdělování, ale ROZESTAVĚNOU PRÁCI
+   * NEPŘERUŠÍ (A4): postava dokončí, co už dělá, a pak čeká na příkaz.
+   * Kdyby to přerušovalo, „beru tě na sebe" by znělo jako „vyhazuji tě z práce".
+   */
+  G.takeControl = function (unit) {
+    const u = typeof unit === 'object' && unit ? unit : G.getUnit(unit);
+    if (!u) return { ok: false, reason: 'Postava neexistuje.' };
+    if (u.dead) return { ok: false, reason: 'Mrtvou postavu nelze řídit.' };
+    if (u.isChild) return { ok: false, reason: 'Dítě nelze řídit.' };
+    if (G.hasManualControl(u)) return { ok: false, reason: `${u.name} je už pod manuální kontrolou.` };
+    u.manual = true;
+    u.manualAt = G.state.time || 0;
+    G.log(`🎮 ${u.name} je nyní pod manuální kontrolou.`, 'info');
+    return { ok: true, unit: u };
+  };
+
+  /** Postava jde zpět do rukou autonomie. */
+  G.releaseControl = function (unit) {
+    const u = typeof unit === 'object' && unit ? unit : G.getUnit(unit);
+    if (!u) return { ok: false, reason: 'Postava neexistuje.' };
+    if (!u.manual) return { ok: false, reason: `${u.name} nebyla pod manuální kontrolou.` };
+    u.manual = false;
+    u.manualAt = null;
+    G.log(`🤖 ${u.name} se vrátila k autonomní práci.`, 'info');
+    return { ok: true, unit: u };
+  };
+
+  /** Přepínač pro UI: podle současného stavu vezme kontrolu nebo ji pustí. */
+  G.toggleControl = function (unit) {
+    return G.hasManualControl(unit) ? G.releaseControl(unit) : G.takeControl(unit);
   };
 
   const REST_THRESHOLD = 20;
