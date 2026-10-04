@@ -874,18 +874,16 @@
   }
   function doCancelOrder(orderId) { if (G.cancelOrder) G.cancelOrder(orderId); render(); }
   function doToggleManual(unitId) {
-    const u = G.getUnit(unitId);
-    if (!u) return;
-    u.manual = !u.manual;
-    G.log(u.manual ? `🎮 ${u.name} je nyní pod manuální kontrolou.` : `🤖 ${u.name} se vrátil k autonomní práci.`, 'info');
+    // Fáze C4 (K5): UI už nerozšiřuje stav — kontrolu bere přes API,
+    // které vlastní rozdělovac (autonomy.js).
+    const res = G.toggleControl(unitId);
+    if (res && !res.ok) G.log('⚠️ ' + res.reason, 'info');
     render();
   }
   function doRecruit() {
-    const cost = G.recruitCost();
-    if (G.state.resources.gold < cost) { G.log('⚠️ Nedostatek zlata.', 'info'); return render(); }
-    G.state.resources.gold -= cost;
-    const u = G.createUnit(); G.state.units.push(u);
-    G.log(`🧙 Najat: ${u.name}.`, 'social');
+    const res = G.recruitUnit();
+    if (!res.ok) { G.log('⚠️ ' + res.reason, 'info'); return render(); }
+    G.log(`🧙 Najat: ${res.unit.name}.`, 'social');
     render();
   }
   function doCreateGroup() { const g = G.createGroup(); G.log(`👥 Skupina ${g.name}.`, 'social'); render(); }
@@ -973,7 +971,7 @@
   function doCenterBase() {
     const p = G.basePos ? G.basePos() : null;
     if (p && G.centerMapOn) G.centerMapOn(p.x + 0.5, p.y + 0.5);
-    G.state.selected = { type: 'base' };
+    G.selectTarget('base');
     render();
   }
   function doCancelBasePlacement() {
