@@ -100,6 +100,64 @@ Záměry tedy **neovlivňují práci postav**; mění se jen to, co hráč vidí
 > slepou kontrolu (test si záměr vytvořil sám, takže backfill nikdy nešel přes prázdný seznam).
 > Po doplnění `zamer: stary sav se smernici bez zameru si zamer nedoplni` spadla i třetí.
 
+### 2.3 Spotřeba tohoto dokumentu — Fáze B (PROVEDENO)
+
+> **Datum spotřeby:** 2026-10-04, **provedeno z tohoto dokumentu:** Fáze B
+> (`PROMPT_IDLE_REALM.md` §4), granule B1–B5. **Čísla níže jsou přeměřená po
+> této změně**, převzata nejsou.
+
+| # | Granule | Co vzniklo | Kde |
+|---|---|---|---|
+| B1 | `planner` | `planGoal(goal)` — čistá funkce, `{záměr, stav} → kroky`. Každý krok si nese `satisfiedBy` | `js/systems/goals.js` |
+| B2 | `gap` | `measureStep` (fakt) oddělený od plánu (odhad); `materialWork`, `stepGap`, `stepGapFraction`, `stepActivities`, `materialSource` | `js/systems/goals.js` |
+| B3 | brána K1 | `test/coherence.js` — záměry se berou z **herních dat**, ne ze seznamu v testu | `test/coherence.js` |
+| B4 | `scheduler` přes mezeru | `stepBoost()` — `w = 1 + 6 × (mezera/ potřeba) × naléhavost`; bez kroků je to ×1 | `js/systems/autonomy.js` |
+| B5 | parita offline | krok `simulateOffline` sjednocen s živým během; K3 v bráně | `js/core/loop.js` |
+
+**Co Fáze B NEudělala (aby nikdo nečetl „hotovo" jako „hotová hra"):** panel
+záměrů, rozpadové váhy u postavy, `takeControl`/`releaseControl` a deník kroků
+stále nejsou — to je Fáze C. `getGoalBoard` stále počítá `progress` přímo
+z parametrů, ne z kroků. `orders[]` pořád stojí vedle záměrů jako druhá
+vstupní cesta (§3.6, úkol ve Fázi C). Autonomie zatím umí zvýhodnit práci na
+kus, který záměr žádá; **neumí sama záměr splnit** — výbava, odjezd na expedici
+a návštěva sídla zůstávají na hráči.
+
+**Tři vady, které našly právě brány B (a ne žádný test na novou funkci):**
+
+| # | Vada | Jak se projevila |
+|---|---|---|
+| 1 | `startWorldEvent(...)` zavoláno **bez jmenička** — v repu je jen `G.startWorldEvent` | Když spadl náhodný světový děj, hra shodila `ReferenceError`. Prošlo to celým smoke testem, protože k události nedojde za 200 ticků; odhalil to až hodinový běh |
+| 2 | `tickMood` čítal `g.supplies.food <= 0`, ale **nikdo ty zásoby nedoplňuje** (zakládají se na 0, jiný zápis ve hře neexistuje) | Každá postava ve skupině měla trvalou pokutu −0,4 nálady/s → propadla pod 20 → `unitRefusesWork` ji vyřadil z práce. Rozdíl práce živý/offline spadl z 57 % na ~5 % |
+| 3 | `simulateOffline` tikala po **1 s**, živý běh po 0,1 s | Systémy s vlastním intervalem přehrávají v jednom kroku jiné podmínky než ve dvou; rozdíl se násobil prahy (nálada < 20, výdrž < 25). Naměřeno: −74 % práce po 15 minutách |
+
+**A jedna vada v samotné bráně**, která je důležitější než opravený kód: první
+verze K3 tikala po 0,1 s přímo, takže mutace kroku uvnitř `simulateOffline` jí
+prošla (exit 0). Brála o věci, které necílila. Teď jde přes skutečné API —
+mutace je chycená (práce 9,45 %, mezera 13,4 %).
+
+**ZNÁMÝ ROZDÍL, který zbývá a je záměrný:** při `G.simulating` se nespouštějí
+náhodné události (světové děje, postavy, psychika). Za hodinu je proto živý běh
+a offline běh např. o 4,3 % práce a 4,7 % materiálu jiný. Není to chyba
+plánovače, ale nesmí to zůstat nezapsané, protože to jinak vypadá jako stejná
+hra. Jestli se mají události přehrát i za nepřítomnosti, je to rozhodnutí
+Fáze C/E.
+
+**Brány po Fázi B** (přeměřeno):
+
+| Brána | Výsledek |
+|---|---|
+| `scripts/check-globals.ps1` | ✅ 0 problémů, 60 skriptů, 754/754 globálů |
+| `scripts/check-actions.ps1` | ✅ 0 mrtvých z 88 |
+| `node test/headless-smoke.js` | ✅ **88 kontrol** (Fáze B přidala 7) |
+| `node test/coherence.js` | ✅ K1: 82 záměrů / 274 kroků · K3: 5 kontrol |
+| `node test/scheduler-regress.js` | ✅ 8 kontrol (scénáře A/B/C proti zaznamenané referenci) |
+| 10 grafických bran z `HANDOFF.md` §2 | ✅ všechny zelené |
+
+> **Oprava v tomto dokumentu:** §3.3 uvádí příklad `expeditionId='drak_hunt'`.
+> Taková expedice v repu **neexistuje** — správně je `dragon_hunt`
+> (`js/data/expeditions.js:13`). Plánovač na neznámé id vrací prázdný plán
+> a brána K1 to odmítne, ale příklad v dokumentu byl chybný už při psaní.
+
 ### 2.1 Kde se dokumenty mýlí (a to je důležitější než seznam hotového)
 
 `docs/TECHNICKY_DOKUMENT.md` a `docs/PLAN_VYVOJE.md` jsou **zastaralé**. Konkrétně:
@@ -195,7 +253,7 @@ splnit, je mrtvý záměr — a to je chyba, kterou musí zachytit brána (§6),
 Deterministická, čistá funkce stavu: `{ záměr, stav světa } → kroky`. Bez náhody,
 bez side effectů. Volá se při vytvoření záměru a znovu, když se krok změní.
 
-`campaign: expeditionId='drak_hunt', minPartySize=3` se rozloží na:
+`campaign: expeditionId='dragon_hunt', minPartySize=3` se rozloží na:
 
 ```
 s1  equip  3× zbraň kvality fine+
@@ -381,15 +439,18 @@ Vychází z ověřeného stavu (§2), ne z plánu, který už splněný. Každá
 > muset existovat dvakrát. Sjednocení je nejmenší změna s největším
 > následujícím zjednodušením.
 
-### Fáze B — Plánovač a mezera *(jádro)*
-| Úkol | Brána |
-|---|---|
-| `planner`: záměr → kroky, čistá funkce | test: `campaign` draka má ≥5 kroků; `stock` má 1 krok |
-| `gap`: krok → mezera v jednotkách práce | test: mezera klesá při práci na správném uzlu |
-| `reachability` brána (K1) | test: všechny kroky splnitelné; jinak test červený, ne tichý |
-| `scheduler` přes `gap`; zachovat dnešní chování bez záměrů | test: bez záměrů je výběr práce **stejný** jako dnes |
+### Fáze B — Plánovač a mezera *(jádro)* — ✅ **HOTOVO 2026-10-04** (§2.3)
+| Úkol | Brána | Stav |
+|---|---|---|
+| `planner`: záměr → kroky, čistá funkce | test: `campaign` draka má ≥5 kroků; `stock` má 1 krok | ✅ `dragon_hunt` + družina 3 = **7 kroků**; `stock` = 1 |
+| `gap`: krok → mezera v jednotkách práce | test: mezera klesá při práci na správném uzlu | ✅ `stepGap = (potřeba − má) × práce na kus` |
+| `reachability` brána (K1) | test: všechny kroky splnitelné; jinak test červený, ne tichý | ✅ `test/coherence.js` — 82 záměrů / 274 kroků |
+| `scheduler` přes `gap`; zachovat dnešní chování bez záměrů | test: bez záměrů je výběr práce **stejný** jako dnes | ✅ `test/scheduler-regress.js` proti zaznamenané reference |
+| plánovač běží v offline simulaci | 1 h offline == 1 h živě | ✅ K3 v `coherence.js` — viz §2.3 |
 
 > Ta poslední brána je klíčová: dokazuje, že refaktor nerozbil existující hru.
+> **Fáze B ji prokázala třikrát za sebou** — a pokaždé ukázala jinou skutečnou
+> chybu, kterou žádný test na novou funkci neodhalil (viz §2.3).
 
 ### Fáze C — Vedení, viditelné hráči
 | Úkol | Brána |
@@ -439,20 +500,27 @@ Tady jsou věci, které by vypadaly jako progres, ale premisi rozbijí:
 
 ## 10. Brány — co měří, že je hotovo
 
-Tři existující nástroje, jeden nový. Žádná fáze nekončí bez zelené brány.
+Tři existující nástroje, dva nové. Žádná fáze nekončí bez zelené brány.
 
-| Brána | Příkaz | Co dnes | Nová |
+| Brána | Příkaz | Co dnes (2026-10-04) | Nová |
 |---|---|---|---|
-| Globály | `scripts/check-globals.ps1` | ✅ 0/723 | hlídá `goals`/`planner`/`scheduler` |
+| Globály | `scripts/check-globals.ps1` | ✅ 0/754 | hlídá `goals`/`planner`/`scheduler` |
 | Akce UI | `scripts/check-actions.ps1` | ✅ 0 mrtvých z 88 | hlídá panel záměrů |
-| Chod hry | `node test/headless-smoke.js` | ✅ 77 kontrol | + ~20 kontrol na záměry/mezery/paritu |
-| **Koherence** | `node test/coherence.js` (nový) | — | **K1, K2, K3** — vědeckost premisy |
+| Chod hry | `node test/headless-smoke.js` | ✅ 88 kontrol | panel záměrů (Fáze C) |
+| **Koherence** | `node test/coherence.js` | ✅ **K1 + K3** | **K2** — každý spotřebovávaný zdroj je řiditelný |
+| **Neregrese rozdělovace** | `node test/scheduler-regress.js` | ✅ 8 kontrol | hlídá, že kroky záměrů nepřepisují dnešní chování |
 
 `test/coherence.js` je třetí noha pod stolem. Dnes umíme dokázat, že hra *funguje*
 (`smoke`) a že kód je *čistý* (`check-globals`). Chybí brána, která dokáže říct
-„záměr je **dosažitelný** a **každá věc, kterou hra spotřebovává, je řiditelná**“.
+„záměr je **dosažitelný** a **offline běh dělá stejnou hru**“.
 Bez ní je „koherence" jen hezký slovník; s ní je to vlastnost, kterou nelze rozbít
 tichým merge-em.
+
+`test/scheduler-regress.js` je čtvrtá, která vznikla až v praxi: dokazuje, že
+**refaktor nezměnil hru tam, kde neměl**. Měří otisk sekvence volení práce
+proti zaznamenané referenci, včetně scénáře, který naopak *musí* změnit chování
+(záměr hráče). Bez něj by „chování bez záměrů je stejné jako dnes" bylo tvrzení
+v commitu, ne měření.
 
 ---
 

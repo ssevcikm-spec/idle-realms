@@ -1,8 +1,12 @@
 # Handoff — Idle Realm (předání novému chatu)
 
-> **Datum:** 2026-09-16
+> **Datum:** 2026-10-04 (poslední revize) · původně 2026-09-16
 > **Účel:** kompletní kontext pro nový chat/agenta, aby mohl pokračovat bez čtení
 > celé historie. Tohle je živý dokument — při každém větším kroku ho aktualizuj.
+>
+> **Nejnovější:** herní architektura má hotové **Fáze A a B** (záměr → plán →
+> mezera → rozdělovac). Čti §9 bod 2 a `docs/ARCHITEKTURA_PREMISA.md` §2.3.
+> Další je **Fáze C — panel záměrů a rozpadové váhy**.
 >
 > **Grafika má vlastní handoff: `docs/HANDOFF_GRAFIKA.md`** (stav 2026-09-17) —
 > zadání, rozhodnutí route C, doslovná zpětná vazba uživatele k vzhledu,
@@ -37,6 +41,8 @@ bez závislostí, bez serveru. Hra běží otevřením `index.html` v prohlíže
 powershell.exe -ExecutionPolicy Bypass -File scripts/check-globals.ps1   # musí být "0 problems"
 powershell.exe -ExecutionPolicy Bypass -File scripts/check-actions.ps1   # 0 mrtvých data-action/data-change
 node test/headless-smoke.js                                              # "VYSLEDEK: OK"
+node test/coherence.js                                                  # K1 dosazitelnost + K3 parita offline
+node test/scheduler-regress.js                                          # vyber prace se neregresoval
 node test/tile-window.js                                                 # dlaždice: okno je spojité
 node test/tile-sets.js                                                   # dlaždice: přepínání sad je bezpečné
 node test/tiles-preview.js                                               # náhled dlaždic se spustí
@@ -252,11 +258,12 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
 ## 4. Stav kódu (co je hotové)
 
 ### Čísla
-- 59 JS souborů, **716** definovaných/used globálů `G.*` (check-globals čisté;
-  část přírůstku je z paralelní práce na výbavě postav).
-- Testy: headless-smoke **77** + tile-window **10** + tiles-preview **5** +
-  foundry **19** + foundry-game **13** + figures **12** + props **11** +
-  units-ai **5** kontrol, deterministicky.
+- 60 JS souborů, **754** definovaných/used globálů `G.*` (check-globals čisté).
+- Testy: headless-smoke **88** + coherence (K1: 82 záměrů / 274 kroků, K3: 5 kontrol)
+  + scheduler-regress **8** + tile-window **10** + tiles-preview **5** +
+  tile-transition **11** + tile-sets + foundry **19** + foundry-game **13** +
+  figures **12** + props **11** + units-ai **5** + art-assets kontrol,
+  deterministicky.
 - Svět: **64×48 dlaždic**, **10 sídel**, ~220 uzlů (generuje se ze seedu).
 - Dlaždice: assety jsou **torusy** (`wrap` 1,93), kreslí se jako **okno do
   textury** ve světových souřadnicích — `seam/zrno` 0,78, perioda 6 dlaždic.
@@ -320,6 +327,16 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
 | Boot | `js/main.js` |
 
 ### Feature inventář (podle oblastí)
+- **Záměry → plán → mezera** (`js/systems/goals.js`, Fáze A+B 2026-10-04):
+  hráč zadá záměr (`stock` / `train` / `campaign` / `explore` / `prestige`),
+  plánovač ho rozloží na kroky (`G.planGoal` — čistá funkce), kroky se měří
+  proti stavu (`G.measureStep`) a mezera se převádí na jednotky práce
+  (`G.stepGap`). Rozdělovac (`stepBoost` v `autonomy.js`) práci na chybějícím
+  kusu zvýhodní: `w = 1 + 6 × (mezera/potřeba) × naléhavost`; **bez záměrů je to
+  ×1**, takže dnešní chování zůstává. Směrnice `focusMaterial` je od Fáze A
+  zkratka nad záměrem, ne sourozenec.
+  **Záměr zatím nelze splnit jedním kliknutím** — panel, rozpadové váhy,
+  deník kroků a `takeControl` jsou Fáze C.
 - **Menu/UI**: záložky/podzáložky, HUD, **lišta surovin pod HUD** (mobil: posuvná,
   sbalovací), **☰ menu** (pokračovat/nová hra/smazat, přepínače), **auto-pokračování**
   při načtení stránky (menu se neukazuje, když je save), log s filtry/hledáním,
@@ -443,11 +460,14 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
 | `docs/UKOLY_A_VYROBA.md` | zakázky, escort, automatika, výroba, dílny na základně | aktuální |
 | `docs/BOJ.md` | boj (automatický, kill questy, explore) | aktuální |
 | `docs/STYL_GRAFIKY.md` | **rozhodnutí cesty C (hybrid)**; §8 dlaždice (bezešvá mapa), §9 lokální ComfyUI, §10 malované postavy, §11 foundry, §12 jedna paleta, §13 sjednocený model postavy, §14 vrstva 3 (ilustrace), §15 srovnání balíčků | aktuální (2026-09-16) |
-| `docs/ARCHITEKTURA_PREMISA.md` | **herní architektura** — záměr → plán → mezera → rozdělovac; koherenční invarianty K1–K7, garance autonomie A1–A4, plán `test/coherence.js` | plán (2026-09-15), nic z něj zatím neprovedeno |
-| `docs/PROMPT_IDLE_REALM.md` | **co udělat a v jakém pořadí** (fáze A–F, brány, akceptační kritéria) k `ARCHITEKTURA_PREMISA.md` | zadání (2026-09-15), neprovedeno |
+| `docs/ARCHITEKTURA_PREMISA.md` | **herní architektura** — záměr → plán → mezera → rozdělovac; koherenční invarianty K1–K7, garance autonomie A1–A4 | **§2.2 Fáze A a §2.3 Fáze B PROVEDENY** (2026-10-04); další je Fáze C |
+| `docs/PROMPT_IDLE_REALM.md` | **co udělat a v jakém pořadí** (fáze A–F, brány, akceptační kritéria) k `ARCHITEKTURA_PREMISA.md` | zadání (2026-09-15); A ✅, B ✅, další C |
+| `docs/PRECHODY_TERENU.md` | ostré hrany mezi dlaždicemi: příčina, měření, prolnutí terénů, foundry jako vrstva | aktuální (2026-09-20) |
 
-> **⚠ Oba nové dokumenty jsou PLÁN, ne stav.** Obsahují opravu zastaralých tvrzení
-> z `TECHNICKY_DOKUMENT.md` a `PLAN_VYVOJE.md` (§2.1 v `ARCHITEKTURA_PREMISA.md`).
+> **⚠ Tyto dva dokumenty jsou plán I ZÁZNAM o tom, co z něj vzniklo.** §2.2 a §2.3
+> `ARCHITEKTURA_PREMISA.md` říkají, co je hotovo a co zůstalo nedělané — čti je
+> dřív než §8 (roadmap). Obsahují opravu zastaralých tvrzení z
+> `TECHNICKY_DOKUMENT.md` a `PLAN_VYVOJE.md` (§2.1).
 > **Živý stav hry je §4 tohoto dokumentu**, ne ty plány.
 
 ---
@@ -520,35 +540,46 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
 
 ## 8. Git — jak je to teď
 
-- Poslední commit: **vrstva 3 — pipeline pro ilustrace** (`grade_art.py` +
-  `check-art.py` se selftestem). Před ním **foundry drží paletu** (štětce
-  centrované na základ), **sjednocený model postavy**, **ladění foundry**,
-  **jedna paleta**, **foundry** a **Stage 0 dlaždic**. Viz `git log`.
-- **Pracovní strom NENÍ čistý** — běží v něm paralelní práce na **výbavě postav
-  a skupinách/expedicích** (`js/main.js`, `js/systems/{misc,combat,economy,expeditions,groups,units}.js`,
-  `js/ui/{panels,trade,ui,title_screen,combat_modal}.js`, `css/style.css`,
-  `index.html`, `README.md`, `docs/{BOJ,TECHNICKY_DOKUMENT}.md`, část
-  `docs/HANDOFF.md`). Ta není moje; při commitu stage **jen svoje soubory**
-  (viz pasti č. 17–18).
-- Při push nezapomeň na `-c http.sslBackend=openssl` (viz §2) — v sandboxu
-  `workspace-write` push spadne (`sh.exe: couldn't create signal pipe`), je
-  potřeba širší oprávnění.
+- Poslední commity (**2026-10-04**): **fáze B** herní architektury —
+  B5 (parita offline K3 + tři opravy, které parita odhalila), B4 (rozdělovac
+  přes mezeru + regresní brána), B3 (brána K1 `test/coherence.js`),
+  B1+B2 (plánovač a mezera). Před nimi **fáze A** (registry záměrů) a
+  **přechody terénů** mezi dlaždicemi. Viz `git log`.
+- **Na `main` je 6 commitů navíc oproti `origin/main`** — push nebyl proveden
+  (a nemá se bez vysloveného pokynu, viz §2).
+- V pracovním stromu je `extracted/` (nezahlazený) — cizí výstup paralelní práce,
+  auditní dokumenty z jiného repo. **Není to můj soubor, necommitovat.**
+- Při push nezapomeň na `-c http.sslBackend=openssl` (viz §2).
 
 ---
 
 ## 9. Okamžité „další kroky" pro nový chat
 
-1. Zkontroluj `git status` / `git log` a ujisti se, že navazuješ na poslední stav
-   (a co je cizí rozdělaná práce — viz §8).
-2. **Hotové:** svět (64×48), LOD, backlog, audit menu, AI dlaždice (bezešvé
-   a měřené), AI postavy, **foundry (světová vrstva mapy)**, **jedna paleta**,
-   **nezávislý vzhled postav**, **sjednocený model postavy s erbem role**,
-   **pipeline pro ilustrace vrstvy 3**.
-   **Další v řadě:** doladit foundry a paletu **okem** (§6 body 1–2),
+1. Zkontroluj `git status` / `git log` a ujisti se, že navazuješ na poslední stav.
+2. **Herní architektura: Fáze A ✅ a Fáze B ✅** (2026-10-04). Co vzniklo, co
+   zůstalo a tři chyby, které brány našly: `ARCHITEKTURA_PREMISA.md` **§2.3**.
+   **Další je Fáze C** (`PROMPT_IDLE_REALM.md` §4): panel záměrů s kroky a
+   mezerou, rozpadové váhy u postavy („proč ta právě tohle dělá"),
+   `takeControl`/`releaseControl` jako API, deník postavy.
+   - ⚠ **Co Fáze B úmyslně NEudělala:** autonomie umí zvýhodnit práci na kus,
+     který záměr žádá, ale **neumí sama záměr splnit** — výbava, odjezd na
+     expedici a návštěva sídla zůstávají na hráči. `getGoalBoard` stále počítá
+     postup přímo z parametrů, ne z kroků.
+   - ⚠ **Nerozhodnuté a čeká na tebe:** při offline simulaci se nespouštějí
+     náhodné události, takže svět po návratu není úplně stejný (naměřeno 4,3 %
+     práce za hodinu). Má být to tak, nebo se mají události přehrát i za
+     nepřítomnosti? Změna je věc Fáze C/E, ne tichá oprava.
+3. **Hotové:** svět (64×48), LOD, backlog, audit menu, AI dlaždice (bezešvé
+   a měřené), AI postavy, **foundry**, **jedna paleta**, **nezávislý vzhled
+   postav**, **sjednocený model postavy**, **pipeline pro ilustrace**,
+   **přechody terénů mezi dlaždicemi**, **záměr → plán → mezera → rozdělovac**.
+   **Další v řadě (grafika):** doladit foundry a paletu **okem** (§6 body 1–2),
    **vybrat vzhled** (§6 bod 3) a podle něj **regenerovat sprity** (§6 bod 4)
    a **vygenerovat ilustrace** (§6 bod 5).
-3. Než začneš měnit vzhled mapy nebo postav, otevři `tools/tiles/preview.html`
+4. Než začneš měnit vzhled mapy nebo postav, otevři `tools/tiles/preview.html`
    (náhled z reálného kódu: dlaždice, švy, foundry, paleta, postavy) a spusť
    `python scripts/check-tiles.py` — čísla jsou v `docs/STYL_GRAFIKY.md` §8,
    §11, §12 a §13.
-4. Po každé fázi: sedm kontrol + commit + push (viz §2).
+5. Po každé fázi: všechny kontroly + commit + push (viz §2). **U reference
+   `test/fixtures/scheduler-baseline.json` se zapisuje `--record` + důvod** —
+   bez důvodu je to promlčení změny, ne záznam.

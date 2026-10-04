@@ -2,8 +2,10 @@
 
 > **Druh dokumentu:** ZADÁNÍ PRO POKRAČOVÁNÍ VÝVOJE (ne stav, ne kronika — je to
 > pokyn, co udělat a v jakém pořadí; jeho stav je v [`ARCHITEKTURA_PREMISA.md`](./ARCHITEKTURA_PREMISA.md)).
-> **Vznik:** 2026-09-15 · **Datum spotřeby:** 2026-09-15 — zatím neprovedeno.
+> **Vznik:** 2026-09-15 · **Datum spotřeby:** 2026-09-15 (Fáze A), 2026-10-04 (Fáze B).
 > **Čtení:** agent nebo člověk, kdo session nezná repo. Postupuj krok za krokem.
+> **Stav po Fázi B:** A ✅, B ✅ (§4), další je C. Co přesně vzniklo a co zůstalo
+> nedokončené, je v [`ARCHITEKTURA_PREMISA.md`](./ARCHITEKTURA_PREMISA.md) §2.3.
 > **Předpoklad:** Vanilla JS (ES6+), žádný build, žádná závislost, žádný framework.
 > Hra běží otevřením `index.html`.
 
@@ -115,19 +117,23 @@ Toto je celý návrh v pěti větách. Detaily a důvody jsou v
 **Brána A:** `check-globals.ps1` 0 problémů · `node test/headless-smoke.js` OK ·
 + 3 testy v `headless-smoke` (záměr vzniká, zruší se, přežije save/load).
 
-### FÁZE B — plánovač a mezera *(jádro)*
-| # | Úkol | Hotovo, když |
-|---|---|---|
-| B1 | `planner`: záměr → kroky, čistá funkce | `campaign` lov draků má ≥ 5 kroků; `stock` má 1 |
-| B2 | `gap`: krok → mezera | mezera klesá, když jednotka pracuje na správném uzlu |
-| B3 | **Brána dosažitelnosti (K1)**: každý krok splnitelné existující aktivitou | test je zelený **na záměrech, které umí vzniknout** — ne na prázdném seznamu |
-| B4 | Rozdělovac přes `gap` | **bez záměrů je výběr práce stejný jako dnes** (regresní test) |
-| B5 | Plánovač běží v offline simulaci | 1 h offline == 1 h živě do 1 % hodnot |
+### FÁZE B — plánovač a mezera *(jádro)* — ✅ **HOTOVO 2026-10-04**
+| # | Úkol | Hotovo, když | Naměřeno |
+|---|---|---|---|
+| B1 | `planner`: záměr → kroky, čistá funkce | `campaign` lov draků má ≥ 5 kroků; `stock` má 1 | `dragon_hunt` + družina 3 = **7 kroků** |
+| B2 | `gap`: krok → mezera | mezera klesá, když jednotka pracuje na správném uzlu | `stepGap = (potřeba − má) × práce na kus` |
+| B3 | **Brána dosažitelnosti (K1)**: každý krok splnitelné existující aktivitou | test je zelený **na záměrech, které umí vzniknout** — ne na prázdném seznamu | `test/coherence.js`: 82 záměrů z herních dat / 274 kroků |
+| B4 | Rozdělovac přes `gap` | **bez záměrů je výběr práce stejný jako dnes** (regresní test) | `test/scheduler-regress.js` proti zaznamenané referenci; scénář se záměrem hráče se oproti tomu **liší** |
+| B5 | Plánovač běží v offline simulaci | 1 h offline == 1 h živě do 1 % hodnot | krok simulace sjednocen s živým během; shoda pod 1e-6 %. Zbylý rozdíl 4,3 % práce je **záměrný** (při offline se nespouštějí náhodné události) |
 
-**Brána B:** vše výše + `check-actions.ps1` 0 mrtvých.
+**Brána B:** vše výše + `check-actions.ps1` 0 mrtvých. ✅
 
 > ⚠ **B4 je nejdůležitější test v tomto plánu.** Dokazuje, že refaktor nerozbil hru.
 > Napiš ho *před* B4, ať umí selhat — a pak ho zkontroluj vrácenou vadou (viz §6).
+> **Stalo se:** první verze té brány neprošla vlastní kontrolou reprodukovatelnosti
+> (scénář běžel dvakrát a dával jiný otisk) a první verze K3 tikala po 0,1 s přímo,
+> takže mutace kroku v `simulateOffline` jí prošla. Obě se opravily *tím*, že brána
+> začala volat to, co má hlídat. Podrobnosti v `ARCHITEKTURA_PREMISA.md` §2.3.
 
 ### FÁZE C — vedení viditelné hráči
 | # | Úkol | Hotovo, když |
@@ -176,8 +182,9 @@ když chybí cesta k zdroji. **Pořadí podle tohoto pravidla, ne podle „co by
 |---|---|---|
 | Globály | `scripts\check-globals.ps1` | 0/723 |
 | UI akce | `scripts\check-actions.ps1` | 0 mrtvých z 88 |
-| Chod hry | `node test\headless-smoke.js` | 77 kontrol OK |
-| **Koherence** | `node test\coherence.js` **(nový)** | — |
+| Chod hry | `node test\headless-smoke.js` | 88 kontrol OK |
+| **Koherence** | `node test\coherence.js` | ✅ **K1 + K3** |
+| **Neregrese rozdělovace** | `node test\scheduler-regress.js` | ✅ 8 kontrol |
 
 > ⚠ **Toto jsou brány této architektury, ne celý seznam kontrol projektu.**
 > Projekt má i brány grafiky (dlaždice, foundry, postavy, ilustrace) — úplný seznam
@@ -185,11 +192,14 @@ když chybí cesta k zdroji. **Pořadí podle tohoto pravidla, ne podle „co by
 > (grafika spadá, když rozbiješ `index.html` nebo `render/`).
 > **Spouštěj všechny, ne jen čtyři výše.**
 
-`coherence.js` dokazuje, co ostatní dokázat nemohou: **každý záměr je dosažitelný**,
-**každý spotřebovávaný zdroj je řiditelný**, **offline dělá stejnou hru**.
+`coherence.js` dokazuje, co ostatní dokázat nemohou: **každý záměr je dosažitelný**
+a **offline dělá stejnou hru**. `scheduler-regress.js` dokazuje, co dokazuje
+žádná z nich: **že rozdělovac stále vybírá práci jako před refaktorem** — a zároveň
+že nová věc (kroky záměrů) skutečně přesouvá práci, když záměr existuje.
+`K2` (každý spotřebovávaný zdroj je řiditelný) v plánu ještě není.
 
 ### Jak psát bránu, která opravdu měří
-Tři pravidla z tohoto stanice, která stojí za to, aby byla napsaná:
+Pět pravidel z tohoto stanice, která stojí za to, aby byla napsaná:
 
 1. **Test bez `assert` a bez `sys.exit(1)` není test.** Naměřeno: test vypsal `CHYBA`
    a skončil `exit 0` — v CI zelený.
@@ -199,7 +209,13 @@ Tři pravidla z tohoto stanice, která stojí za to, aby byla napsaná:
 3. **Brána o přítomnosti ne měří chování.** `has_method('save')` projde i nad souborem,
    který při spuštění spadne. **Musí zavolat kód a ověřit výsledek**; soubor, který
    součástí být má, musí při nenačtení **selhat**.
-4. **Když test čte číselnou hodnotu z jiného souboru, vypiš, odkud.** Různé čítače
+4. **Brána musí volat to, co má hlídat — ne jeho náhradu.** Naměřeno v této fázi:
+   brána K3 porovnávala `simulateOffline` s ručním tikáním po 0,1 s, takže mutace
+   kroku *uvnitř* `simulateOffline` prošla (exit 0) — brála o něčem jiném.
+5. **Prázdný vstup je zelený výsledek, ne výsledek.** Cyklus při prázdném seznamu
+   ničeho neověří. Když se brána opírá o seznam z herních dat, tvrď i jeho
+   délku — jinak mlčí ve chvíli, kdy data chybí.
+6. **Když test čte číselnou hodnotu z jiného souboru, vypiš, odkud.** Různé čítače
    nesou stejné jméno; čtenář musí umět číslo vyvrátit.
 
 ---
