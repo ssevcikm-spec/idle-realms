@@ -204,6 +204,19 @@
     } catch (e) { return { ok:false, reason:'Chyba: ' + e.message }; }
   };
 
+  /**
+   * Fáze C4 (K5): vybraný objekt na mapě. UI na něj míří ze dvou stran
+   * (kliknutí v `world.js`, tlačítka v `ui.js`) — jedno místo, kam se píše,
+   * jinak by „co je vybrané" mělo tolik zdrojů, kolik je kliknutí.
+   * Vrací novou hodnotu, aby šlo vybrat i v řetězci.
+   */
+  G.selectTarget = function (sel) {
+    if (sel == null) G.state.selected = null;
+    else if (typeof sel === 'string') G.state.selected = { type: sel };
+    else G.state.selected = sel;
+    return G.state.selected;
+  };
+
   G.matAdd = function (matId, qty, quality) {
     qty = Math.floor(qty); if (qty <= 0) return;
     quality = quality || 'common';

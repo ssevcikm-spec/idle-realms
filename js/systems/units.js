@@ -75,6 +75,23 @@
     return u;
   };
 
+  /**
+   * Fáze C4 (K5): najmout postavu jako JEDNA operace. UI dřív odečítalo zlata a
+   * strkalo postavu do `state.units` přímo (`ui.js`), takže kdo jen chtěl
+   * najmout, musel vědět, jak se toho penězní dotknout. Peníze jsou jedno místo
+   * v repu — tady.
+   */
+  G.recruitUnit = function (name, opts) {
+    if (!G.state.units) return { ok: false, reason: 'Hra nemá postavy.' };
+    const cost = G.recruitCost ? G.recruitCost() : 0;
+    const gold = (G.state.resources && G.state.resources.gold) || 0;
+    if (gold < cost) return { ok: false, reason: 'Nedostatek zlata.', cost: cost, gold: gold };
+    G.state.resources.gold = gold - cost;
+    const u = G.createUnit(name, opts);
+    G.state.units.push(u);
+    return { ok: true, unit: u, cost: cost };
+  };
+
   G.unitTraitMod = function (unit, key, def) {
     if (def === undefined) def = 1;
     let m = def;
