@@ -29,6 +29,12 @@
     };
     if (opts.buildJobId) t.buildJobId = opts.buildJobId;
     if (opts.quiet) t.quiet = true;
+    // Fáze C2 (garance A2): automatické přiřazení si nese rozpadové váhy —
+    // „proč ta právě tohle dělá". Ruční příkaz hráče váhy nemá a nevymýšlí si je.
+    if (opts.weights && opts.weights.length) {
+      t.weights = opts.weights;
+      t.weight = opts.weight;
+    }
     if (opts.site) { t.site = { x: opts.site.x, y: opts.site.y }; t.siteName = opts.siteName || null; }
     G.state.tasks.push(t);
     for (const uid of t.unitIds) { const u = G.getUnit(uid); if (u) { u.assignedTaskId = t.id; u.status = 'working'; } }

@@ -59,7 +59,10 @@
       G.startTask(pick.act.id, [u.id], {
         nodeId: pick.node.id,
         targetQty: pick.act.mode === 'quantity' ? Math.max(3, Math.floor((pick.act.defaultQty || 10) / 2)) : 1,
-        auto: true
+        auto: true,
+        // Garance A2: úkol si nese důvod, proč ho dostala právě TATO postava.
+        weights: pick.factors,
+        weight: pick.w
       });
     }
   };
@@ -77,10 +80,16 @@
    *  3) Váha je součin NEBO součet přes kroky? Součet přes kroky, které právě
    *     TATO aktivita posouvá — dvě různé aktivity si tak nekupují váhu
    *     navzájem.
+   *
+   * Fáze C2: vrací i rozpadové váhy (garance A2 — „každé přiřazení má uložené
+   * rozpadové váhy"). Přírůstky se SČÍTAJÍ do jediného násobku `1 + Σ`, aby šel
+   * celý rozklad vypsat jako součin, stejně jako ostatní násobky.
    */
   function stepBoost(actId, steps) {
-    if (!steps || !steps.length) return 1;
+    const out = { boost: 1, factors: [] };
+    if (!steps || !steps.length) return out;
     let boost = 1;
+    let prispevku = 0;
     for (const entry of steps) {
       if (!entry || !entry.step) continue;
       const goal = entry.goal, step = entry.step;
@@ -96,9 +105,29 @@
       const frac = Math.max(0, Math.min(1, (needed - (step.qty || 0)) / needed));
       if (frac <= 0) continue;
       boost += 6 * frac * ((goal.priority == null ? 50 : goal.priority) / 100);
+      prispevku++;
     }
-    return boost;
+    if (prispevku) {
+      out.factors.push({
+        id: 'goal',
+        text: prispevku === 1 ? 'mezera kroku záměru' : `mezera ${prispevku} kroků záměrů`,
+        value: boost
+      });
+    }
+    return out;
   }
+
+  /**
+   * ROZKLAD VAH (Fáze C2, garance A2). Násobí stejná čísla, která rozhodla o
+   * výběru práce, a je to JEDINÝ součin, který znají i UI i brána — kdyby si
+   * každý svůj, ukázalo by „×4,6", rozhodlo „×4,7" a nikdo by nevěděl proč.
+   */
+  G.weightsTotal = function (factors) {
+    if (!factors || !factors.length) return 1;
+    let t = 1;
+    for (const f of factors) t *= (f && f.value != null ? f.value : 1);
+    return t;
+  };
 
   function pickActivity(unit, steps) {
     const cands = [];
@@ -119,26 +148,33 @@
       if (dir.avoidDanger && danger >= 2) continue;
       const dist = Math.hypot(node.x - unit.pos.x, node.y - unit.pos.y);
       const lvl = G.unitSkill(unit, a.skill);
-      let w = (1 + lvl*lvl*0.12) / (1 + dist*0.07);
-      if (unit.traits.some(t => t.id === 'likes_nature') && (a.skill === 'woodcutting' || a.skill === 'herbalism')) w *= 2.2;
-      if (unit.traits.some(t => t.id === 'likes_stone') && a.skill === 'mining') w *= 2.2;
-      if (prof && prof.primary === a.skill) w *= 2.5;
-      if (prof && prof.bonus && prof.bonus[a.skill]) w *= 1.5;
-      if (G.timeWorkMod) w *= G.timeWorkMod(a.skill);
+
+      // ROZKLAD VAH (garance A2). Každý násobek si zapíše, CO byl a JAKÝ byl.
+      // Váha pak NENÍ napsána znovu od rukou — vznikne jako součin právě těchto
+      // čísel, takže „proč ta právě tohle dělá" nemůže lhát oproti tomu, podle
+      // čeho se opravdu rozhodlo.
+      const f = [];
+      f.push({ id: 'skill', text: `dovednost ${lvl}`, value: 1 + lvl*lvl*0.12 });
+      f.push({ id: 'dist', text: `vzdálenost ${Math.round(dist)}`, value: 1 / (1 + dist*0.07) });
+      if (unit.traits.some(t => t.id === 'likes_nature') && (a.skill === 'woodcutting' || a.skill === 'herbalism')) f.push({ id: 'trait', text: 'rád přírodu', value: 2.2 });
+      if (unit.traits.some(t => t.id === 'likes_stone') && a.skill === 'mining') f.push({ id: 'trait', text: 'rád kámen', value: 2.2 });
+      if (prof && prof.primary === a.skill) f.push({ id: 'prof', text: 'povolání — hlavní', value: 2.5 });
+      if (prof && prof.bonus && prof.bonus[a.skill]) f.push({ id: 'prof', text: 'povolání — bonus', value: 1.5 });
+      if (G.timeWorkMod) f.push({ id: 'time', text: 'období', value: G.timeWorkMod(a.skill) });
       // KROKY ZÁMĚRŮ (Fáze B4) — poslední a jediné, co přidává. Bez záměrů
       // je to ×1, takže dnešní výběr práce zůstává beze změny.
-      w *= stepBoost(a.id, steps);
+      for (const sf of stepBoost(a.id, steps).factors) f.push(sf);
       if (dir.focusMaterial && a.output && a.output.some(o => o.material === dir.focusMaterial)) {
         const have = G.matCount(dir.focusMaterial);
         const target = dir.focusTarget || 30;
-        if (have < target) w *= 8;
-        else if (have < target * 2) w *= 1.5;
+        if (have < target) f.push({ id: 'focus', text: 'směrnice — nedostatek', value: 8 });
+        else if (have < target * 2) f.push({ id: 'focus', text: 'směrnice — ještě daleko', value: 1.5 });
       } else if (a.output) {
         let need = 0;
         for (const o of a.output) need = Math.max(need, materialNeed(o.material));
-        if (need > 0) w *= 1 + need * 6;
+        if (need > 0) f.push({ id: 'need', text: 'chybí surovina', value: 1 + need * 6 });
       }
-      cands.push({ act: a, node, w });
+      cands.push({ act: a, node, w: G.weightsTotal(f), factors: f });
     }
     if (!cands.length) return null;
     let total = 0;

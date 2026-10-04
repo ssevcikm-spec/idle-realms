@@ -1,4 +1,4 @@
-// control.js — brána Fáze C3+C4: vedení viditelné hráči (docs/PROMPT_IDLE_REALM.md §4).
+// control.js — brána Fáze C: vedení viditelné hráči (docs/PROMPT_IDLE_REALM.md §4).
 //
 // Použití:  node test/control.js
 // Exit 0 = OK, exit 1 = chyba.
@@ -7,6 +7,8 @@
 //   A4 / C3  hráč si bere postavu na sebe — přes API, ne přímou mutací UI.
 //             Vzetí kontroly ji vyřadí z ROZDĚLOVÁNÍ, ale rozestavěnou práci
 //             nepřepne (postava dokončí, co dělá).
+//   A2 / C2  každé automatické přiřazení má uložené rozpadové váhy a součin
+//             těch vah JE váha, podle které rozdělovac rozhodl.
 //   K5 / C4  UI nemutuje `state` mimo `G.*` API.
 //
 // ⚠ BRÁNA, KDE JE SNADNÉ MLČET — dvě místa, obě tady otevřeně:
@@ -29,7 +31,7 @@ const fs = require('fs');
 const path = require('path');
 const { boot, makeRunner, ROOT } = require('./_boot.js');
 
-const run = makeRunner('brána vedení (C3 takeControl, C4 čisté UI)');
+const run = makeRunner('brána vedení (C2 rozpad vah, C3 kontrola, C4 čisté UI)');
 const { check, assert } = run;
 
 /* ---------- nástroj: kód bez komentářů ---------- */
@@ -211,5 +213,119 @@ check('K5: vzor v kontrolovaném souboru umí být i v komentáři (brána neum�
     'stripComments smazal i skutečný kód — brána by mlčela i nad vrácenou vadou');
 });
 
-run.finish('postavy v nové hře: ' + G.state.units.length +
-  ', vzory K5: 4, celkem kontrol: ' + 11);
+/* ================= C2 — rozpad vah u postavy (garance A2) ================= */
+
+check('C2: automatické přiřazení si nese rozpadové váhy', () => {
+  const u = makeAssignable(worker());
+  distribTick();
+  assert(u.assignedTaskId, 'postava nedostala úkol — rozpad vah není co ověřovat');
+  const t = G.state.tasks.find(x => x.id === u.assignedTaskId);
+  assert(t && t.auto, 'úrok nebyl automatický — pak nemá rozklad vah (ruční příkaz hráče váhy nemá)');
+  assert(Array.isArray(t.weights) && t.weights.length > 0,
+    'automatický úkol nemá uložené váhy (A2 porušena): ' + JSON.stringify(t.weights));
+});
+
+check('C2: součin rozkladu JE váha, podle které se rozhodlo (ne „vypadá to podobně")', () => {
+  const r = pickWithGoal();
+  assert(r.pick, 'přes ' + r.zkouseli + ' kandidátů nemá žádný faktor `goal` — kontrola by mlčela');
+  // ⚠ SOUČIN SE POČÍTÁ ZDE, NE PŘES `G.weightsTotal`. První verze té kontroly
+  // volala `G.weightsTotal(t.weights)` a porovnávala to s `t.weight` — jenže
+  // `t.weight` SÁ vzniká jako `G.weightsTotal(f)`. Obě strany tedy počítal
+  // stejný kód a musely se shodovat, i když byl rozklad špatně. Naměřeno
+  // 5. 10. 2026: mutace, která při součinu vynechala faktor `goal`, prošla
+  // touto kontrolou a chytila ji až jiná. Měřidlo nesmí být to, co měří.
+  let soucin = 1;
+  for (const f of r.pick.factors) soucin *= f.value;
+  assert(soucin === r.pick.w,
+    'součin rozkladu ' + soucin + ' se liší od váhy ' + r.pick.w +
+    ' — UI by ukázalo jiné číslo, než podle čeho se rozhodlo');
+  console.log('     (kandidát z ' + r.zkouseli + ' pokusů, ' + r.pick.factors.length + ' faktorů)');
+});
+
+check('C2: G.weightsTotal není jen jiná věta pro stejný součet', () => {
+  // Druhá polovina téže pasti: i když test součin počítá sám, UI používá
+  // `G.weightsTotal`. Kdyby se ta funkce rozešla s tím, co ukazuje rozklad,
+  // hráč by na panelu viděl číslo jiné, než podle čeho se postava rozhodla.
+  const r = pickWithGoal();
+  assert(r.pick, 'nepodařilo se najít kandidáta s faktorem `goal`');
+  let soucin = 1;
+  for (const f of r.pick.factors) soucin *= f.value;
+  assert(G.weightsTotal(r.pick.factors) === soucin,
+    'G.weightsTotal dává ' + G.weightsTotal(r.pick.factors) + ', součin rozkladu je ' + soucin);
+  assert(G.weightsTotal([]) === 1, 'prázdný rozklad nemá být ×1 — to by znamenalo „nic nevím"');
+});
+
+check('C2: každý faktor má smyslový údaj a kladnou hodnotu', () => {
+  const u = makeAssignable(worker());
+  distribTick();
+  const t = G.state.tasks.find(x => x.id === u.assignedTaskId);
+  assert(t && t.weights, 'předpoklad: úkol má rozklad vah');
+  for (const f of t.weights) {
+    assert(f && typeof f.id === 'string' && f.id, 'faktor bez `id`: ' + JSON.stringify(f));
+    assert(typeof f.text === 'string' && f.text.length > 0,
+      'faktor `' + f.id + '` nemá popisek — hráč by viděl ×2,2 bez věty, co to je');
+    assert(typeof f.value === 'number' && isFinite(f.value) && f.value > 0,
+      'faktor `' + f.id + '` má nekladnou/nečíselnou váhu: ' + f.value);
+  }
+  // PATRO: rozklad musí obsahovat ZÁKLAD, ne jen to, co se zrovna uplatnilo.
+  // Bez toho by prázdný seznam (0 faktorů) prošel jako „váhy jsou v pořádku".
+  const ids = t.weights.map(f => f.id);
+  assert(ids.indexOf('skill') !== -1, 'v rozkladu není dovednost — bez ní se nedá odhadnout, proč si vybralo tuhle práci');
+  assert(ids.indexOf('dist') !== -1, 'v rozkladu není vzdálenost');
+});
+
+/**
+ * Kandidát rozdělování, jehož rozklad OPRAVDU obsahuje tlak záměru.
+ *
+ * Proč to není „vyberme postavu a doufejme": první verze té kontroly nechala
+ * rozdělovat naslepo a pak předpokládala, že postava zvolí právě aktivitu, kterou
+ * záměr žádá. Nezvolila — výběr je náhodný, takže kontrola buď mlčela, nebo padla
+ * podle toho, kdo ji předtím spustil. Tady se záměr zkusí u každé suroviny a u
+ * každé postavy, dokud nějaký kandidát faktor `goal` OPRAVDU má.
+ */
+function pickWithGoal() {
+  let zkouseli = 0;
+  for (const mat of Object.keys(G.MATERIALS)) {
+    for (const u of G.state.units) {
+      if (u.dead || u.isChild || u.onExpedition) continue;
+      makeAssignable(u);
+      const goal = G.newGoal('stock', { material: mat, qty: 999 }, { priority: 90 });
+      G.tickGoals();
+      const pick = G.pickActivity(u, G.listActiveSteps());
+      G.cancelGoal(goal.id, 'brána');
+      zkouseli++;
+      if (pick && pick.factors.some(f => f.id === 'goal')) return { pick: pick, zkouseli: zkouseli };
+    }
+  }
+  return { pick: null, zkouseli: zkouseli };
+}
+
+check('C2: rozklad reaguje na záměr — tlak záměru je v něm vidět (ne dekorace)', () => {
+  const r = pickWithGoal();
+  assert(r.pick, 'přes ' + r.zkouseli + ' kandidátů se nevyskytl ANI JEDEN faktor `goal` — kontrola by mlčela');
+  const g = r.pick.factors.filter(f => f.id === 'goal');
+  assert(g.length === 1, 'v rozkladu je ' + g.length + ' faktorů `goal`, ne 1');
+  assert(g[0].value > 1, 'faktor `goal` je ' + g[0].value + ' — záměr práci nezvýhodnil, ačkoli by měl');
+  assert(/mezera/.test(g[0].text), 'faktor `goal` nemá popisek o mezeře: ' + g[0].text);
+});
+
+check('C2: bez záměru tlak v rozkladu chybí (jinak by byl faktor `goal` jen šum)', () => {
+  const u = makeAssignable(worker());
+  const pick = G.pickActivity(u, []);
+  assert(pick, 'bez záměru rozdělovac nic nevrací — předpoklad selhal');
+  assert(pick.factors.every(f => f.id !== 'goal'),
+    'v rozkladu je faktor `goal`, ale žádný záměr neexistuje: ' +
+    JSON.stringify(pick.factors.filter(f => f.id === 'goal')));
+});
+
+check('C2: ruční příkaz hráče si váhy nevymýšlí', () => {
+  // Kdyby `startTask` přiřadil prázdný rozklad všemu, „váhy jsou uložené" by
+  // platilo i tam, kde o výběru rozhodl člověk, a UI by kreslilo prázdniny.
+  const u = makeAssignable(worker());
+  const node = G.WORLD.nodes[0];
+  const t = G.startTask(Object.keys(G.ACTIVITIES)[0], [u.id], { nodeId: node.id, auto: false });
+  assert(t, 'ruční úkol nevznikl — předpoklad selhal');
+  assert(!t.weights, 'ručnímu příkazu hráče byly přiděleny rozpadové váhy, o kterých nikdo nerozhodoval');
+});
+
+run.finish('postavy v nové hře: ' + G.state.units.length + ', vzory K5: 4');

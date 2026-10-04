@@ -108,7 +108,7 @@ function makeRunner(title) {
   function assert(cond, msg) { if (!cond) throw new Error(msg || 'assert selhal'); }
   function finish(zmereno) {
     console.log('ZMERENO: ' + title + ' — kontrol: ' + passed + ', selhání: ' + failed +
-      (zmereno ? ' (' + zmereno + ')' : ''));
+      (zmereno ? ' | ' + zmereno : ''));
     console.log(failed ? 'VYSLEDEK: CHYBA' : 'VYSLEDEK: OK — ' + title);
     process.exit(failed ? 1 : 0);
   }
