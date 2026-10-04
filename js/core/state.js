@@ -7,6 +7,16 @@
     'idleRealmSave_v5','idleRealmSave_v4','idleRealmSave_v3','idleRealmSave_v2'
   ];
 
+  // Jediný zdroj pravdy pro default směrnic. Dřív byl zkopírovaný na třech
+  // místech a jedno z nich (main.js ensureDefaults) focusTarget ztratilo.
+  G.DEFAULT_DIRECTIVES = { focusMaterial: null, focusTarget: 30, avoidDanger: false };
+  /** Nový objekt směrnic — vždy celý, aby žádné pole nebylo jenom náhodou. */
+  G.newDirectives = function (old) {
+    const d = Object.assign({}, G.DEFAULT_DIRECTIVES, old || {});
+    if (d.focusTarget == null) d.focusTarget = G.DEFAULT_DIRECTIVES.focusTarget;
+    return d;
+  };
+
   G.newState = function () {
     return {
       version: G.SAVE_VERSION,
@@ -27,7 +37,8 @@
       family: { children: [] },
       politics: { factions: {}, lastCheck: 0 },
       dynasty: { generations: 1, names: [], totalBirths: 0, totalDeaths: 0 },
-      directives: { focusMaterial: null, focusTarget: 30, avoidDanger: false },
+      directives: G.newDirectives(),
+      goals: [], goalSeq: 0,
       settings: { difficulty: null, tutorial: true },
       tutorial: null,
       killCounts: { beast: 0, humanoid: 0, monster: 0 },
@@ -115,8 +126,9 @@
     save.family = save.family || { children: [] };
     save.politics = save.politics || { factions: {}, lastCheck: 0 };
     save.dynasty = save.dynasty || { generations: 1, names: [], totalBirths: 0, totalDeaths: 0 };
-    save.directives = save.directives || { focusMaterial: null, focusTarget: 30, avoidDanger: false };
-    if (save.directives.focusTarget == null) save.directives.focusTarget = 30;
+    save.directives = G.newDirectives(save.directives);
+    save.goals = Array.isArray(save.goals) ? save.goals : [];
+    save.goalSeq = save.goalSeq || 0;
     save.pendingStory = null;
     save.stats = save.stats || {};
     ['totalWork','tasksDone','goldEarned','goldSpent','injuries','masterworks','combatsWon','combatsLost',

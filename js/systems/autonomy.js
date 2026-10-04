@@ -129,8 +129,11 @@
   }
   G.pickActivity = pickActivity;
   G.setDirective = function (key, value) {
-    if (!G.state.directives) G.state.directives = { focusMaterial: null, focusTarget: 30, avoidDanger: false };
+    if (!G.state.directives) G.state.directives = G.newDirectives();
     G.state.directives[key] = value;
+    // Směrnice je ZKRATKA nad záměrem, ne sourozenec (viz goals.js). Staré
+    // UI tím dál funguje, ale hra má jediný zdroj pravdy o tom, co hráč chce.
+    if (G.ensureDirectiveGoal) G.ensureDirectiveGoal();
   };
   G.getDirective = function (key) {
     return (G.state.directives || {})[key];

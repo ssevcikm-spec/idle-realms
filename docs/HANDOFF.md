@@ -443,6 +443,12 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
 | `docs/UKOLY_A_VYROBA.md` | zakázky, escort, automatika, výroba, dílny na základně | aktuální |
 | `docs/BOJ.md` | boj (automatický, kill questy, explore) | aktuální |
 | `docs/STYL_GRAFIKY.md` | **rozhodnutí cesty C (hybrid)**; §8 dlaždice (bezešvá mapa), §9 lokální ComfyUI, §10 malované postavy, §11 foundry, §12 jedna paleta, §13 sjednocený model postavy, §14 vrstva 3 (ilustrace), §15 srovnání balíčků | aktuální (2026-09-16) |
+| `docs/ARCHITEKTURA_PREMISA.md` | **herní architektura** — záměr → plán → mezera → rozdělovac; koherenční invarianty K1–K7, garance autonomie A1–A4, plán `test/coherence.js` | plán (2026-09-15), nic z něj zatím neprovedeno |
+| `docs/PROMPT_IDLE_REALM.md` | **co udělat a v jakém pořadí** (fáze A–F, brány, akceptační kritéria) k `ARCHITEKTURA_PREMISA.md` | zadání (2026-09-15), neprovedeno |
+
+> **⚠ Oba nové dokumenty jsou PLÁN, ne stav.** Obsahují opravu zastaralých tvrzení
+> z `TECHNICKY_DOKUMENT.md` a `PLAN_VYVOJE.md` (§2.1 v `ARCHITEKTURA_PREMISA.md`).
+> **Živý stav hry je §4 tohoto dokumentu**, ne ty plány.
 
 ---
 
@@ -451,6 +457,11 @@ python scripts/check-art.py --dir assets/props --mode props              # sprit
 > **Směr je rozhodnutý (2026-09-16): cesta C — hybrid.** Podklad, přechody
 > a dekorace mapy z kódu (foundry), AI jen na alfa sprity/propsy a vrstvu 3
 > (titul, scény, portréty). Zdůvodnění a čísla: `docs/STYL_GRAFIKY.md` §7–8, §11.
+
+> **Tato osa je grafika. Herní architektura je jiná osa** — `docs/ARCHITEKTURA_PREMISA.md`
+> + `docs/PROMPT_IDLE_REALM.md`. Nekolidují: tam jde o to, aby hráč mohl hře říct
+> záměr („připrav lov draků“) a autonomie si sama rozložila, co to znamená.
+> Nejde o pokračování tohoto seznamu ani o jeho náhradu.
 
 1. **Foundry** — ✅ **hotové** (`tileStyle = 'foundry'`, debug panel **D**,
    `docs/STYL_GRAFIKY.md` §11, testy `test/foundry.js` + `test/foundry-game.js`).

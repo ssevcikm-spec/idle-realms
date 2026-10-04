@@ -1229,6 +1229,76 @@ check('auto-pokracovani: se savem se nezastavi na menu', () => {
   for (const sid of brokenSettlements) assert(!!G.state.economy[sid], 'nacteni nedoplnilo ekonomiku sídla ' + sid);
 });
 
+check('zamer: setDirective zalozi stock zamer a zmeneni qty', () => {
+  G.setDirective('focusMaterial', 'iron_ore');
+  let goals = G.listGoals('active').filter(g => g.kind === 'stock' && g.params.material === 'iron_ore');
+  assert(goals.length === 1, 'smernice nezalozila zamer (nalezeno ' + goals.length + ')');
+  const goal = goals[0];
+  assert(goal.via === 'directive', 'zamer neni poznamenan jako zkratka smernice');
+  assert(goal.params.qty === G.state.directives.focusTarget, 'qty zameru nesouhlasí s focusTarget');
+  G.setDirective('focusTarget', 55);
+  assert(goal.params.qty === 55, 'zmena focusTarget nezmenila qty zameru: ' + goal.params.qty);
+  assert(G.listGoals('active').filter(g => g.params.material === 'iron_ore').length === 1,
+    'zmena smernice nesmi zalozit druhy zamer');
+  G.setDirective('focusMaterial', null);
+  assert(G.listGoals('active').filter(g => g.params.material === 'iron_ore').length === 0,
+    'smernice bez materialu nechala zamer viset');
+  G.setDirective('focusTarget', 30);
+});
+check('zamer: cancelGoal a getGoalBoard', () => {
+  const goal = G.newGoal('train', { skill: 'combat', level: 5, minUnits: 2 }, { priority: 60 });
+  assert(!!goal && !!G.getGoal(goal.id), 'newGoal nevytvoril zamer, ktery lze najit');
+  assert(G.listGoals('active').some(g => g.id === goal.id), 'listGoals neukazuje novy zamer');
+  assert(G.newGoal('train', { skill: 'combat' }, {}) === null, 'zamer bez povinneho parametru nesmi vzniknout');
+  assert(G.newGoal('nesmysl', {}, {}) === null, 'neznamy druh zameru nesmi vzniknout');
+  const board = G.getGoalBoard();
+  const row = board.find(r => r.id === goal.id);
+  assert(!!row, 'zamer neni v prehledu');
+  assert(row.label === G.goalLabel('train', goal.params), 'prehled nema spravny nazev zameru');
+  assert(row.progress.need === 2 && typeof row.progress.have === 'number', 'prehled nema spocitan postup');
+  assert(G.cancelGoal(goal.id) === true, 'cancelGoal nezmrazil zamer');
+  assert(G.getGoal(goal.id).status !== 'active', 'zrušeny zamer je stale aktivni');
+  assert(G.cancelGoal(goal.id) === false, 'zruseny zamer nesmi jit zrusit znovu');
+  assert(G.getGoalBoard().every(r => r.id !== goal.id), 'zrušeny zamer porad visi v prehledu');
+});
+check('zamer: prezije save a load', () => {
+  G.setDirective('focusMaterial', 'bread');
+  G.setDirective('focusTarget', 40);
+  const goal = G.directiveGoal();
+  const gid = goal.id, gqty = goal.params.qty;
+  G.save();
+  titleOpts = null;
+  vm.runInThisContext(fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8'), { filename: 'js/main.js' });
+  assert(!!G.state && G.state.goals.length > 0, 'po nacteni nejsou zadne zameri');
+  const again = G.getGoal(gid);
+  assert(!!again, 'zamer ' + gid + ' po nacteni chybi');
+  assert(again.params.qty === gqty && again.params.material === 'bread', 'zamer po nacteni nese jine parametry');
+  assert(G.ensureDirectiveGoal().id === gid, 'nacteni zalozilo DRUHY zamer misto pouziti ulozeneho');
+  G.setDirective('focusMaterial', null);
+});
+check('zamer: stary sav se smernici bez zameru si zamer nedoplni', () => {
+  // Mimo soucasny format: hrac mel smernici, ale jeste neexistovaly zameri.
+  G.setDirective('focusMaterial', 'wood');
+  G.setDirective('focusTarget', 25);
+  G.save();
+  const raw = JSON.parse(localStorageStub.getItem(G.SAVE_KEY));
+  raw.goals = [];
+  raw.goalSeq = 0;
+  localStorageStub.setItem(G.SAVE_KEY, JSON.stringify(raw));
+  // Předpoklad se ptá na ULOZENY SAV, ne na stav po nacteni — jinak by ho
+  // spocital pravopadyne vytvoreny zamer.
+  const onDisk = JSON.parse(localStorageStub.getItem(G.SAVE_KEY));
+  assert(onDisk.goals.length === 0 && onDisk.directives.focusMaterial === 'wood',
+    'predpoklad testu nesplnen: sav na disku neni cisty');
+  titleOpts = null;
+  vm.runInThisContext(fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8'), { filename: 'js/main.js' });
+  const goal = G.directiveGoal();
+  assert(!!goal, 'nacteni nedoplnilo zamer ze smernice');
+  assert(goal.params.material === 'wood' && goal.params.qty === 25,
+    'doplneny zamer nese jine parametry: ' + JSON.stringify(goal.params));
+  G.setDirective('focusMaterial', null);
+});
+
 console.log('');
 if (failed === 0) { console.log('VYSLEDEK: OK — vse funguje'); process.exit(0); }
 else { console.log('VYSLEDEK: ' + failed + ' chyb'); process.exit(1); }

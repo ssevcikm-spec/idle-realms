@@ -146,7 +146,11 @@
     s.family = s.family || { children: [] };
     s.politics = s.politics || { factions: {}, lastCheck: 0 };
     s.dynasty = s.dynasty || { generations: 1, names: [], totalBirths: 0, totalDeaths: 0 };
-    s.directives = s.directives || { focusMaterial: null, avoidDanger: false };
+    s.directives = G.newDirectives(s.directives);
+    s.goals = Array.isArray(s.goals) ? s.goals : [];
+    s.goalSeq = s.goalSeq || 0;
+    // starý sav má směrnici, ale žádný záměr — zkratka se musí nadoplnit
+    if (G.ensureDirectiveGoal) G.ensureDirectiveGoal();
     s.settings = s.settings || { difficulty: null, tutorial: true };
     s.expeditions = s.expeditions || [];
     s.masterworks = s.masterworks || [];
