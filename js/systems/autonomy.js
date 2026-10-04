@@ -13,6 +13,9 @@
     // Záměry: přeměření kroků (Fáze B). Musí běžet před výběrem práce —
     // rozdělovac se řídí mezerou, kterou tu měří.
     if (G.tickGoals) G.tickGoals();
+    // Seznam nesplněných kroků se počítá JEDNOU na kolo autonomie, ne pro
+    // každou postavu — je to sním ekvip a plánování je pořád dražší než výběr.
+    const steps = G.listActiveSteps ? G.listActiveSteps() : [];
     // Rozestavěné stavby bez stavitelů zkusí získat nové
     if (G.tickConstruction) G.tickConstruction();
     // Automatická výroba (udržovat zásobu prken, chleba, …)
@@ -64,7 +67,7 @@
         const g = G.getGroup(u.groupId);
         if (g && g.focus) continue;
       }
-      const pick = pickActivity(u);
+      const pick = pickActivity(u, steps);
       if (!pick) continue;
       G.startTask(pick.act.id, [u.id], {
         nodeId: pick.node.id,
@@ -74,7 +77,43 @@
     }
   };
 
-  function pickActivity(unit) {
+  /**
+   * Váha navíc za NESPLNĚNÉ KROKY záměrů (Fáze B4, ARCHITEKTURA_PREMISA §3.4):
+   *   w = 1 + 6 × (mezera / potřeba) × naléhavost
+   *
+   * Tři věci jsou tu záměrné:
+   *  1) Bez nesplněných kroků je výsledek 1 — tedy `w × 1`. Výběr práce je
+   *     PŘESNĚ dnešní, což je brána `test/scheduler-regress.js`.
+   *  2) Záměr ze SMĚRNICE se přeskakuje (`via === 'directive'`): směrnice si
+   *     váhu bere sama níže (×8), a kdyby se přičetla znovu, vycházelo by
+   *     ×8 × 8 a hráč by dostal všechno jiné než dosud.
+   *  3) Váha je součin NEBO součet přes kroky? Součet přes kroky, které právě
+   *     TATO aktivita posouvá — dvě různé aktivity si tak nekupují váhu
+   *     navzájem.
+   */
+  function stepBoost(actId, steps) {
+    if (!steps || !steps.length) return 1;
+    let boost = 1;
+    for (const entry of steps) {
+      if (!entry || !entry.step) continue;
+      const goal = entry.goal, step = entry.step;
+      if (goal.via === 'directive') continue;          // viz bod 2
+      if (step.done) continue;
+      const ids = step.actIds;
+      if (!ids || ids.indexOf(actId) === -1) continue;
+      // `qty` je čerstvé — `tickGoals` přeměřil všechny kroky v TEHLEŽ
+      // začátku kola. Nepřeměřuje se tu znovu: to by se za kolo postavy
+      // opakovalo desetkrát.
+      const needed = step.needed || 0;
+      if (needed <= 0) continue;
+      const frac = Math.max(0, Math.min(1, (needed - (step.qty || 0)) / needed));
+      if (frac <= 0) continue;
+      boost += 6 * frac * ((goal.priority == null ? 50 : goal.priority) / 100);
+    }
+    return boost;
+  }
+
+  function pickActivity(unit, steps) {
     const cands = [];
     const dir = G.state.directives || {};
     const prof = G.professionOf ? G.professionOf(unit) : null;
@@ -99,6 +138,9 @@
       if (prof && prof.primary === a.skill) w *= 2.5;
       if (prof && prof.bonus && prof.bonus[a.skill]) w *= 1.5;
       if (G.timeWorkMod) w *= G.timeWorkMod(a.skill);
+      // KROKY ZÁMĚRŮ (Fáze B4) — poslední a jediné, co přidává. Bez záměrů
+      // je to ×1, takže dnešní výběr práce zůstává beze změny.
+      w *= stepBoost(a.id, steps);
       if (dir.focusMaterial && a.output && a.output.some(o => o.material === dir.focusMaterial)) {
         const have = G.matCount(dir.focusMaterial);
         const target = dir.focusTarget || 30;

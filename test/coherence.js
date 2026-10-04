@@ -113,8 +113,16 @@ function resolves(sat) {
       // ne jen „materiál existuje", ale „umí se získat": vyrobit prací
       // (aktivita/recept) NEBO získat lovem, obchodem, expedicí, stavbou
       return !!G.MATERIALS[sat.id] && (G.materialWork(sat.id) > 0 || G.materialSource(sat.id).length > 0);
-    case 'skill':
-      return !!G.SKILLS[sat.id];
+    case 'skill': {
+      // „Dovednost existuje" nestačí: šest dovedností nemá sběrnou aktivitu
+      // (kovářství, alchymie, kuchařství, řemeslo, obchod, boj). Ty rostou
+      // výrobou, obchodem nebo doprovodem — a plánovač proto vypisuje
+      // konkrétní ZDROJE, které se dají ověřit proti kódu.
+      if (!G.SKILLS[sat.id]) return false;
+      const src = G.skillSources(sat.id);
+      if (!src.length) throw new Error('dovednost ' + sat.id + ' nemá žádný zdroj, kterým by se dala zvednout');
+      return src.some(resolves);
+    }
     case 'recipe':
       return !!G.RECIPES[sat.id];
     case 'activity':

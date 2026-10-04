@@ -239,13 +239,71 @@
     return work / Math.max(1, out);
   };
 
-  /** Suroviny, kterých krok potřebuje — plán je nárok, práci dodá hra. */
+  /**
+ * ČÍM se dá dovednost zvednout — konkrétně a z dat. Šest dovedností nemá
+ * sběrnou aktivitu (kovářství, alchymie, kuchařství, řemeslo, obchod, boj):
+ * ty rostou výrobou, obchodem nebo doprovodem. Kdyby plánovač tvrdil „dovednost
+ * X" a nic jiného, brána K1 by neměla čím tvrzení ověřit — proto se tady
+ * vypisují konkrétní zdroje a každý se dá ověřit proti kódu.
+ */
+  G.skillSources = function (sid) {
+    const out = [];
+    for (const aid in G.ACTIVITIES) if (G.ACTIVITIES[aid].skill === sid) { out.push({ type: 'activity', id: aid }); break; }
+    for (const rid in G.RECIPES) if (G.RECIPES[rid].skill === sid) { out.push({ type: 'recipe', id: rid }); break; }
+    // obchodní dovednost roste, když postava obchoduje (merchant.js:150)
+    if (sid === 'trading' && typeof G.merchantInstantTrade === 'function') out.push({ type: 'api', id: 'merchantInstantTrade' });
+    return out;
+  };
+
+  /**
+   * Suroviny, kterých krok potřebuje — plán je nárok, práci dodá hra.
+   * Číslo u jídla spočítal plánovač (nejdelší možná cesta, aby odjezd
+   * nezkolil střední délkou výpravy).
+   */
   function stepMaterials(step) {
     if (step.kind !== 'have') return [];
     if (step.what === 'food') return [{ material: 'bread', qty: step.needed }];
     if (step.what === 'material' && step.material) return [{ material: step.material, qty: step.needed }];
     return [];
   }
+
+  /**
+   * Aktivity, které krok posouvají. Odvozené z dat, ne ze seznamu v kódu:
+   * materiál jde recepty dolů až k aktivitě (obilí → mouka → chléb), dovednost
+   * k aktivitám, které ji zvyšují, výbava k aktivitám živenícím její recept.
+   * Prázdný seznam = krok práci nežere (odjezd, renomé) — a to je poctivé:
+   * rozdělovac se pak o něj ani nepokouší, místo aby dělal falešnou práci.
+   */
+  G.stepActivities = function (step) {
+    const out = [];
+    const chain = (mat, seen) => {
+      if (!mat) return;
+      seen = seen || {};
+      if (seen[mat]) return;
+      seen[mat] = true;
+      const act = G.activityForMaterial(mat);
+      if (act) { out.push(act.id); return; }
+      const rid = G.PRODUCTION_RECIPES ? G.PRODUCTION_RECIPES[mat] : null;
+      const r = rid && G.RECIPES[rid];
+      if (!r || !r.inputs) return;
+      for (const inp of r.inputs) chain(inp.material, seen);
+    };
+    if (step.kind === 'have') {
+      if (step.what === 'material') chain(step.material);
+      else if (step.what === 'food') { chain('bread'); chain('fish'); }
+    }
+    else if (step.kind === 'skill') {
+      for (const aid in G.ACTIVITIES) if (G.ACTIVITIES[aid].skill === step.id) out.push(aid);
+    }
+    else if (step.kind === 'equip') {
+      for (const sat of (step.satisfiedBy || [])) {
+        if (sat.type !== 'recipe') continue;
+        const r = G.RECIPES[sat.id];
+        if (r && r.inputs) for (const inp of r.inputs) chain(inp.material);
+      }
+    }
+    return out.filter((v, i, a) => a.indexOf(v) === i);
+  };
 
   function mk(goal, kind, extra) {
     const n = goal.plan.length + 1;
@@ -269,8 +327,9 @@
     if (goal.kind === 'stock') {
       const qty = Math.max(1, p.qty || 30);
       mk(goal, 'have', {
-        what: 'material', material: p.material, needed: qty, qty: 0,
-        label: `${qty}× ${G.MATERIALS[p.material] ? G.MATERIALS[p.material].name : p.material}`,
+        what: 'material', material: p.material, quality: p.quality || null, needed: qty, qty: 0,
+        label: `${qty}× ${G.MATERIALS[p.material] ? G.MATERIALS[p.material].name : p.material}` +
+          (p.quality ? ` (${G.QUALITY_LABEL[p.quality] || p.quality})` : ''),
         satisfiedBy: [{ type: 'material', id: p.material }]
       });
     }
@@ -279,7 +338,7 @@
       mk(goal, 'skill', {
         what: 'skill', id: p.skill, level: p.level, units: need, needed: need,
         label: `${need}× ${G.SKILLS[p.skill] ? G.SKILLS[p.skill].name : p.skill} ${p.level}`,
-        satisfiedBy: [{ type: 'skill', id: p.skill }]
+        satisfiedBy: G.skillSources(p.skill)
       });
     }
     else if (goal.kind === 'campaign') {
@@ -299,11 +358,15 @@
       mk(goal, 'skill', {
         what: 'combat', id: 'combat', level: 6, units: party, needed: party,
         label: `${party}× bojovnictví 6`,
-        satisfiedBy: [{ type: 'skill', id: 'combat' }]
+        satisfiedBy: G.skillSources('combat')
       });
+      // Jídlo se počítá podle NEJDLANŠÍ cesty (maxDays), ne průměru:
+      // `startExpedition` hází počet dní náhodně, takže plán podle průměru by
+      // byl „splněný" a výprava by stejně neodjela.
+      const foodNeed = Math.ceil(tpl.maxDays * party * (G.EXPEDITION_FOOD_PER_UNIT_PER_DAY || 0.5));
       mk(goal, 'have', {
-        what: 'food', needed: G.expeditionFoodCost(p.expeditionId, party), qty: 0,
-        label: 'jídlo na cestu',
+        what: 'food', needed: foodNeed, units: party, qty: 0,
+        label: `jídlo na cestu (${foodNeed} na ${tpl.maxDays} dní)`,
         satisfiedBy: [{ type: 'material', id: 'bread' }, { type: 'material', id: 'fish' }]
       });
       mk(goal, 'have', {
@@ -351,7 +414,10 @@
         satisfiedBy: [{ type: 'api', id: 'gainRenown' }]
       });
     }
-    for (const s of goal.plan) s.materials = stepMaterials(s);
+    for (const s of goal.plan) {
+      s.materials = stepMaterials(s);
+      s.actIds = G.stepActivities(s);      // kdo tenhle krok vůbec posouvá
+    }
     // Podpis parametrů: podle něj se pozná, že plán zastarál (např. hráč
     // změnil `focusTarget` a plán má pořád staré `needed`).
     goal.planSig = JSON.stringify(p);
@@ -389,7 +455,12 @@
   G.measureStep = function (step, goal) {
     let qty = 0, needed = step.needed;
     if (step.kind === 'have') {
-      if (step.what === 'material') qty = G.matCount(step.material);
+      if (step.what === 'material') {
+        // `quality` je volitelný parametr záměru: „mít 20× železa JEMNÉHO"
+        // není totéž jako „mít 20× železa", a `matCount` by to zaměřilo všech
+        // kvalit dohromady.
+        qty = step.quality ? G.matCountQuality(step.material, step.quality) : G.matCount(step.material);
+      }
       else if (step.what === 'food') qty = G.matCount('bread') + G.matCount('fish');
       else if (step.what === 'renown') qty = (G.state.resources && G.state.resources.renown) || 0;
     }

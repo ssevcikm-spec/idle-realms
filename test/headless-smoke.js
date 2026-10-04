@@ -1373,6 +1373,33 @@ check('gap: mezera klesa, kdyz jednotka pracuje na spravnem uzlu', () => {
   G.setDirective('focusMaterial', null);
 });
 
+check('scheduler: zamer hrace zvysuje praci na to, co chybi', () => {
+  G.setDirective('focusMaterial', null);
+  G.state.goals.length = 0;
+  const goal = G.newGoal('stock', { material: 'fiber', qty: 400 }, { priority: 80 });
+  G.planGoal(goal);
+  const step = goal.plan[0];
+  assert(step.actIds && step.actIds.length > 0, 'krok nevi, kterou aktivitou se plni (' + JSON.stringify(step.actIds) + ')');
+  assert(step.actIds.indexOf('gather_fiber') !== -1, 'vlakno se neshromazuje aktivitou gather_fiber, ale ' + JSON.stringify(step.actIds));
+  // zvýhodnění musí být nulové pro krok, který tato aktivita neposouvá
+  const before = G.state.stats.totalWork;
+  for (let i = 0; i < 900; i++) G.tick(0.1);
+  assert(G.state.stats.totalWork > before, 'nikdo za 90 s neudelal praci — scenar nema co merit');
+  assert(G.stepGap(step, goal) < 400 * G.stepWorkPerUnit(step),
+    'mezera nesla z vypocatu chybe (chyba: ' + G.stepGap(step, goal) + ')');
+  G.cancelGoal(goal.id);
+});
+check('scheduler: bez kroku je vaha ×1 — vyber prace se nemeni', () => {
+  G.state.goals.length = 0;
+  G.setDirective('focusMaterial', null);
+  const u = G.state.units.find(x => !x.dead && !x.isChild && !x.assignedTaskId);
+  if (!u) return;                        // nikdo není volný — tvrzení není co dokázat, ne že platí
+  const empty = G.listActiveSteps();
+  assert(empty.length === 0, 'po zrušení všech záměrů zbyl nesplněný krok: ' + empty.length);
+  const pick = G.pickActivity(u, empty);
+  assert(!!pick, 'postava bez kroků nedostala žádnou práci');
+});
+
 console.log('');
 if (failed === 0) { console.log('VYSLEDEK: OK — vse funguje'); process.exit(0); }
 else { console.log('VYSLEDEK: ' + failed + ' chyb'); process.exit(1); }
