@@ -328,4 +328,47 @@ check('C2: ruční příkaz hráče si váhy nevymýšlí', () => {
   assert(!t.weights, 'ručnímu příkazu hráče byly přiděleny rozpadové váhy, o kterých nikdo nerozhodoval');
 });
 
+/* ================= C5 — zápis splněného kroku do deníku postavy ================= */
+
+check('C5: splnění kroku záměru se zapíše do deníku postavy a je vidět v záznamu', () => {
+  const u = makeAssignable(worker());
+  const initialJournals = (u.journal || []).length;
+  // Vytvoříme záměr na materiál, kterého je zatím nedostatek
+  const goal = G.newGoal('stock', { material: 'wood', qty: 50 }, { silent: true });
+  assert(goal && goal.plan && goal.plan.length > 0, 'záměr nevytvořil plán');
+  const step = goal.plan[0];
+  assert(!step.done, 'krok by neměl být hotový hned');
+  
+  // Přidáme surovinu, která krok splní
+  G.matAdd('wood', 100);
+  G.tickGoals();
+  assert(step.done, 'krok se měl označit za splněný');
+  assert(step.completed, 'krok se měl označit jako completed');
+
+  // Ověříme záznam v deníku některé z postav
+  const allJournals = [];
+  for (const unit of G.state.units) {
+    for (const j of (unit.journal || [])) {
+      if (j.msg && j.msg.includes('Splněn krok záměru')) {
+        allJournals.push({ unit, j });
+      }
+    }
+  }
+  assert(allJournals.length > 0, 'žádná postava nemá v deníku záznam o splnění kroku záměru');
+  const record = allJournals[0];
+  assert(record.j.icon === '🎯', 'záznam v deníku nemá správnou ikonu 🎯: ' + record.j.icon);
+  assert(record.j.msg.includes(step.label || 'dřevo'), 'záznam v deníku neobsahuje název kroku');
+
+  // Úklid
+  G.cancelGoal(goal.id, 'test C5');
+});
+
+check('C5: opakované přeměření (tickGoals) nezapíše tentýž splněný krok znovu (žádný spam)', () => {
+  const countBefore = G.state.units.reduce((acc, u) => acc + (u.journal || []).filter(j => j.msg && j.msg.includes('Splněn krok záměru')).length, 0);
+  G.tickGoals();
+  G.tickGoals();
+  const countAfter = G.state.units.reduce((acc, u) => acc + (u.journal || []).filter(j => j.msg && j.msg.includes('Splněn krok záměru')).length, 0);
+  assert(countBefore === countAfter, 'do deníku přibyly duplicitní záznamy téhož kroku (' + countBefore + ' -> ' + countAfter + ')');
+});
+
 run.finish('postavy v nové hře: ' + G.state.units.length + ', vzory K5: 4');

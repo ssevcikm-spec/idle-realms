@@ -493,8 +493,88 @@
     }
     step.qty = Math.max(0, Math.min(needed, qty));
     step.needed = needed;
+    const wasDone = !!step.done;
     step.done = step.qty >= needed;
+    if (step.done && !wasDone && !step.completed) {
+      step.completed = true;
+      step.completedAt = G.state ? G.state.time : 0;
+      G.recordStepCompletion(step, goal);
+    }
     return step;
+  };
+
+  /**
+   * Zaznamená splnění kroku záměru (Fáze C5).
+   * Každý splněný krok se zapíše do deníku postavy, která se na něm podílela
+   * (nebo nejvhodnější dospělé postavy), a objeví se v logu pro hráče.
+   */
+  G.recordStepCompletion = function (step, goal) {
+    if (!step || !G.state || !G.state.units) return;
+    const targetGoal = goal || (step.of ? G.getGoal(step.of) : null);
+    const gLabel = targetGoal ? targetGoal.label : 'záměr';
+    const sLabel = step.label || step.what || 'krok';
+
+    // Výběr postavy, které krok připsat do deníku
+    let creditedUnit = null;
+    const livingUnits = G.state.units.filter(u => u && !u.dead && !u.isChild);
+    if (!livingUnits.length) return;
+
+    // 1) Postava, která právě pracuje na aktivitě z tohoto kroku
+    if (step.actIds && step.actIds.length) {
+      for (const u of livingUnits) {
+        if (u.assignedTaskId) {
+          const t = G.state.tasks.find(x => x.id === u.assignedTaskId);
+          if (t && step.actIds.indexOf(t.activityId) !== -1) {
+            creditedUnit = u;
+            break;
+          }
+        }
+      }
+    }
+
+    // 2) Pokud krok žádá dovednost (kind: 'skill'), postava s nejvyšším levelem v ní
+    if (!creditedUnit && step.kind === 'skill' && step.id) {
+      let maxLvl = -1;
+      for (const u of livingUnits) {
+        const lvl = G.unitSkill ? G.unitSkill(u, step.id) : 0;
+        if (lvl > maxLvl) { maxLvl = lvl; creditedUnit = u; }
+      }
+    }
+
+    // 3) Pokud krok žádá výbavu (kind: 'equip'), postava, která ji má nasazenou
+    if (!creditedUnit && step.kind === 'equip' && step.slot) {
+      for (const u of livingUnits) {
+        const it = u.equipment && u.equipment[step.slot];
+        if (it) {
+          const def = G.EQUIPMENT[it.itemId];
+          if (def && def.tier >= (step.minTier || 1)) {
+            creditedUnit = u;
+            break;
+          }
+        }
+      }
+    }
+
+    // 4) Pokud krok souvisí s aktivitou, postava s nejvyšší příslušnou dovedností
+    if (!creditedUnit && step.actIds && step.actIds.length) {
+      const firstAct = G.ACTIVITIES[step.actIds[0]];
+      const sid = firstAct ? firstAct.skill : null;
+      if (sid && G.unitSkill) {
+        let maxLvl = -1;
+        for (const u of livingUnits) {
+          const lvl = G.unitSkill(u, sid);
+          if (lvl > maxLvl) { maxLvl = lvl; creditedUnit = u; }
+        }
+      }
+    }
+
+    // 5) Fallback na první dospělou postavu
+    if (!creditedUnit) creditedUnit = livingUnits[0];
+
+    if (creditedUnit && G.addJournal) {
+      G.addJournal(creditedUnit, `Splněn krok záměru (${gLabel}): ${sLabel}`, '🎯');
+    }
+    G.log(`🎯 Krok splněn (${creditedUnit ? creditedUnit.name : 'skupina'}): ${sLabel}`, 'work');
   };
 
   /** Jednotky práce na JEDNU jednotku kroku (z reálných dat, ne odhadem). */
